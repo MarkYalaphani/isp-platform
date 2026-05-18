@@ -189,7 +189,7 @@ export default function LoginModal({ onLogin }: Props) {
           {gasReady === false && (
             <div className="login-error" style={{ marginBottom:20 }}>
               <i className="bi bi-exclamation-triangle me-2"/>
-              GAS_WEB_APP_URL ยังไม่ได้ตั้งค่า — แก้ไข .env.local แล้ว restart
+              ระบบยังไม่พร้อม — กรุณาติดต่อผู้ดูแลระบบ
             </div>
           )}
 
