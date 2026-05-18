@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User, Athlete, Page } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { callDB } from '@/lib/db';
+import { parseClubPages, loadClubPagesLocal, saveClubPagesLocal } from '@/lib/clubSettings';
 import LoginModal from './LoginModal';
 import Sidebar from './Sidebar';
 import HomePage from './pages/HomePage';
@@ -22,7 +24,9 @@ import ComparePage from './pages/ComparePage';
 import QuickTestPage from './pages/QuickTestPage';
 import LineupPage from './pages/LineupPage';
 import WellnessPage from './pages/WellnessPage';
+import TesterPage from './pages/TesterPage';
 import UserProfileModal from './UserProfileModal';
+import ToastContainer from './ToastContainer';
 
 export default function ScoutApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -40,11 +44,16 @@ export default function ScoutApp() {
     if (saved) {
       try { setUser(JSON.parse(saved)); } catch { sessionStorage.removeItem('scoutUser'); }
     }
-    // Load global Club permissions
-    callGAS('getClubSettings')
-      .then((d: unknown) => {
-        const res = d as { pages?: string };
-        if (res.pages) setClubAllowedPages(res.pages.split(',').filter(Boolean));
+    // Load global Club permissions — localStorage first (fast), DB second (source of truth)
+    const ALL_IDS = ['dashboard','roster','scout','skill','attendance','wellness','ir','compare','lineup','teamreport','performance','quicktest','register','training'];
+    const localPages = loadClubPagesLocal(ALL_IDS);
+    if (localPages && localPages.length > 0) setClubAllowedPages(localPages);
+
+    callDB<{ pages?: string }>('getClubSettings')
+      .then(d => {
+        const merged = parseClubPages(d.pages ?? null, ALL_IDS);
+        setClubAllowedPages(merged);
+        saveClubPagesLocal(merged);
       })
       .catch(() => {});
   }, []);
@@ -131,7 +140,7 @@ export default function ScoutApp() {
 
         {!loading && (
           <>
-            {currentPage === 'home'        && <HomePage athletes={athletes} onNavigate={navigate} />}
+            {currentPage === 'home'        && <HomePage athletes={athletes} onNavigate={navigate} user={user} />}
             {currentPage === 'dashboard'   && <DashboardPage athletes={athletes} onNavigate={navigate} />}
             {currentPage === 'roster'      && <RosterPage athletes={athletes} onRefresh={loadAthletes} user={user} onNavigate={navigate} />}
             {currentPage === 'scout'       && <ScoutPage athletes={athletes} initialId={scoutPlayerId} onNavigate={navigate} onRefresh={loadAthletes} user={user} />}
@@ -148,6 +157,7 @@ export default function ScoutApp() {
             {currentPage === 'wellness'     && <WellnessPage athletes={athletes} user={user} />}
             {currentPage === 'adminUsers'  && user.role === 'admin' && <AdminPage />}
             {currentPage === 'migrate'     && user.role === 'admin' && <MigratePage />}
+            {currentPage === 'tester'      && user.role === 'admin' && <TesterPage athletes={athletes} user={user} onNavigate={navigate} />}
           </>
         )}
       </main>
@@ -158,6 +168,7 @@ export default function ScoutApp() {
           onSaved={updated => { handleUpdateUser(updated); setShowProfile(false); }}
         />
       )}
+      <ToastContainer />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
 } from 'chart.js';
 import { Athlete, SkillAssessment, User, Page } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -139,7 +140,6 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
   const [history, setHistory]       = useState<SkillAssessment[]>([]);
   const [loading, setLoading]       = useState(false);
   const [saving, setSaving]         = useState(false);
-  const [msg, setMsg]               = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [editId, setEditId]         = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -159,7 +159,6 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
   useEffect(() => {
     setForm(makeBlankForm());
     setEditId(null);
-    setMsg(null);
   }, [selectedId]);
 
   /* ── Derived scores ─────────────────────────────────────── */
@@ -205,8 +204,8 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
     setForm(f => ({ ...f, [key]: val }));
 
   const handleSave = async () => {
-    if (!selectedId) return setMsg({ type: 'error', text: 'กรุณาเลือกนักกีฬา' });
-    setSaving(true); setMsg(null);
+    if (!selectedId) { showToast('กรุณาเลือกนักกีฬา', 'error'); return; }
+    setSaving(true);
     try {
       const payload = {
         ...(editId ? { id: editId } : {}),
@@ -220,18 +219,17 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
       };
       const res = await callGAS('saveSkillAssessment', payload) as { status: string; message: string };
       if (res.status === 'success') {
-        setMsg({ type: 'success', text: editId ? 'อัพเดทเรียบร้อย' : 'บันทึกผลการประเมินเรียบร้อย' });
+        showToast(editId ? 'อัพเดทเรียบร้อย' : 'บันทึกผลการประเมินเรียบร้อย', 'success');
         setEditId(null);
         setForm(makeBlankForm());
         loadHistory();
-      } else setMsg({ type: 'error', text: res.message });
+      } else showToast(res.message, 'error');
     } finally { setSaving(false); }
   };
 
   const handleEdit = (a: SkillAssessment) => {
     setForm(formFromAssessment(a));
     setEditId(a.id);
-    setMsg(null);
     setShowHistory(false);
   };
 
@@ -241,7 +239,7 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
     loadHistory();
   };
 
-  const handleReset = () => { setForm(makeBlankForm()); setEditId(null); setMsg(null); };
+  const handleReset = () => { setForm(makeBlankForm()); setEditId(null); };
 
   const latestScore = history[0];
   const prevScore   = history[1];
@@ -437,12 +435,6 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               placeholder="บันทึกข้อสังเกตเพิ่มเติม เช่น เท้าซ้ายอ่อน, First touch ช้าเมื่อเหนื่อย..."
               style={{ resize: 'vertical' }}/>
-
-            {msg && (
-              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: '0.875rem', fontWeight: 600, background: msg.type === 'success' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${msg.type === 'success' ? '#bbf7d0' : '#fecaca'}`, color: msg.type === 'success' ? '#166534' : '#991b1b' }}>
-                <i className={`bi bi-${msg.type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2`}/>{msg.text}
-              </div>
-            )}
 
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               {editId && <button className="btn-outline" onClick={handleReset}><i className="bi bi-x-lg me-1"/>ยกเลิกแก้ไข</button>}

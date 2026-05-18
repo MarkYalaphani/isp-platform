@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Athlete, AttendanceRecord, AttendanceStatus, SessionType, User } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 interface Props { athletes: Athlete[]; user: User; }
 
@@ -41,7 +42,6 @@ export default function AttendancePage({ athletes, user }: Props) {
   const [statuses, setStatuses]       = useState<Record<string, AttendanceStatus>>({});
   const [notes,    setNotes]          = useState<Record<string, string>>({});
   const [saving, setSaving]           = useState(false);
-  const [msg, setMsg]                 = useState<{ type:'success'|'error'; text:string }|null>(null);
 
   // History
   const [sessions, setSessions]       = useState<{ session_date:string; session_name:string; session_type:string }[]>([]);
@@ -88,8 +88,8 @@ export default function AttendancePage({ athletes, user }: Props) {
 
   /* ── Save attendance ── */
   const handleSave = async () => {
-    if (!sessionDate || !sessionName) return setMsg({ type:'error', text:'กรุณากรอกวันที่และชื่อ session' });
-    setSaving(true); setMsg(null);
+    if (!sessionDate || !sessionName) { showToast('กรุณากรอกวันที่และชื่อ session', 'error'); return; }
+    setSaving(true);
     try {
       const records = athletes.map(a => ({
         sessionDate, sessionName, sessionType,
@@ -100,14 +100,14 @@ export default function AttendancePage({ athletes, user }: Props) {
       }));
       const res = await callGAS('saveAttendance', { records }) as { status:string; message:string };
       if (res.status === 'success') {
-        setMsg({ type:'success', text:`✅ ${res.message}` });
+        showToast(`✅ ${res.message}`, 'success');
         loadSessions();
       } else {
-        setMsg({ type:'error', text: res.message || 'บันทึกไม่สำเร็จ' });
+        showToast(res.message || 'บันทึกไม่สำเร็จ', 'error');
       }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setMsg({ type:'error', text: `❌ ${msg}` });
+      const errMsg = e instanceof Error ? e.message : String(e);
+      showToast(`❌ ${errMsg}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -311,12 +311,6 @@ export default function AttendancePage({ athletes, user }: Props) {
             )}
           </div>
 
-          {/* Save message */}
-          {msg && (
-            <div style={{ marginTop:14, padding:'12px 16px', borderRadius:10, fontSize:'0.875rem', fontWeight:600, background: msg.type==='success'?'#f0fdf4':'#fef2f2', border:`1px solid ${msg.type==='success'?'#bbf7d0':'#fecaca'}`, color: msg.type==='success'?'#166534':'#991b1b' }}>
-              {msg.text}
-            </div>
-          )}
         </div>
       )}
 

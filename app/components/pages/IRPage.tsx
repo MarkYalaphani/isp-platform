@@ -8,6 +8,7 @@ import {
 } from 'chart.js';
 import { Radar, Line } from 'react-chartjs-2';
 import { Athlete, IRReport, User } from '@/lib/types';
+import { showToast } from '@/lib/toast';
 import { callGAS } from '@/lib/api';
 import ReportBanner, { PrintHeader } from '../ReportBanner';
 
@@ -218,7 +219,6 @@ export default function IRPage({ athletes, user }: Props) {
   const [coachPlan,  setCoachPlan]  = useState('');
   const [dream,      setDream]      = useState('');
   const [saving, setSaving] = useState(false);
-  const [msg,    setMsg]    = useState<{type:'success'|'error';text:string}|null>(null);
 
   /* history state */
   const [histId,      setHistId]      = useState('');
@@ -243,13 +243,12 @@ export default function IRPage({ athletes, user }: Props) {
     setMed({period1:'',injury1:'',absence1:'',period2:'',injury2:'',absence2:''});
     setGoodLevel(''); setToImprove(''); setComments('');
     setGoalShort(''); setGoalLong(''); setActionPlan(''); setCoachPlan(''); setDream('');
-    setMsg(null);
   };
 
   const handleSubmit=async()=>{
-    if(!playerId) return setMsg({type:'error',text:'กรุณาเลือกนักกีฬาก่อนบันทึก'});
-    if(!allKeys.some(k=>vals[k])) return setMsg({type:'error',text:'กรุณากรอกอย่างน้อย 1 รายการ'});
-    setSaving(true); setMsg(null);
+    if(!playerId) { showToast('กรุณาเลือกนักกีฬาก่อนบันทึก', 'error'); return; }
+    if(!allKeys.some(k=>vals[k])) { showToast('กรุณากรอกอย่างน้อย 1 รายการ', 'error'); return; }
+    setSaving(true);
     try {
       const res=await callGAS('saveIR',{
         playerId,coach,period,season,
@@ -259,9 +258,9 @@ export default function IRPage({ athletes, user }: Props) {
         goodLevel,toImprove,comments,
         idpGoalShort:goalShort,idpGoalLong:goalLong,idpAction:actionPlan,idpDream:dream,
       }) as {status:string;message:string};
-      if(res.status==='success'){setMsg({type:'success',text:res.message});setTimeout(resetForm,1400);}
-      else setMsg({type:'error',text:res.message});
-    } catch { setMsg({type:'error',text:'Connection error'}); }
+      if(res.status==='success'){showToast(res.message, 'success');setTimeout(resetForm,1400);}
+      else showToast(res.message, 'error');
+    } catch { showToast('Connection error', 'error'); }
     finally { setSaving(false); }
   };
 
@@ -495,11 +494,6 @@ export default function IRPage({ athletes, user }: Props) {
           </Section>
 
           {/* Actions */}
-          {msg && (
-            <div style={{background:msg.type==='success'?'#f0fdf4':'#fef2f2',border:`1px solid ${msg.type==='success'?'#bbf7d0':'#fecaca'}`,borderRadius:8,padding:'10px 14px',fontSize:'0.875rem',color:msg.type==='success'?'#166534':'#991b1b',marginBottom:16}}>
-              <i className={`bi bi-${msg.type==='success'?'check-circle':'exclamation-triangle'} me-2`}/>{msg.text}
-            </div>
-          )}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,marginBottom:32}}>
             <button className="btn-outline" onClick={resetForm}><i className="bi bi-arrow-counterclockwise me-1"/>ล้างข้อมูล</button>
             <button className="btn-primary" style={{padding:'13px 40px',fontSize:'1rem',background:'#0f172a'}} onClick={handleSubmit} disabled={saving}>

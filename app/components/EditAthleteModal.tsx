@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Athlete } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 const POSITIONS = ['Forward', 'Midfielder', 'Defender', 'Goalkeeper'];
 const TEAMS = ['U12','U13','U14','U15','U16','U17','U18','Senior'];
@@ -34,7 +35,6 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
   const [photo, setPhoto]           = useState<{ base64: string; mime: string } | null>(null);
   const [photoPreview, setPreview]  = useState(athlete.PhotoUrl || '');
   const [saving, setSaving]         = useState(false);
-  const [msg, setMsg]               = useState<{ type: 'success'|'error'; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const set = (k: keyof EditForm, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -53,8 +53,8 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
 
   const handleSave = async (e: { preventDefault(): void }) => {
     e.preventDefault();
-    if (!form.name) return setMsg({ type: 'error', text: 'กรุณากรอกชื่อ' });
-    setSaving(true); setMsg(null);
+    if (!form.name) { showToast('กรุณากรอกชื่อ', 'error'); return; }
+    setSaving(true);
     try {
       const res = await callGAS('updateAthlete', {
         playerId: athlete.PlayerID,
@@ -64,12 +64,12 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
         photoBase64: photo?.base64 || '', photoMimeType: photo?.mime || '',
       }) as { status: string; message?: string };
       if (res.status === 'success') {
-        setMsg({ type: 'success', text: 'บันทึกสำเร็จ' });
+        showToast('บันทึกสำเร็จ', 'success');
         setTimeout(() => { onSaved(); onClose(); }, 700);
       } else {
-        setMsg({ type: 'error', text: res.message || 'เกิดข้อผิดพลาด' });
+        showToast(res.message || 'เกิดข้อผิดพลาด', 'error');
       }
-    } catch { setMsg({ type: 'error', text: 'เกิดข้อผิดพลาด' }); }
+    } catch { showToast('เกิดข้อผิดพลาด', 'error'); }
     finally { setSaving(false); }
   };
 
@@ -168,13 +168,6 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
               </select>
             </div>
           </div>
-
-          {msg && (
-            <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'} mt-3`} style={{ borderRadius: 8, fontSize: '0.875rem' }}>
-              {msg.type === 'success' ? <i className="bi bi-check-circle me-2" /> : <i className="bi bi-exclamation-triangle me-2" />}
-              {msg.text}
-            </div>
-          )}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
             <button type="button" className="btn-outline" onClick={onClose}>ยกเลิก</button>

@@ -128,8 +128,9 @@ export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpe
         {user.role === 'admin' && (
           <>
             <div className="nav-section">Admin</div>
-            {link('adminUsers', 'bi-shield-lock', 'User Management')}
-            {link('migrate',    'bi-database-up', 'Migrate Data')}
+            {link('adminUsers', 'bi-shield-lock',  'User Management')}
+            {link('migrate',    'bi-database-up',  'Migrate Data')}
+            {link('tester',     'bi-bug-fill',      'System Tester')}
           </>
         )}
       </div>

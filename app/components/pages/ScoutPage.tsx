@@ -292,6 +292,9 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const [irHistory, setIrHistory] = useState<IRReport[]>([]);
   const [irLoading, setIrLoading] = useState(false);
   const [latestSkill, setLatestSkill] = useState<SkillAssessment | null>(null);
+  const [attendanceRecs, setAttendanceRecs] = useState<import('@/lib/types').AttendanceRecord[]>([]);
+  const [wellnessRecs,   setWellnessRecs]   = useState<import('@/lib/types').WellnessRecord[]>([]);
+  const [rpeRecs,        setRpeRecs]        = useState<import('@/lib/types').RPERecord[]>([]);
   const [dateRange, setDateRange] = useState<'all'|'1y'|'6m'|'3m'>('all');
   const [goals, setGoals] = useState<Record<string,string>>({});
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -529,6 +532,18 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
         setLatestSkill(arr.length > 0 ? arr[0] : null);
       })
       .catch(() => setLatestSkill(null));
+    // Load attendance
+    callGAS('getAttendanceByPlayer', { playerId: selectedId })
+      .then(d => setAttendanceRecs(Array.isArray(d) ? d as import('@/lib/types').AttendanceRecord[] : []))
+      .catch(() => setAttendanceRecs([]));
+    // Load wellness
+    callGAS('getWellnessByPlayer', { playerId: selectedId, limit: 30 })
+      .then(d => setWellnessRecs(Array.isArray(d) ? d as import('@/lib/types').WellnessRecord[] : []))
+      .catch(() => setWellnessRecs([]));
+    // Load RPE
+    callGAS('getRPEByPlayer', { playerId: selectedId, limit: 30 })
+      .then(d => setRpeRecs(Array.isArray(d) ? d as import('@/lib/types').RPERecord[] : []))
+      .catch(() => setRpeRecs([]));
   }, [selectedId]);
 
   useEffect(() => {
@@ -695,41 +710,133 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
     <div>
       <style>{`
         @media print {
-          @page { size: A4 portrait; margin: 8mm 10mm; }
-          /* Scout hero: FC26 card ย่อลง + layout compact */
-          #scoutPrintArea > div:first-child {
-            padding: 12px 16px !important;
+          /* ══ PAGE ══ */
+          @page { size: A4 portrait; margin: 10mm 12mm; }
+
+          /* ══ ซ่อน UI ที่ไม่ใช่เนื้อหา ══ */
+          .page-header, .sidebar, .top-bar, .sidebar-overlay,
+          .tab-switch, .search-wrap, .no-print,
+          #scoutPrintArea .athlete-selector,
+          .modal-overlay, .photo-hover-overlay { display: none !important; }
+
+          /* ══ reset layout ══ */
+          body { background: white !important; font-size: 9.5pt !important; }
+          .main { margin: 0 !important; padding: 0 !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+          /* ══ ซ่อน section ที่ไม่ต้องการใน print ══ */
+          #scoutVideoPrint { display: none !important; }
+
+          /* ══ HERO ══ */
+          #scoutHero {
             margin-bottom: 4mm !important;
-            border-radius: 10pt !important;
+            border-radius: 8pt !important;
             min-height: unset !important;
+            overflow: visible !important;
           }
-          /* ย่อ FC26 card */
-          #scoutPrintArea > div:first-child > div:last-child > div:first-child {
-            transform: scale(0.6) !important;
-            transform-origin: top left !important;
-            margin-right: -88px !important;
+          #scoutHeroInner {
+            padding: 12px 16px !important;
+            gap: 12px !important;
+            align-items: center !important;
+            flex-wrap: nowrap !important;
           }
-          /* Center content compact */
-          #scoutPrintArea > div:first-child > div:last-child {
-            padding: 10px 14px !important;
+          /* FC26 card ย่อ — zoom collapses layout box (Chrome/PDF) */
+          #scoutHeroCard {
+            zoom: 0.48 !important;
+            margin: 0 !important;
+            flex-shrink: 0 !important;
           }
-          /* athlete name smaller */
-          #scoutPrintArea [style*="2rem"] { font-size: 1.4rem !important; }
-          /* Charts: กำหนด max height */
-          #scoutPrintArea canvas { max-height: 160px !important; }
-          /* Physical info: 5 col → keep */
-          /* Strengths/Weaknesses: 2 col */
-          #scoutPrintArea > div:nth-child(2) > div:nth-child(2) {
+          /* OVR badge ย่อ */
+          #scoutOVRBadge {
+            zoom: 0.80 !important;
+            flex-shrink: 0 !important;
+          }
+          /* ชื่อนักกีฬา */
+          #scoutHeroName { font-size: 14pt !important; }
+          /* rating */
+          #scoutHeroRating { font-size: 28pt !important; }
+
+          /* ══ SURFACE CARDS ══ */
+          .surface {
+            box-shadow: none !important;
+            border: 0.75pt solid #cbd5e1 !important;
+            border-radius: 6pt !important;
+            padding: 8px 10px !important;
+            margin-bottom: 3mm !important;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          .section-hd {
+            font-size: 9pt !important;
+            font-weight: 800 !important;
+            border-bottom: 1pt solid #0f172a !important;
+            padding-bottom: 1.5mm !important;
+            margin-bottom: 3mm !important;
+          }
+
+          /* ══ 2-COLUMN GRID สำหรับ sections ใหญ่ ══ */
+          #scoutPrintArea {
+            columns: 1 !important;
+          }
+          /* Perf metrics + radar: side by side */
+          #scoutPerfSection {
+            display: grid !important;
+            grid-template-columns: 1fr 140px !important;
+            gap: 8px !important;
+          }
+          /* History charts: 3 per row */
+          #scoutHistoryCharts {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 8px !important;
+          }
+          /* Body comp: 2 col */
+          #scoutBodyKPI {
+            grid-template-columns: repeat(4, 1fr) !important;
+          }
+          /* Body composition trend: 3 per row */
+          #scoutBodyTrends {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 8px !important;
+          }
+          /* Skill categories: 3+2 */
+          #scoutSkillGrid {
+            grid-template-columns: repeat(3, 1fr) !important;
+          }
+          /* Attendance + Wellness: side by side */
+          #scoutAttendWellRow {
+            display: grid !important;
             grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
           }
-          /* History charts: 2 per row */
-          #scoutPrintArea [style*="repeat(auto-fit,minmax(260px"] {
-            grid-template-columns: 1fr 1fr !important;
+          /* IDP sections: 3 col */
+          #scoutIDPGrid {
+            grid-template-columns: repeat(3, 1fr) !important;
           }
-          /* Videos section: ซ่อน */
-          #scoutPrintArea > div:last-child { display: none !important; }
-          /* QR modal: ซ่อน */
-          .modal-overlay { display: none !important; }
+
+          /* ══ CHARTS ══ */
+          canvas {
+            max-height: 120px !important;
+            max-width: 100% !important;
+            break-inside: avoid;
+          }
+          /* Radar chart ย่อ */
+          #scoutRadarChart canvas { max-height: 130px !important; }
+
+          /* ══ FONT SIZES ══ */
+          .data-table, .roster-table { font-size: 7.5pt !important; }
+          .data-table th, .roster-table th { font-size: 7pt !important; background: #f8fafc !important; }
+          .data-table td, .roster-table td { padding: 3px 6px !important; }
+
+          /* ══ PAGE BREAKS ══ */
+          .surface { break-inside: avoid; page-break-inside: avoid; }
+          #scoutBodySection    { break-before: avoid; }
+          #scoutSkillSection   { break-before: auto; }
+          #scoutIDPSection     { break-before: auto; }
+          #scoutAttendSection  { break-before: auto; }
+          #scoutWellnessSection{ break-before: avoid; }
+          #scoutRPESection     { break-before: avoid; }
         }
       `}</style>
       <PrintHeader user={user} title="Scout Report" subtitle={athlete ? `${athlete.Name} · ${athlete.Team || '—'}` : 'รายงานสมรรถภาพและพัฒนาการนักกีฬา'} />
@@ -769,7 +876,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
         <div id="scoutPrintArea">
 
           {/* ── HERO HEADER ── */}
-          <div style={{
+          <div id="scoutHero" style={{
             position: 'relative', borderRadius: 20, overflow: 'hidden', marginBottom: 20,
             background: 'linear-gradient(135deg,#0c1628 0%,#0f2040 50%,#0c1628 100%)',
             border: '1px solid rgba(56,189,248,0.18)',
@@ -785,10 +892,10 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
             <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: 'radial-gradient(ellipse at 75% 50%,rgba(56,189,248,0.1) 0%,transparent 65%)' }} />
 
             {/* content */}
-            <div style={{ position:'relative', zIndex:2, padding:'24px 28px', display:'flex', justifyContent:'space-between', alignItems:'stretch', gap:24, flexWrap:'wrap' }}>
+            <div id="scoutHeroInner" style={{ position:'relative', zIndex:2, padding:'24px 28px', display:'flex', justifyContent:'space-between', alignItems:'stretch', gap:24, flexWrap:'wrap' }}>
 
               {/* LEFT: FC26 card */}
-              <div style={{ position:'relative', cursor:'pointer', flexShrink:0 }} onClick={() => photoRef.current?.click()} title="คลิกเพื่อเปลี่ยนรูปภาพ">
+              <div id="scoutHeroCard" style={{ position:'relative', cursor:'pointer', flexShrink:0 }} onClick={() => photoRef.current?.click()} title="คลิกเพื่อเปลี่ยนรูปภาพ">
                 <FC26CardLarge
                   athlete={{ ...athlete, PhotoUrl: localPhotoUrl || athlete.PhotoUrl }}
                   teamLogo={user?.logoUrl}
@@ -851,7 +958,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
               </div>
 
               {/* RIGHT: OVR badge — stretches to match hero height */}
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flexShrink:0,
+              <div id="scoutOVRBadge" style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flexShrink:0,
                 borderRadius:18, padding:'20px 24px', minWidth:120,
                 background: rating>=80 ? 'linear-gradient(160deg,#10b981,#047857)' : rating>=60 ? 'linear-gradient(160deg,#3b82f6,#1d4ed8)' : rating>=40 ? 'linear-gradient(160deg,#f59e0b,#b45309)' : 'linear-gradient(160deg,#ef4444,#b91c1c)',
                 border:`2px solid ${rating>=80?'#34d399':rating>=60?'#60a5fa':rating>=40?'#fbbf24':'#f87171'}`,
@@ -982,7 +1089,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
           )}
 
           {/* ── PERFORMANCE METRICS + RADAR ── */}
-          <div className="perf-split mb-4">
+          <div id="scoutPerfSection" className="perf-split mb-4">
             <div className="surface">
               <div className="section-hd" style={{ justifyContent: 'space-between' }}>
                 <span><i className="bi bi-bar-chart-fill" style={{ color: '#38bdf8' }} /> Performance Metrics <span style={{ fontSize: '0.7rem', fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>ผลสมรรถภาพร่างกาย</span></span>
@@ -1116,7 +1223,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
 
           {/* ── HISTORY CHARTS ── */}
           {HIST.length >= 2 && (
-            <div className="surface mb-4">
+            <div id="scoutHistorySection" className="surface mb-4">
               <div className="section-hd" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <span><i className="bi bi-graph-up" style={{ color: '#34d399' }} /> Historical Progress <span style={{ fontSize: '0.7rem', fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>ประวัติพัฒนาการ</span> <span style={{ fontSize: '0.72rem', fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>{filteredHIST.length}/{HIST.length} ครั้ง</span></span>
                 <div style={{ display: 'flex', gap: 4 }}>
@@ -1127,7 +1234,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                   ))}
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+              <div id="scoutHistoryCharts" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
                 {HISTORY_CHARTS.map(hc => {
                   const chartVals = HIST.map(r => {
                     const v = r[hc.field];
@@ -1159,7 +1266,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
 
           {/* ── BODY COMPOSITION ── */}
           {HIST.length >= 1 && (
-            <div className="surface mb-4">
+            <div id="scoutBodySection" className="surface mb-4">
               <div className="section-hd">
                 <i className="bi bi-person-fill" style={{ color:'#34d399' }}/> Body Composition
                 <span style={{ fontSize:'0.7rem', fontWeight:400, color:'#94a3b8', marginLeft:4 }}>องค์ประกอบร่างกาย</span>
@@ -1185,7 +1292,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                   { label:'BMI',         icon:'bi-calculator-fill',   val: bmi,  color:'#c084fc', note: bmi !== '—' ? (parseFloat(bmi) < 18.5 ? 'ต่ำ' : parseFloat(bmi) < 25 ? 'ปกติ' : parseFloat(bmi) < 30 ? 'เกิน' : 'อ้วน') : '' },
                 ];
                 return (
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:10, marginBottom:20 }}>
+                  <div id="scoutBodyKPI" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))', gap:10, marginBottom:20 }}>
                     {KPI.map(k => (
                       <div key={k.label} style={{ background:'var(--bg)', border:'1px solid var(--border)', borderRadius:10, padding:'12px 12px 10px', borderTop:`3px solid ${k.color}` }}>
                         <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:5 }}>
@@ -1271,7 +1378,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                   { field:null, label:'มวลไขมัน',     unit:'kg', color:'#fbbf24', higherBetter:false, customData:fatMassData  },
                 ];
                 return (
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+                  <div id="scoutBodyTrends" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
                     {BODY_CHARTS.map((bc, i) => {
                       const vals = bc.customData ?? filteredHIST.map(r => {
                         const v = r[bc.field!]; if (!v) return null;
@@ -1299,7 +1406,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
           )}
 
           {/* ── TECHNICAL SKILL ASSESSMENT ── */}
-          <div className="surface mb-4">
+          <div id="scoutSkillSection" className="surface mb-4">
             <div className="section-hd" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
               <span>
                 <i className="bi bi-bullseye" style={{ color:'#38bdf8' }}/> Technical Skill
@@ -1413,7 +1520,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                   </div>
 
                   {/* ── All skills by category ── */}
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:14 }}>
+                  <div id="scoutSkillGrid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:14 }}>
                     {SK_CATS.map(cat => (
                       <div key={cat.label} style={{ background:'var(--bg)', borderRadius:12, overflow:'hidden', border:`1px solid ${cat.color}30` }}>
                         {/* Category header */}
@@ -1460,7 +1567,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
           </div>
 
           {/* ── INDIVIDUAL REPORT ── */}
-          <div className="surface mb-4">
+          <div id="scoutIDPSection" className="surface mb-4">
             <div className="section-hd" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span><i className="bi bi-clipboard2-check-fill" style={{ color: '#818cf8' }} /> Individual Report <span style={{ fontSize: '0.7rem', fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>รายงานรายบุคคล</span> <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 400, marginLeft: 4 }}>Ekkono Method</span></span>
               {irLoading && <span className="spinner-ring" style={{ width: 16, height: 16, borderWidth: 2 }} />}
@@ -1613,9 +1720,209 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
             })()}
           </div>
 
+          {/* ── ATTENDANCE ── */}
+          {attendanceRecs.length > 0 && (() => {
+            const _attendId = 'scoutAttendSection';
+            const total   = attendanceRecs.length;
+            const present = attendanceRecs.filter(r => r.status === 'present').length;
+            const late    = attendanceRecs.filter(r => r.status === 'late').length;
+            const excuse  = attendanceRecs.filter(r => r.status === 'excuse').length;
+            const absent  = attendanceRecs.filter(r => r.status === 'absent').length;
+            const rate    = Math.round((present + late) / total * 100);
+            const rateColor = rate >= 90 ? '#10b981' : rate >= 75 ? '#38bdf8' : rate >= 60 ? '#f59e0b' : '#ef4444';
+            const recent = [...attendanceRecs].slice(0, 15);
+            const STATUS_CFG: Record<string,{label:string;color:string;bg:string}> = {
+              present:{label:'มา',  color:'#16a34a',bg:'#f0fdf4'},
+              absent: {label:'ขาด', color:'#dc2626',bg:'#fef2f2'},
+              late:   {label:'สาย', color:'#d97706',bg:'#fffbeb'},
+              excuse: {label:'ลา',  color:'#2563eb',bg:'#eff6ff'},
+            };
+            return (
+              <div id="scoutAttendSection" className="surface mb-4">
+                <div className="section-hd" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span><i className="bi bi-check2-square me-2" style={{ color:'#38bdf8' }}/>การเข้าร่วมฝึกซ้อม <span style={{ fontSize:'0.7rem', fontWeight:400, color:'#94a3b8', marginLeft:4 }}>Attendance</span></span>
+                  <span style={{ fontSize:'0.78rem', fontWeight:900, color:rateColor }}>{rate}% Attendance Rate</span>
+                </div>
+                {/* Summary stats */}
+                <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+                  {[
+                    { label:'รวม',  val:total,   color:'#38bdf8', icon:'bi-calendar3' },
+                    { label:'มา',   val:present, color:'#16a34a', icon:'bi-check-circle-fill' },
+                    { label:'สาย',  val:late,    color:'#d97706', icon:'bi-clock-fill' },
+                    { label:'ลา',   val:excuse,  color:'#2563eb', icon:'bi-file-text-fill' },
+                    { label:'ขาด',  val:absent,  color:'#dc2626', icon:'bi-x-circle-fill' },
+                  ].map(s => (
+                    <div key={s.label} style={{ flex:1, minWidth:70, background:'var(--bg)', borderRadius:10, padding:'10px 12px', textAlign:'center', border:`1px solid ${s.color}22` }}>
+                      <i className={`bi ${s.icon}`} style={{ color:s.color, fontSize:'1rem', display:'block', marginBottom:4 }}/>
+                      <div style={{ fontWeight:900, fontSize:'1.3rem', color:s.color, lineHeight:1 }}>{s.val}</div>
+                      <div style={{ fontSize:'0.62rem', color:'var(--text-muted)', fontWeight:700, marginTop:2 }}>{s.label}</div>
+                    </div>
+                  ))}
+                  {/* Rate bar */}
+                  <div style={{ flex:2, minWidth:120, background:'var(--bg)', borderRadius:10, padding:'10px 14px', border:`1px solid ${rateColor}22`, display:'flex', flexDirection:'column', justifyContent:'center' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                      <span style={{ fontSize:'0.68rem', fontWeight:700, color:'var(--text-muted)' }}>Attendance Rate</span>
+                      <span style={{ fontWeight:900, color:rateColor }}>{rate}%</span>
+                    </div>
+                    <div style={{ height:8, borderRadius:6, background:'#f1f5f9', overflow:'hidden' }}>
+                      <div style={{ height:'100%', borderRadius:6, background:rateColor, width:`${rate}%`, transition:'width 0.6s' }}/>
+                    </div>
+                  </div>
+                </div>
+                {/* Recent sessions dots */}
+                <div>
+                  <div style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--text-muted)', marginBottom:8 }}>15 Session ล่าสุด (ซ้ายสุด = เก่าสุด)</div>
+                  <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                    {recent.reverse().map((r, i) => {
+                      const cfg = STATUS_CFG[r.status] || STATUS_CFG.absent;
+                      return (
+                        <div key={i} title={`${r.sessionDate} — ${cfg.label}`} style={{ width:28, height:28, borderRadius:7, background:cfg.bg, border:`1.5px solid ${cfg.color}55`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'0.6rem', fontWeight:800, color:cfg.color }}>
+                          {cfg.label}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── WELLNESS ── */}
+          {wellnessRecs.length > 0 && (() => {
+            const recent = wellnessRecs.slice(0, 10);
+            const avgWS  = Math.round(recent.reduce((s,r) => s + (r.wellnessScore||0), 0) / recent.length);
+            const wsColor = avgWS >= 80 ? '#10b981' : avgWS >= 60 ? '#38bdf8' : avgWS >= 40 ? '#f59e0b' : '#ef4444';
+            const WFIELDS = [
+              { key:'fatigue'      as keyof typeof recent[0], label:'สดชื่น',  icon:'⚡' },
+              { key:'sleepQuality' as keyof typeof recent[0], label:'นอน',     icon:'😴' },
+              { key:'soreness'     as keyof typeof recent[0], label:'ปวดเมื่อย',icon:'💪' },
+              { key:'stress'       as keyof typeof recent[0], label:'เครียด',  icon:'🧠' },
+              { key:'mood'         as keyof typeof recent[0], label:'อารมณ์',  icon:'😊' },
+            ];
+            const latestW = recent[0];
+            return (
+              <div id="scoutWellnessSection" className="surface mb-4">
+                <div className="section-hd" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span><i className="bi bi-heart-pulse-fill me-2" style={{ color:'#10b981' }}/>Wellness Check <span style={{ fontSize:'0.7rem', fontWeight:400, color:'#94a3b8', marginLeft:4 }}>สภาพก่อนซ้อม</span></span>
+                  <span style={{ fontSize:'0.78rem', fontWeight:900, color:wsColor }}>เฉลี่ย {avgWS}%</span>
+                </div>
+                {/* Latest wellness detail */}
+                <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+                  <div style={{ background:'var(--bg)', borderRadius:12, padding:'12px 16px', textAlign:'center', border:`2px solid ${wsColor}33`, minWidth:90 }}>
+                    <div style={{ fontSize:'2.2rem', fontWeight:900, color:wsColor, lineHeight:1 }}>{latestW.wellnessScore}</div>
+                    <div style={{ fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:700, marginTop:4 }}>ล่าสุด</div>
+                  </div>
+                  {WFIELDS.map(f => {
+                    const v = Number(latestW[f.key]) || 0;
+                    const vc = v <= 2 ? '#ef4444' : v === 3 ? '#f59e0b' : '#10b981';
+                    return (
+                      <div key={f.key} style={{ flex:1, minWidth:64, background:'var(--bg)', borderRadius:10, padding:'10px 8px', textAlign:'center' }}>
+                        <div style={{ fontSize:'1.1rem', marginBottom:3 }}>{f.icon}</div>
+                        <div style={{ fontWeight:900, fontSize:'1.2rem', color:vc, lineHeight:1 }}>{v||'—'}</div>
+                        <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, marginTop:2 }}>{f.label}</div>
+                        <div style={{ display:'flex', gap:2, justifyContent:'center', marginTop:4 }}>
+                          {[1,2,3,4,5].map(n => <div key={n} style={{ width:6, height:6, borderRadius:'50%', background: n <= v ? vc : '#e2e8f0' }}/>)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Wellness trend */}
+                <div>
+                  <div style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--text-muted)', marginBottom:8 }}>แนวโน้ม Wellness Score (10 ครั้งล่าสุด)</div>
+                  <div style={{ display:'flex', gap:6, alignItems:'flex-end', height:50 }}>
+                    {[...recent].reverse().map((r, i) => {
+                      const h = Math.max(4, (r.wellnessScore || 0) / 100 * 44);
+                      const c = (r.wellnessScore||0) >= 80 ? '#10b981' : (r.wellnessScore||0) >= 60 ? '#38bdf8' : (r.wellnessScore||0) >= 40 ? '#f59e0b' : '#ef4444';
+                      return (
+                        <div key={i} title={`${r.checkDate}: ${r.wellnessScore}%`} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                          <div style={{ width:'100%', height:h, borderRadius:4, background:c }}/>
+                          <span style={{ fontSize:'0.55rem', color:'var(--text-muted)' }}>{r.wellnessScore}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── TRAINING LOAD / RPE ── */}
+          {rpeRecs.length > 0 && (() => {
+            const recent = rpeRecs.slice(0, 15);
+            const avgRPE  = (recent.reduce((s,r)=>s+r.rpe,0)/recent.length).toFixed(1);
+            const avgLoad = Math.round(recent.reduce((s,r)=>s+r.trainingLoad,0)/recent.length);
+            const maxLoad = Math.max(...recent.map(r=>r.trainingLoad));
+            const RPE_COLOR = (rpe:number) => rpe<=3?'#10b981':rpe<=5?'#f59e0b':rpe<=7?'#f97316':'#ef4444';
+            const LOAD_ZONE = (load:number) => load<=150?{label:'ต่ำ',color:'#10b981'}:load<=300?{label:'ปาน',color:'#38bdf8'}:load<=450?{label:'สูง',color:'#f59e0b'}:{label:'มาก',color:'#ef4444'};
+            return (
+              <div id="scoutRPESection" className="surface mb-4">
+                <div className="section-hd" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span><i className="bi bi-speedometer2 me-2" style={{ color:'#f59e0b' }}/>Training Load <span style={{ fontSize:'0.7rem', fontWeight:400, color:'#94a3b8', marginLeft:4 }}>ความหนักการซ้อม</span></span>
+                  <div style={{ display:'flex', gap:12 }}>
+                    <span style={{ fontSize:'0.75rem', fontWeight:700 }}>RPE เฉลี่ย <strong style={{ color:'#f59e0b' }}>{avgRPE}</strong></span>
+                    <span style={{ fontSize:'0.75rem', fontWeight:700 }}>Load เฉลี่ย <strong style={{ color:LOAD_ZONE(avgLoad).color }}>{avgLoad} AU</strong></span>
+                  </div>
+                </div>
+                {/* Load bar chart */}
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--text-muted)', marginBottom:8 }}>Training Load ต่อ Session (15 ล่าสุด)</div>
+                  <div style={{ display:'flex', gap:5, alignItems:'flex-end', height:60 }}>
+                    {[...recent].reverse().map((r, i) => {
+                      const h = Math.max(4, (r.trainingLoad / Math.max(maxLoad, 1)) * 54);
+                      const rc = RPE_COLOR(r.rpe);
+                      const lz = LOAD_ZONE(r.trainingLoad);
+                      return (
+                        <div key={i} title={`${r.sessionDate} | ${r.sessionName}\nRPE: ${r.rpe} | Load: ${r.trainingLoad} AU`} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                          <div style={{ width:'100%', height:h, borderRadius:'4px 4px 0 0', background:rc }}/>
+                          <span style={{ fontSize:'0.52rem', color:lz.color, fontWeight:700 }}>{r.trainingLoad}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Recent sessions table */}
+                <div style={{ overflowX:'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ paddingLeft:14 }}>วันที่</th>
+                        <th>Session</th>
+                        <th style={{ textAlign:'center' }}>RPE</th>
+                        <th style={{ textAlign:'center' }}>เวลา</th>
+                        <th style={{ textAlign:'center' }}>Load (AU)</th>
+                        <th style={{ textAlign:'center' }}>ระดับ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recent.slice(0, 8).map((r, i) => {
+                        const rc = RPE_COLOR(r.rpe);
+                        const lz = LOAD_ZONE(r.trainingLoad);
+                        return (
+                          <tr key={i}>
+                            <td style={{ paddingLeft:14, fontSize:'0.78rem' }}>{r.sessionDate}</td>
+                            <td style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>{r.sessionName}</td>
+                            <td style={{ textAlign:'center' }}>
+                              <span style={{ width:26, height:26, borderRadius:7, background:rc, display:'inline-flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.78rem', color:'white' }}>{r.rpe}</span>
+                            </td>
+                            <td style={{ textAlign:'center', fontSize:'0.78rem' }}>{r.durationMin} นาที</td>
+                            <td style={{ textAlign:'center', fontWeight:900, color:lz.color }}>{r.trainingLoad}</td>
+                            <td style={{ textAlign:'center' }}>
+                              <span style={{ background:lz.color+'18', color:lz.color, borderRadius:5, padding:'2px 7px', fontSize:'0.65rem', fontWeight:800 }}>{lz.label}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ── TRAINING VIDEOS ── */}
           {weaknesses.length > 0 && (
-            <div className="surface mb-4">
+            <div id="scoutVideoPrint" className="surface mb-4">
               <div className="section-hd"><i className="bi bi-youtube" style={{ color: '#ef4444' }} /> Recommended Training Videos <span style={{ fontSize: '0.7rem', fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>วิดีโอฝึกซ้อมที่แนะนำ</span></div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
                 {weaknesses.map(m => {

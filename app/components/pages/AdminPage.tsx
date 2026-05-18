@@ -3,20 +3,39 @@
 import { useState, useEffect } from 'react';
 import { UserRecord } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { callDB } from '@/lib/db';
+import { showToast } from '@/lib/toast';
+import { parseClubPages, loadClubPagesLocal, saveClubPagesLocal } from '@/lib/clubSettings';
 
 const PAGE_FEATURES = [
-  { id: 'dashboard',   labelTH: 'แดชบอร์ด',           icon: 'bi-grid-1x2',           desc: 'ภาพรวม KPI และสถิติทีม' },
-  { id: 'roster',      labelTH: 'รายชื่อนักกีฬา',      icon: 'bi-people',             desc: 'ดูและจัดการรายชื่อ' },
-  { id: 'scout',       labelTH: 'Scout Report',          icon: 'bi-person-badge',       desc: 'รายงานรายบุคคล + FC26 Card' },
-  { id: 'teamreport',  labelTH: 'Team Report',           icon: 'bi-bar-chart-line',     desc: 'รายงานสถิติทีมรวม' },
-  { id: 'compare',     labelTH: 'เปรียบเทียบ',          icon: 'bi-intersect',          desc: 'Radar Chart ตัวต่อตัว' },
-  { id: 'lineup',      labelTH: 'Line-Up',               icon: 'bi-diagram-3',          desc: 'จัดทีม Formation' },
-  { id: 'ir',          labelTH: 'IDP',                   icon: 'bi-journal-medical',    desc: 'แผนพัฒนารายบุคคล + QR' },
-  { id: 'performance', labelTH: 'บันทึกผลทดสอบ',        icon: 'bi-clipboard-data',     desc: 'อัพเดทผลการทดสอบ' },
-  { id: 'quicktest',   labelTH: 'Quick Test',            icon: 'bi-lightning',          desc: 'บันทึกเร็ว' },
-  { id: 'register',    labelTH: 'ลงทะเบียนนักกีฬา',    icon: 'bi-person-plus',        desc: 'เพิ่มนักกีฬาใหม่' },
-  { id: 'training',    labelTH: 'วิดีโอการฝึก',         icon: 'bi-play-btn',           desc: 'คลังวิดีโอฝึกซ้อม' },
+  /* Overview */
+  { id: 'dashboard',   labelTH: 'Dashboard',             icon: 'bi-grid-1x2',              desc: 'ภาพรวม KPI · Ranking · H2H',      cat: 'overview' },
+  /* Athletes */
+  { id: 'roster',      labelTH: 'Roster',                icon: 'bi-people',                desc: 'รายชื่อนักกีฬา · ค้นหา · ตาราง', cat: 'athlete' },
+  { id: 'scout',       labelTH: 'Scout Report',          icon: 'bi-person-badge',          desc: 'รายงานรายบุคคล + FC26 Card',       cat: 'athlete' },
+  { id: 'skill',       labelTH: 'Skill Assessment',      icon: 'bi-bullseye',              desc: 'ประเมิน 27 ทักษะฟุตบอล',           cat: 'athlete' },
+  { id: 'attendance',  labelTH: 'Attendance',            icon: 'bi-check2-square',         desc: 'เช็คชื่อซ้อม · สถิติการมา',       cat: 'athlete' },
+  { id: 'wellness',    labelTH: 'Wellness & Load',       icon: 'bi-heart-pulse-fill',      desc: 'สภาพนักกีฬา + RPE ความหนัก',      cat: 'athlete' },
+  { id: 'ir',          labelTH: 'IDP',                   icon: 'bi-clipboard2-check',      desc: 'แผนพัฒนารายบุคคล + QR Self-fill', cat: 'athlete' },
+  /* Analysis */
+  { id: 'compare',     labelTH: 'Compare',               icon: 'bi-intersect',             desc: 'Radar Chart เปรียบเทียบตัวต่อตัว', cat: 'analysis' },
+  { id: 'lineup',      labelTH: 'Line-Up',               icon: 'bi-diagram-3',             desc: 'จัดทีม Formation · พิมพ์ PDF',    cat: 'analysis' },
+  { id: 'teamreport',  labelTH: 'Team Report',           icon: 'bi-bar-chart-line',        desc: 'รายงานสถิติทีมรวม',               cat: 'analysis' },
+  /* Data Entry */
+  { id: 'performance', labelTH: 'Update Results',        icon: 'bi-clipboard-data',        desc: 'อัพเดทผลการทดสอบ',               cat: 'data' },
+  { id: 'quicktest',   labelTH: 'Quick Test',            icon: 'bi-lightning',             desc: 'บันทึกผลทดสอบด่วน',              cat: 'data' },
+  { id: 'register',    labelTH: 'Add Athlete',           icon: 'bi-person-plus',           desc: 'เพิ่มนักกีฬาใหม่',               cat: 'data' },
+  /* Media */
+  { id: 'training',    labelTH: 'Video Training',        icon: 'bi-play-btn',              desc: 'คลังวิดีโอฝึกซ้อม',              cat: 'media' },
 ];
+
+const CAT_META: Record<string, { label: string; icon: string; color: string }> = {
+  overview:  { label: 'Overview',    icon: 'bi-bar-chart-fill',   color: '#38bdf8' },
+  athlete:   { label: 'Athletes',    icon: 'bi-people-fill',      color: '#34d399' },
+  analysis:  { label: 'Analysis',    icon: 'bi-graph-up',         color: '#818cf8' },
+  data:      { label: 'Data Entry',  icon: 'bi-pencil-square',    color: '#f59e0b' },
+  media:     { label: 'Media',       icon: 'bi-play-btn-fill',    color: '#f87171' },
+};
 
 const ROLE_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   admin:    { label: 'Admin',    bg: '#fef3c7', color: '#92400e' },
@@ -31,14 +50,11 @@ export default function AdminPage() {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [addForm, setAddForm]           = useState({ username:'', password:'', role:'club', displayName:'', clubId:'' });
   const [saving, setSaving]             = useState(false);
-  const [addMsg, setAddMsg]             = useState<{type:'success'|'error'; text:string}|null>(null);
   const [editModal, setEditModal]       = useState<EditForm|null>(null);
   const [editSaving, setEditSaving]     = useState(false);
-  const [editMsg, setEditMsg]           = useState<{type:'success'|'error'; text:string}|null>(null);
 
   // Global Club settings
   const [clubPages, setClubPages]       = useState<string[]>([]);
-  const [clubSettingsSaved, setClubSettingsSaved] = useState(false);
   const [clubSaving, setClubSaving]     = useState(false);
 
   const loadUsers = async () => {
@@ -47,37 +63,52 @@ export default function AdminPage() {
     finally { setLoadingUsers(false); }
   };
 
+  const ALL_IDS = PAGE_FEATURES.map(p => p.id);
+
   const loadClubSettings = async () => {
+    // 1. Load localStorage immediately (no flicker)
+    const local = loadClubPagesLocal(ALL_IDS);
+    if (local) setClubPages(local);
+
+    // 2. Load from DB (Supabase) — source of truth
     try {
-      const d = await callGAS('getClubSettings') as { pages: string };
-      setClubPages(d.pages ? d.pages.split(',').filter(Boolean) : PAGE_FEATURES.map(p=>p.id));
+      const d = await callDB<{ pages?: string }>('getClubSettings');
+      const merged = parseClubPages(d.pages ?? null, ALL_IDS);
+      setClubPages(merged);
+      saveClubPagesLocal(merged);
     } catch {
-      setClubPages(PAGE_FEATURES.map(p=>p.id));
+      if (!local) setClubPages(ALL_IDS);
     }
   };
 
   useEffect(() => { loadUsers(); loadClubSettings(); }, []);
 
   const handleSaveClubSettings = async () => {
+    saveClubPagesLocal(clubPages); // localStorage ก่อน
     setClubSaving(true);
     try {
-      await callGAS('saveClubSettings', { pages: clubPages.join(',') });
-      setClubSettingsSaved(true);
-      setTimeout(() => setClubSettingsSaved(false), 2000);
+      const res = await callDB<{ status: string }>('saveClubSettings', { pages: clubPages.join(',') });
+      if (res.status === 'success') {
+        showToast(`บันทึกสิทธิ์เรียบร้อย (${clubPages.length}/${ALL_IDS.length} ฟีเจอร์)`, 'success');
+      } else {
+        showToast('บันทึกไม่สำเร็จ กรุณาลองใหม่', 'error');
+      }
+    } catch (e: unknown) {
+      showToast(`บันทึกไม่สำเร็จ: ${e instanceof Error ? e.message : 'Error'}`, 'error');
     } finally { setClubSaving(false); }
   };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!addForm.username || !addForm.password) return setAddMsg({ type:'error', text:'Username และ Password จำเป็น' });
-    setSaving(true); setAddMsg(null);
+    if (!addForm.username || !addForm.password) { showToast('Username และ Password จำเป็น', 'error'); return; }
+    setSaving(true);
     try {
       const res = await callGAS('saveUser', addForm) as { status:string; message:string };
       if (res.status === 'success') {
-        setAddMsg({ type:'success', text:res.message });
+        showToast(res.message, 'success');
         setAddForm({ username:'', password:'', role:'club', displayName:'', clubId:'' });
         loadUsers();
-      } else setAddMsg({ type:'error', text:res.message });
+      } else showToast(res.message, 'error');
     } finally { setSaving(false); }
   };
 
@@ -86,14 +117,14 @@ export default function AdminPage() {
 
   const handleEdit = async () => {
     if (!editModal) return;
-    setEditSaving(true); setEditMsg(null);
+    setEditSaving(true);
     try {
       const res = await callGAS('updateUser', editModal) as { status:string; message:string };
       if (res.status === 'success') {
-        setEditMsg({ type:'success', text:'บันทึกเรียบร้อย' });
+        showToast('บันทึกเรียบร้อย', 'success');
         loadUsers();
         setTimeout(() => setEditModal(null), 700);
-      } else setEditMsg({ type:'error', text:res.message||'เกิดข้อผิดพลาด' });
+      } else showToast(res.message||'เกิดข้อผิดพลาด', 'error');
     } finally { setEditSaving(false); }
   };
 
@@ -146,43 +177,67 @@ export default function AdminPage() {
             >
               {clubSaving
                 ? <><span className="spinner-ring" style={{ width:16,height:16,borderWidth:2,margin:0 }}/> บันทึก...</>
-                : clubSettingsSaved
-                ? <><i className="bi bi-check-lg me-1"/>บันทึกแล้ว</>
                 : <><i className="bi bi-floppy me-1"/>บันทึก</>}
             </button>
           </div>
         </div>
 
-        {/* Toggle grid */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10 }}>
-          {PAGE_FEATURES.map(p => {
-            const on = clubPages.includes(p.id);
-            return (
-              <div
-                key={p.id}
-                onClick={() => togglePage(p.id)}
-                style={{
-                  display:'flex', alignItems:'center', gap:10, padding:'12px 14px',
-                  borderRadius:12, cursor:'pointer', transition:'all 0.18s',
-                  background: on ? 'rgba(56,189,248,0.08)' : 'var(--bg)',
-                  border: `1.5px solid ${on ? 'rgba(56,189,248,0.4)' : 'var(--border)'}`,
-                }}
-              >
-                {/* Toggle switch */}
-                <div style={{ position:'relative', width:38, height:22, borderRadius:11, background: on?'#38bdf8':'#cbd5e1', transition:'background 0.2s', flexShrink:0 }}>
-                  <div style={{ position:'absolute', top:3, left: on?18:3, width:16, height:16, borderRadius:'50%', background:'white', transition:'left 0.2s', boxShadow:'0 1px 4px rgba(0,0,0,0.25)' }}/>
+        {/* Toggle grid — grouped by category */}
+        {Object.entries(CAT_META).map(([cat, meta]) => {
+          const features = PAGE_FEATURES.filter(p => p.cat === cat);
+          const catOn = features.filter(p => clubPages.includes(p.id)).length;
+          return (
+            <div key={cat} style={{ marginBottom:16 }}>
+              {/* Category header */}
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                <div style={{ width:22, height:22, borderRadius:6, background: meta.color + '20', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <i className={`bi ${meta.icon}`} style={{ color: meta.color, fontSize:'0.72rem' }}/>
                 </div>
-                <i className={`bi ${p.icon}`} style={{ color: on?'#38bdf8':'#94a3b8', fontSize:'1rem', flexShrink:0 }}/>
-                <div style={{ minWidth:0 }}>
-                  <div style={{ fontSize:'0.8rem', fontWeight:700, color: on?'var(--text-main)':'var(--text-muted)', lineHeight:1.2 }}>{p.labelTH}</div>
-                  <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', marginTop:1 }}>{p.desc}</div>
-                </div>
+                <span style={{ fontSize:'0.7rem', fontWeight:800, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1 }}>{meta.label}</span>
+                <span style={{ fontSize:'0.62rem', color: meta.color, fontWeight:700, marginLeft:2 }}>{catOn}/{features.length}</span>
+                <div style={{ flex:1, height:1, background:'var(--border)' }}/>
+                <button
+                  onClick={() => {
+                    const allOn = features.every(p => clubPages.includes(p.id));
+                    if (allOn) setClubPages(prev => prev.filter(id => !features.some(p => p.id === id)));
+                    else setClubPages(prev => [...new Set([...prev, ...features.map(p => p.id)])]);
+                  }}
+                  style={{ fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', background:'none', border:'1px solid var(--border)', borderRadius:6, padding:'2px 8px', cursor:'pointer', whiteSpace:'nowrap' }}>
+                  {features.every(p => clubPages.includes(p.id)) ? 'ปิดกลุ่ม' : 'เปิดกลุ่ม'}
+                </button>
               </div>
-            );
-          })}
-        </div>
 
-        <div style={{ marginTop:14, fontSize:'0.72rem', color:'var(--text-muted)', borderTop:'1px solid var(--border)', paddingTop:10, display:'flex', alignItems:'center', gap:6 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(195px,1fr))', gap:8 }}>
+                {features.map(p => {
+                  const on = clubPages.includes(p.id);
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => togglePage(p.id)}
+                      style={{
+                        display:'flex', alignItems:'center', gap:10, padding:'11px 13px',
+                        borderRadius:11, cursor:'pointer', transition:'all 0.15s',
+                        background: on ? meta.color + '0d' : 'var(--bg)',
+                        border: `1.5px solid ${on ? meta.color + '55' : 'var(--border)'}`,
+                      }}
+                    >
+                      <div style={{ position:'relative', width:36, height:20, borderRadius:10, background: on ? meta.color : '#cbd5e1', transition:'background 0.18s', flexShrink:0 }}>
+                        <div style={{ position:'absolute', top:2, left: on ? 17 : 2, width:16, height:16, borderRadius:'50%', background:'white', transition:'left 0.18s', boxShadow:'0 1px 4px rgba(0,0,0,0.22)' }}/>
+                      </div>
+                      <i className={`bi ${p.icon}`} style={{ color: on ? meta.color : '#94a3b8', fontSize:'0.95rem', flexShrink:0, transition:'color 0.15s' }}/>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontSize:'0.78rem', fontWeight:700, color: on ? 'var(--text-main)' : 'var(--text-muted)', lineHeight:1.2, transition:'color 0.15s' }}>{p.labelTH}</div>
+                        <div style={{ fontSize:'0.62rem', color:'var(--text-muted)', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.desc}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        <div style={{ marginTop:8, fontSize:'0.72rem', color:'var(--text-muted)', borderTop:'1px solid var(--border)', paddingTop:10, display:'flex', alignItems:'center', gap:6 }}>
           <i className="bi bi-info-circle" style={{ color:'#38bdf8' }}/>
           เปิด {clubPages.length}/{PAGE_FEATURES.length} ฟีเจอร์ · Admin และ Club Pro ไม่ได้รับผลกระทบ — ใช้ได้ทุกฟีเจอร์เสมอ
         </div>
@@ -283,11 +338,6 @@ export default function AdminPage() {
                   <option value="admin">Admin — ทุกฟีเจอร์ + จัดการระบบ</option>
                 </select>
               </div>
-              {addMsg && (
-                <div className="mb-3" style={{ background:addMsg.type==='success'?'#f0fdf4':'#fef2f2', border:`1px solid ${addMsg.type==='success'?'#bbf7d0':'#fecaca'}`, borderRadius:8, padding:'10px 14px', fontSize:'0.875rem', color:addMsg.type==='success'?'#166534':'#991b1b' }}>
-                  <i className={`bi bi-${addMsg.type==='success'?'check-circle':'exclamation-triangle'} me-2`}/>{addMsg.text}
-                </div>
-              )}
               <button type="submit" className="btn-primary w-100" disabled={saving} style={{ justifyContent:'center' }}>
                 {saving ? <><span className="spinner-ring" style={{ width:18,height:18,borderWidth:2,margin:0 }}/> กำลังสร้าง...</> : <><i className="bi bi-plus-lg me-1"/>สร้างบัญชี</>}
               </button>
@@ -324,11 +374,6 @@ export default function AdminPage() {
                 <option value="admin">Admin — ทุกฟีเจอร์ + จัดการระบบ</option>
               </select>
             </div>
-            {editMsg && (
-              <div className="mb-3" style={{ background:editMsg.type==='success'?'#f0fdf4':'#fef2f2', border:`1px solid ${editMsg.type==='success'?'#bbf7d0':'#fecaca'}`, borderRadius:8, padding:'10px 14px', fontSize:'0.85rem', color:editMsg.type==='success'?'#166534':'#991b1b' }}>
-                <i className={`bi bi-${editMsg.type==='success'?'check-circle':'exclamation-triangle'} me-2`}/>{editMsg.text}
-              </div>
-            )}
             <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
               <button className="btn-outline" onClick={()=>setEditModal(null)}>ยกเลิก</button>
               <button className="btn-primary" onClick={handleEdit} disabled={editSaving}>

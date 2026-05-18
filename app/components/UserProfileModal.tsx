@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { User } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 interface Props {
   user: User;
@@ -18,7 +19,6 @@ export default function UserProfileModal({ user, onClose, onSaved }: Props) {
   const [newPw, setNewPw]               = useState('');
   const [confirmPw, setConfirmPw]       = useState('');
   const [saving, setSaving]             = useState(false);
-  const [msg, setMsg]                   = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,11 +35,11 @@ export default function UserProfileModal({ user, onClose, onSaved }: Props) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!displayName.trim()) return setMsg({ type: 'error', text: 'กรุณากรอกชื่อที่แสดง' });
-    if (showPw && newPw !== confirmPw) return setMsg({ type: 'error', text: 'รหัสผ่านใหม่ไม่ตรงกัน' });
-    if (showPw && newPw.length < 6)   return setMsg({ type: 'error', text: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' });
+    if (!displayName.trim()) { showToast('กรุณากรอกชื่อที่แสดง', 'error'); return; }
+    if (showPw && newPw !== confirmPw) { showToast('รหัสผ่านใหม่ไม่ตรงกัน', 'error'); return; }
+    if (showPw && newPw.length < 6)   { showToast('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', 'error'); return; }
 
-    setSaving(true); setMsg(null);
+    setSaving(true);
     try {
       const res = await callGAS('updateProfile', {
         username: user.username,
@@ -49,7 +49,7 @@ export default function UserProfileModal({ user, onClose, onSaved }: Props) {
       }) as { status: string; logoUrl?: string; message?: string };
 
       if (res.status !== 'success') {
-        setMsg({ type: 'error', text: res.message || 'เกิดข้อผิดพลาด' });
+        showToast(res.message || 'เกิดข้อผิดพลาด', 'error');
         return;
       }
 
@@ -59,16 +59,16 @@ export default function UserProfileModal({ user, onClose, onSaved }: Props) {
           newPassword: newPw,
         }) as { status: string; message?: string };
         if (pwRes.status !== 'success') {
-          setMsg({ type: 'error', text: pwRes.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ' });
+          showToast(pwRes.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ', 'error');
           return;
         }
       }
 
-      setMsg({ type: 'success', text: 'บันทึกสำเร็จ!' });
+      showToast('บันทึกสำเร็จ!', 'success');
       const newLogoUrl = res.logoUrl || (logo ? logoPreview : user.logoUrl) || '';
       setTimeout(() => { onSaved({ displayName: displayName.trim(), logoUrl: newLogoUrl }); onClose(); }, 700);
     } catch {
-      setMsg({ type: 'error', text: 'เกิดข้อผิดพลาด กรุณาลองใหม่' });
+      showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
     } finally {
       setSaving(false);
     }
@@ -147,13 +147,6 @@ export default function UserProfileModal({ user, onClose, onSaved }: Props) {
               </div>
             )}
           </div>
-
-          {msg && (
-            <div className={`alert ${msg.type==='success'?'alert-success':'alert-danger'} mt-3`} style={{ borderRadius:8, fontSize:'0.875rem' }}>
-              {msg.type==='success' ? <i className="bi bi-check-circle me-2"/> : <i className="bi bi-exclamation-triangle me-2"/>}
-              {msg.text}
-            </div>
-          )}
 
           <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:20 }}>
             <button type="button" className="btn-outline" onClick={onClose}>ยกเลิก</button>

@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Athlete, User, WellnessRecord, RPERecord } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 interface Props { athletes: Athlete[]; user: User; }
 
@@ -56,108 +57,200 @@ function loadZone(load:number) {
   return             { label:'สูงมาก', color:'#ef4444' };
 }
 
-/* ── Wellness score row (compact) ───────────────────────── */
-function WellnessRow({ a, vals, onChange }: {
+/* ── dot colors per value ───────────────────────────────── */
+function dotColor(v: number) {
+  if (v === 1) return '#ef4444';
+  if (v === 2) return '#fb923c';
+  if (v === 3) return '#facc15';
+  if (v === 4) return '#4ade80';
+  return '#22d3ee';
+}
+
+/* ── Wellness table header ───────────────────────────────── */
+export function WellnessTableHeader() {
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'160px repeat(5,1fr) 56px', gap:0, padding:'6px 14px', background:'var(--surface)', borderRadius:'10px 10px 0 0', border:'1px solid var(--border)', borderBottom:'none' }}>
+      <div style={{ fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1 }}>นักกีฬา</div>
+      {WELLNESS_FIELDS.map(f => (
+        <div key={f.key} style={{ textAlign:'center' }}>
+          <div style={{ fontSize:'1.1rem', lineHeight:1 }}>{f.icon}</div>
+          <div style={{ fontSize:'0.58rem', fontWeight:700, color:'var(--text-muted)', marginTop:2, lineHeight:1.2 }}>{f.label}</div>
+        </div>
+      ))}
+      <div style={{ textAlign:'center', fontSize:'0.58rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.5 }}>SCORE</div>
+    </div>
+  );
+}
+
+/* ── Wellness score row ──────────────────────────────────── */
+function WellnessRow({ a, vals, onChange, isLast }: {
   a: Athlete;
   vals: Partial<Record<WellnessKey, number>>;
   onChange: (key: WellnessKey, v: number) => void;
+  isLast?: boolean;
 }) {
   const scores = WELLNESS_FIELDS.map(f => vals[f.key] || 0);
   const filled = scores.filter(v => v > 0).length;
   const avg    = filled ? Math.round(scores.filter(v=>v>0).reduce((a,b)=>a+b,0)/filled/5*100) : 0;
-  const wc     = avg > 0 ? wellnessColor(avg) : 'var(--text-muted)';
+  const wc     = avg > 0 ? wellnessColor(avg) : '#cbd5e1';
 
   return (
-    <div style={{ display:'flex', gap:10, alignItems:'center', padding:'10px 14px', background:'var(--bg)', borderRadius:12, border:'1px solid var(--border)', flexWrap:'wrap' }}>
-      {/* Photo + name */}
-      <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:130, flex:'0 0 auto' }}>
-        <div style={{ width:32, height:32, borderRadius:9, overflow:'hidden', background:'var(--surface)', flexShrink:0 }}>
+    <div style={{
+      display:'grid', gridTemplateColumns:'160px repeat(5,1fr) 56px', gap:0,
+      padding:'10px 14px', alignItems:'center',
+      background:'white',
+      border:'1px solid var(--border)',
+      borderTop:'none',
+      borderRadius: isLast ? '0 0 10px 10px' : 0,
+      transition:'background 0.12s',
+    }}
+      onMouseEnter={e=>(e.currentTarget.style.background='#f8fafc')}
+      onMouseLeave={e=>(e.currentTarget.style.background='white')}
+    >
+      {/* Avatar + name */}
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ width:34, height:34, borderRadius:9, overflow:'hidden', background:'#e2e8f0', flexShrink:0 }}>
           {a.PhotoUrl
             ? <img src={a.PhotoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top' }}/>
-            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.8rem', color:'var(--text-muted)' }}>{(a.Name||'?')[0]}</div>
+            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.85rem', color:'#94a3b8' }}>{(a.Name||'?')[0]}</div>
           }
         </div>
         <div style={{ minWidth:0 }}>
-          <div style={{ fontWeight:700, fontSize:'0.78rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:90 }}>{a.Name}</div>
-          {a.Nickname && <div style={{ fontSize:'0.62rem', color:'var(--text-muted)' }}>{a.Nickname}</div>}
+          <div style={{ fontWeight:700, fontSize:'0.8rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:100 }}>{a.Name}</div>
+          {a.Nickname && <div style={{ fontSize:'0.6rem', color:'#94a3b8' }}>{a.Nickname}</div>}
         </div>
       </div>
-      {/* 5 metrics */}
-      <div style={{ display:'flex', gap:6, flex:1, flexWrap:'wrap' }}>
-        {WELLNESS_FIELDS.map(f => {
-          const v = vals[f.key] || 0;
-          return (
-            <div key={f.key} style={{ textAlign:'center' }}>
-              <div style={{ fontSize:'0.6rem', color:'var(--text-muted)', fontWeight:700, marginBottom:3 }}>{f.icon}</div>
-              <div style={{ display:'flex', gap:2 }}>
-                {[1,2,3,4,5].map(n => (
-                  <button key={n} onClick={() => onChange(f.key, v===n ? 0 : n)} style={{
-                    width:22, height:22, borderRadius:5, border:'1.5px solid',
-                    fontWeight:800, fontSize:'0.6rem', cursor:'pointer',
-                    background: v>=n ? (v<=2?'#ef4444':v===3?'#f59e0b':v===4?'#22c55e':'#0284c7') : 'white',
-                    borderColor: v>=n ? (v<=2?'#ef4444':v===3?'#f59e0b':v===4?'#22c55e':'#0284c7') : '#e2e8f0',
-                    color: v>=n ? 'white' : '#d1d5db',
-                  }}>{n}</button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+
+      {/* 5 metric columns */}
+      {WELLNESS_FIELDS.map(f => {
+        const v = vals[f.key] || 0;
+        return (
+          <div key={f.key} style={{ display:'flex', justifyContent:'center', gap:3 }}>
+            {[1,2,3,4,5].map(n => {
+              const active = v >= n;
+              const col = active ? dotColor(v) : '#e2e8f0';
+              return (
+                <button
+                  key={n}
+                  onClick={() => onChange(f.key, v === n ? 0 : n)}
+                  title={`${f.label} = ${n}`}
+                  style={{
+                    width:28, height:28, borderRadius:7, border:'none', cursor:'pointer',
+                    background: active ? col : '#f1f5f9',
+                    color: active ? 'white' : '#94a3b8',
+                    fontWeight:900, fontSize:'0.72rem',
+                    boxShadow: active ? `0 2px 6px ${col}60` : 'none',
+                    transform: v === n ? 'scale(1.15)' : 'scale(1)',
+                    transition:'all 0.12s',
+                  }}
+                >{n}</button>
+              );
+            })}
+          </div>
+        );
+      })}
+
       {/* Score */}
-      <div style={{ textAlign:'center', minWidth:44 }}>
-        <div style={{ fontSize:'1.2rem', fontWeight:900, color:wc, lineHeight:1 }}>{avg>0?avg:'—'}</div>
-        <div style={{ fontSize:'0.55rem', color:'var(--text-muted)', fontWeight:700 }}>WELLNESS</div>
+      <div style={{ textAlign:'center' }}>
+        {avg > 0 ? (
+          <>
+            <div style={{ fontSize:'1.15rem', fontWeight:900, color:wc, lineHeight:1 }}>{avg}</div>
+            <div style={{ fontSize:'0.52rem', color:'#94a3b8', fontWeight:700, letterSpacing:0.5 }}>%</div>
+          </>
+        ) : (
+          <div style={{ fontSize:'0.75rem', color:'#cbd5e1', fontWeight:700 }}>—</div>
+        )}
       </div>
     </div>
   );
 }
 
+/* ── RPE table header ────────────────────────────────────── */
+export function RPETableHeader() {
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'160px 1fr 100px', gap:0, padding:'8px 14px', background:'var(--surface)', borderRadius:'10px 10px 0 0', border:'1px solid var(--border)', borderBottom:'none' }}>
+      <div style={{ fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1, display:'flex', alignItems:'center' }}>นักกีฬา</div>
+      <div style={{ fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1, display:'flex', alignItems:'center' }}>RPE (1 = พักผ่อน → 10 = สุดแรง)</div>
+      <div style={{ fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1, textAlign:'center', display:'flex', alignItems:'center', justifyContent:'center' }}>Training Load</div>
+    </div>
+  );
+}
+
 /* ── RPE row ──────────────────────────────────────────────── */
-function RPERow({ a, rpe, duration, onChange, onDuration }: {
+function RPERow({ a, rpe, duration, onChange, isLast }: {
   a: Athlete; rpe: number; duration: number;
-  onChange: (v: number) => void; onDuration: (v: number) => void;
+  onChange: (v: number) => void;
+  isLast?: boolean;
 }) {
   const load = rpe > 0 && duration > 0 ? rpe * duration : 0;
   const zone = load > 0 ? loadZone(load) : null;
-  const rc   = rpe > 0 ? rpeColor(rpe) : 'var(--text-muted)';
+  const rc   = rpe > 0 ? rpeColor(rpe) : '#cbd5e1';
+  const rpeInfo = RPE_SCALE.find(r => r.val === rpe);
 
   return (
-    <div style={{ display:'flex', gap:10, alignItems:'center', padding:'10px 14px', background:'var(--bg)', borderRadius:12, border:'1px solid var(--border)', flexWrap:'wrap' }}>
-      {/* Name */}
-      <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:130, flex:'0 0 auto' }}>
-        <div style={{ width:32, height:32, borderRadius:9, overflow:'hidden', background:'var(--surface)', flexShrink:0 }}>
+    <div style={{
+      display:'grid', gridTemplateColumns:'160px 1fr 100px', gap:0, alignItems:'center',
+      padding:'10px 14px', background:'white',
+      border:'1px solid var(--border)', borderTop:'none',
+      borderRadius: isLast ? '0 0 10px 10px' : 0,
+      transition:'background 0.12s',
+    }}
+      onMouseEnter={e=>(e.currentTarget.style.background='#f8fafc')}
+      onMouseLeave={e=>(e.currentTarget.style.background='white')}
+    >
+      {/* Avatar + name */}
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ width:34, height:34, borderRadius:9, overflow:'hidden', background:'#e2e8f0', flexShrink:0 }}>
           {a.PhotoUrl
             ? <img src={a.PhotoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top' }}/>
-            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.8rem', color:'var(--text-muted)' }}>{(a.Name||'?')[0]}</div>
+            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.85rem', color:'#94a3b8' }}>{(a.Name||'?')[0]}</div>
           }
         </div>
         <div>
-          <div style={{ fontWeight:700, fontSize:'0.78rem' }}>{a.Name}</div>
-          {a.Nickname && <div style={{ fontSize:'0.62rem', color:'var(--text-muted)' }}>{a.Nickname}</div>}
+          <div style={{ fontWeight:700, fontSize:'0.8rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:100 }}>{a.Name}</div>
+          {a.Nickname && <div style={{ fontSize:'0.6rem', color:'#94a3b8' }}>{a.Nickname}</div>}
         </div>
       </div>
-      {/* RPE buttons 1-10 */}
-      <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-        {RPE_SCALE.map(r => (
-          <button key={r.val} onClick={() => onChange(rpe===r.val ? 0 : r.val)} title={r.desc} style={{
-            width:30, height:30, borderRadius:7, border:'2px solid',
-            fontWeight:900, fontSize:'0.75rem', cursor:'pointer', transition:'all 0.1s',
-            background: rpe===r.val ? r.color : 'white',
-            borderColor: rpe===r.val ? r.color : '#e2e8f0',
-            color: rpe===r.val ? 'white' : '#94a3b8',
-            transform: rpe===r.val ? 'scale(1.15)' : 'scale(1)',
-          }}>{r.val}</button>
-        ))}
+
+      {/* RPE buttons 1–10 */}
+      <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+        {RPE_SCALE.map(r => {
+          const active = rpe === r.val;
+          return (
+            <button
+              key={r.val}
+              onClick={() => onChange(active ? 0 : r.val)}
+              title={r.desc}
+              style={{
+                width:34, height:34, borderRadius:8, border:'none',
+                fontWeight:900, fontSize:'0.8rem', cursor:'pointer',
+                background: active ? r.color : rpe > 0 && r.val < rpe ? r.color + '30' : '#f1f5f9',
+                color: active ? 'white' : rpe > 0 && r.val < rpe ? r.color : '#94a3b8',
+                transform: active ? 'scale(1.2)' : 'scale(1)',
+                boxShadow: active ? `0 4px 12px ${r.color}60` : 'none',
+                transition:'all 0.12s',
+                zIndex: active ? 1 : 0,
+                position:'relative',
+              }}
+            >{r.val}</button>
+          );
+        })}
+        {rpeInfo && (
+          <span style={{ marginLeft:6, fontSize:'0.72rem', fontWeight:700, color:rc, whiteSpace:'nowrap' }}>
+            {rpeInfo.desc}
+          </span>
+        )}
       </div>
-      {/* RPE label + Load */}
-      <div style={{ display:'flex', gap:10, alignItems:'center', marginLeft:'auto' }}>
-        {rpe > 0 && <span style={{ fontSize:'0.7rem', color:rc, fontWeight:700 }}>{RPE_SCALE.find(r=>r.val===rpe)?.desc}</span>}
-        {zone && (
-          <div style={{ textAlign:'center' }}>
-            <div style={{ fontSize:'0.75rem', fontWeight:900, color:zone.color }}>{load}</div>
-            <div style={{ fontSize:'0.55rem', color:zone.color, fontWeight:700 }}>AU · {zone.label}</div>
-          </div>
+
+      {/* Load */}
+      <div style={{ textAlign:'center' }}>
+        {zone ? (
+          <>
+            <div style={{ fontSize:'1.1rem', fontWeight:900, color:zone.color, lineHeight:1 }}>{load}</div>
+            <div style={{ fontSize:'0.56rem', fontWeight:700, color:zone.color, marginTop:1 }}>AU · {zone.label}</div>
+          </>
+        ) : (
+          <div style={{ fontSize:'0.75rem', color:'#cbd5e1', fontWeight:700 }}>—</div>
         )}
       </div>
     </div>
@@ -183,7 +276,6 @@ export default function WellnessPage({ athletes, user }: Props) {
   const [wVals,    setWVals]    = useState<Record<string, Partial<Record<WellnessKey, number>>>>({});
   const [wNotes,   setWNotes]   = useState<Record<string, string>>({});
   const [wSaving,  setWSaving]  = useState(false);
-  const [wMsg,     setWMsg]     = useState<{type:'success'|'error';text:string}|null>(null);
 
   const setW = (pid: string, key: WellnessKey, v: number) =>
     setWVals(p => ({ ...p, [pid]: { ...(p[pid]||{}), [key]: v } }));
@@ -206,12 +298,12 @@ export default function WellnessPage({ athletes, user }: Props) {
         createdBy: user.displayName || user.username,
       };
     }).filter(Boolean);
-    if (!records.length) return setWMsg({type:'error', text:'ยังไม่มีข้อมูลที่จะบันทึก'});
-    setWSaving(true); setWMsg(null);
+    if (!records.length) { showToast('ยังไม่มีข้อมูลที่จะบันทึก', 'error'); return; }
+    setWSaving(true);
     try {
       const res = await callGAS('saveWellness', { records }) as {status:string;message:string};
-      setWMsg({type: res.status==='success'?'success':'error', text: res.message||'เสร็จแล้ว'});
-    } catch(e:unknown) { setWMsg({type:'error', text: e instanceof Error ? e.message : 'Error'}); }
+      showToast(res.message||'เสร็จแล้ว', res.status==='success'?'success':'error');
+    } catch(e:unknown) { showToast(e instanceof Error ? e.message : 'Error', 'error'); }
     finally { setWSaving(false); }
   };
 
@@ -222,7 +314,6 @@ export default function WellnessPage({ athletes, user }: Props) {
   const [rDuration, setRDuration] = useState(60);
   const [rVals,     setRVals]     = useState<Record<string, number>>({});
   const [rSaving,   setRSaving]   = useState(false);
-  const [rMsg,      setRMsg]      = useState<{type:'success'|'error';text:string}|null>(null);
 
   const saveRPE = async () => {
     const records = filtered.map(a => {
@@ -230,12 +321,12 @@ export default function WellnessPage({ athletes, user }: Props) {
       if (!rpe) return null;
       return { playerId:a.PlayerID, sessionDate:rDate, sessionName:rName, sessionType:rType, rpe, durationMin:rDuration, createdBy: user.displayName||user.username };
     }).filter(Boolean);
-    if (!records.length) return setRMsg({type:'error', text:'ยังไม่มีข้อมูลที่จะบันทึก'});
-    setRSaving(true); setRMsg(null);
+    if (!records.length) { showToast('ยังไม่มีข้อมูลที่จะบันทึก', 'error'); return; }
+    setRSaving(true);
     try {
       const res = await callGAS('saveRPE', { records }) as {status:string;message:string};
-      setRMsg({type: res.status==='success'?'success':'error', text: res.message||'เสร็จแล้ว'});
-    } catch(e:unknown) { setRMsg({type:'error', text: e instanceof Error ? e.message : 'Error'}); }
+      showToast(res.message||'เสร็จแล้ว', res.status==='success'?'success':'error');
+    } catch(e:unknown) { showToast(e instanceof Error ? e.message : 'Error', 'error'); }
     finally { setRSaving(false); }
   };
 
@@ -380,24 +471,22 @@ export default function WellnessPage({ athletes, user }: Props) {
             </div>
           )}
 
-          {/* Legend icons */}
-          <div style={{display:'flex',gap:16,marginBottom:10,flexWrap:'wrap'}}>
-            {WELLNESS_FIELDS.map(f=>(
-              <div key={f.key} style={{display:'flex',alignItems:'center',gap:5}}>
-                <span style={{fontSize:'0.9rem'}}>{f.icon}</span>
-                <span style={{fontSize:'0.68rem',fontWeight:700,color:'var(--text-muted)'}}>{f.label}</span>
-              </div>
-            ))}
+          {/* Athlete table */}
+          <div className="table-scroll-wrap" style={{ borderRadius:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ minWidth:600 }}>
+              <WellnessTableHeader />
+              {filtered.map((a, i) => (
+                <WellnessRow
+                  key={a.PlayerID}
+                  a={a}
+                  vals={wVals[a.PlayerID]||{}}
+                  onChange={(k,v) => setW(a.PlayerID,k,v)}
+                  isLast={i === filtered.length - 1}
+                />
+              ))}
+            </div>
           </div>
 
-          {/* Athlete rows */}
-          <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {filtered.map(a=>(
-              <WellnessRow key={a.PlayerID} a={a} vals={wVals[a.PlayerID]||{}} onChange={(k,v)=>setW(a.PlayerID,k,v)}/>
-            ))}
-          </div>
-
-          {wMsg && <div style={{marginTop:12,padding:'10px 14px',borderRadius:10,fontSize:'0.875rem',fontWeight:600,background:wMsg.type==='success'?'#f0fdf4':'#fef2f2',border:`1px solid ${wMsg.type==='success'?'#bbf7d0':'#fecaca'}`,color:wMsg.type==='success'?'#166534':'#991b1b'}}>{wMsg.text}</div>}
         </div>
       )}
 
@@ -442,17 +531,15 @@ export default function WellnessPage({ athletes, user }: Props) {
             </div>
           </div>
 
-          {/* RPE scale legend */}
-          <div style={{padding:'10px 16px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,marginBottom:12}}>
-            <div style={{fontSize:'0.7rem',fontWeight:700,color:'var(--text-muted)',marginBottom:8}}>RPE SCALE — Rate of Perceived Exertion (ความหนักที่รู้สึก)</div>
-            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-              {RPE_SCALE.map(r=>(
-                <div key={r.val} style={{textAlign:'center',minWidth:44}}>
-                  <div style={{width:28,height:28,borderRadius:7,background:r.color,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 2px',fontWeight:900,fontSize:'0.8rem',color:'white'}}>{r.val}</div>
-                  <div style={{fontSize:'0.55rem',color:'var(--text-muted)',fontWeight:600}}>{r.desc}</div>
-                </div>
-              ))}
-            </div>
+          {/* RPE scale legend — compact strip */}
+          <div style={{padding:'8px 14px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,marginBottom:12,display:'flex',gap:4,alignItems:'center',flexWrap:'wrap'}}>
+            <span style={{fontSize:'0.62rem',fontWeight:700,color:'var(--text-muted)',marginRight:6,whiteSpace:'nowrap'}}>RPE SCALE:</span>
+            {RPE_SCALE.map(r=>(
+              <div key={r.val} style={{display:'flex',flexDirection:'column',alignItems:'center',minWidth:38}}>
+                <div style={{width:26,height:26,borderRadius:6,background:r.color,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:'0.75rem',color:'white'}}>{r.val}</div>
+                <div style={{fontSize:'0.52rem',color:'var(--text-muted)',fontWeight:600,marginTop:1,whiteSpace:'nowrap'}}>{r.desc}</div>
+              </div>
+            ))}
           </div>
 
           {/* Summary */}
@@ -469,17 +556,23 @@ export default function WellnessPage({ athletes, user }: Props) {
             </div>
           )}
 
-          {/* Athlete rows */}
-          <div style={{display:'flex',flexDirection:'column',gap:6}}>
-            {filtered.map(a=>(
-              <RPERow key={a.PlayerID} a={a} rpe={rVals[a.PlayerID]||0} duration={rDuration}
-                onChange={v=>setRVals(p=>({...p,[a.PlayerID]:v}))}
-                onDuration={_=>{}/* shared duration */}
-              />
-            ))}
+          {/* Athlete table */}
+          <div className="table-scroll-wrap" style={{ borderRadius:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ minWidth:580 }}>
+              <RPETableHeader />
+              {filtered.map((a, i) => (
+                <RPERow
+                  key={a.PlayerID}
+                  a={a}
+                  rpe={rVals[a.PlayerID]||0}
+                  duration={rDuration}
+                  onChange={v => setRVals(p => ({...p,[a.PlayerID]:v}))}
+                  isLast={i === filtered.length - 1}
+                />
+              ))}
+            </div>
           </div>
 
-          {rMsg && <div style={{marginTop:12,padding:'10px 14px',borderRadius:10,fontSize:'0.875rem',fontWeight:600,background:rMsg.type==='success'?'#f0fdf4':'#fef2f2',border:`1px solid ${rMsg.type==='success'?'#bbf7d0':'#fecaca'}`,color:rMsg.type==='success'?'#166534':'#991b1b'}}>{rMsg.text}</div>}
         </div>
       )}
 

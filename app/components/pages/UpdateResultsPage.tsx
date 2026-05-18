@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Athlete } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { showToast } from '@/lib/toast';
 import { getScorePoint, SCORE_COLORS } from '@/lib/score';
 import { calcYoyoDist, calcVo2 } from '@/lib/devData';
 
@@ -34,7 +35,6 @@ function SingleTab({ athletes, onSuccess }: Props) {
     yoyoLevel: '', yoyoShuttle: '', situp: '', longJump: '', pushup: '', sitReach: '',
   });
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -65,9 +65,8 @@ function SingleTab({ athletes, onSuccess }: Props) {
 
   const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
-    if (!form.playerId) return setMsg({ type: 'error', text: 'กรุณาเลือกนักกีฬา' });
+    if (!form.playerId) { showToast('กรุณาเลือกนักกีฬา', 'error'); return; }
     setSaving(true);
-    setMsg(null);
     try {
       const res = await callGAS('saveTest', {
         playerId: form.playerId,
@@ -79,17 +78,17 @@ function SingleTab({ athletes, onSuccess }: Props) {
         situp: form.situp, longJump: form.longJump, pushup: form.pushup, sitReach: form.sitReach,
       }) as { status: string; message: string };
       if (res.status === 'success') {
-        setMsg({ type: 'success', text: res.message });
+        showToast(res.message, 'success');
         const pid = form.playerId;
         setTimeout(() => {
           onSuccess();
           setForm({ playerId: pid, height: '', weight: '', fat: '', muscle: '', cmj: '', speed30: '', agiL: '', agiR: '', yoyoLevel: '', yoyoShuttle: '', situp: '', longJump: '', pushup: '', sitReach: '' });
         }, 1200);
       } else {
-        setMsg({ type: 'error', text: res.message });
+        showToast(res.message, 'error');
       }
     } catch {
-      setMsg({ type: 'error', text: 'Connection error' });
+      showToast('Connection error', 'error');
     } finally {
       setSaving(false);
     }
@@ -217,11 +216,6 @@ function SingleTab({ athletes, onSuccess }: Props) {
             </div>
           </div>
 
-          {msg && (
-            <div className="mb-3" style={{ background: msg.type==='success'?'#f0fdf4':'#fef2f2', border:`1px solid ${msg.type==='success'?'#bbf7d0':'#fecaca'}`, borderRadius:8, padding:'10px 14px', fontSize:'0.875rem', color:msg.type==='success'?'#166534':'#991b1b' }}>
-              <i className={`bi bi-${msg.type==='success'?'check-circle':'exclamation-triangle'} me-2`}/>{msg.text}
-            </div>
-          )}
           <button type="submit" className="btn-primary w-100" style={{ justifyContent:'center', padding:14, fontSize:'1rem', background:'#3b0743' }} disabled={saving}>
             {saving ? <><span className="spinner-ring" style={{width:18,height:18,borderWidth:2,margin:0}}/> Saving…</> : <><i className="bi bi-cloud-arrow-up"/> บันทึกผลการทดสอบ</>}
           </button>
@@ -277,7 +271,6 @@ function BulkTab({ athletes, onSuccess }: Props) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(0);
   const [total, setTotal] = useState(0);
-  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const setCell = (pid: string, field: string, val: string) =>
     setData(d => ({ ...d, [pid]: { ...(d[pid] || {}), [field]: val } }));
@@ -286,13 +279,12 @@ function BulkTab({ athletes, onSuccess }: Props) {
 
   const handleSave = async () => {
     const rows = Object.entries(data).filter(([, v]) => Object.values(v).some(x => x !== ''));
-    if (!rows.length) return setMsg({ type: 'error', text: 'ยังไม่มีข้อมูลที่กรอก' });
+    if (!rows.length) { showToast('ยังไม่มีข้อมูลที่กรอก', 'error'); return; }
     if (!confirm(`บันทึกข้อมูล ${rows.length} คน?`)) return;
 
     setSaving(true);
     setSaved(0);
     setTotal(rows.length);
-    setMsg(null);
 
     let ok = 0;
     for (const [pid, fields] of rows) {
@@ -315,7 +307,7 @@ function BulkTab({ athletes, onSuccess }: Props) {
     }
 
     setSaving(false);
-    setMsg({ type: 'success', text: `บันทึกสำเร็จ ${ok}/${rows.length} คน` });
+    showToast(`บันทึกสำเร็จ ${ok}/${rows.length} คน`, 'success');
     if (ok > 0) onSuccess();
   };
 
@@ -379,12 +371,6 @@ function BulkTab({ athletes, onSuccess }: Props) {
           กำลังบันทึก {saved}/{total} คน...
         </div>
       )}
-      {msg && !saving && (
-        <div style={{ background:msg.type==='success'?'#f0fdf4':'#fef2f2', border:`1px solid ${msg.type==='success'?'#bbf7d0':'#fecaca'}`, borderRadius:8, padding:'10px 14px', fontSize:'0.875rem', color:msg.type==='success'?'#166534':'#991b1b', marginTop:16 }}>
-          <i className={`bi bi-${msg.type==='success'?'check-circle':'exclamation-triangle'} me-2`}/>{msg.text}
-        </div>
-      )}
-
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:16, flexWrap:'wrap', gap:12 }}>
         <div style={{ fontSize:'0.85rem', color:'var(--text-muted)' }}>
           <span style={{ fontWeight:700, color:'#0f172a' }}>{readyCount}</span> คนพร้อมบันทึก
@@ -404,7 +390,6 @@ function CSVTab({ athletes, onSuccess }: Props) {
   const [headers, setHeaders] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -443,9 +428,9 @@ function CSVTab({ athletes, onSuccess }: Props) {
 
   const handleImport = async () => {
     const toSave = preview.filter(r => r._playerId);
-    if (!toSave.length) return setMsg({ type: 'error', text: 'ไม่มีข้อมูลที่ตรงกับนักกีฬาในระบบ' });
+    if (!toSave.length) { showToast('ไม่มีข้อมูลที่ตรงกับนักกีฬาในระบบ', 'error'); return; }
     if (!confirm(`บันทึกข้อมูล ${toSave.length} คน?`)) return;
-    setSaving(true); setProgress(0); setMsg(null);
+    setSaving(true); setProgress(0);
     let ok = 0;
     for (const row of toSave) {
       const yoyoDist = calcYoyoDist(row.YoyoLevel || '', row.YoyoShuttle || '');
@@ -467,7 +452,7 @@ function CSVTab({ athletes, onSuccess }: Props) {
       setProgress(ok);
     }
     setSaving(false);
-    setMsg({ type: 'success', text: `นำเข้าสำเร็จ ${ok}/${toSave.length} คน` });
+    showToast(`นำเข้าสำเร็จ ${ok}/${toSave.length} คน`, 'success');
     if (ok > 0) onSuccess();
   };
 
@@ -532,12 +517,6 @@ function CSVTab({ athletes, onSuccess }: Props) {
               กำลังนำเข้า {progress}/{matched} คน...
             </div>
           )}
-          {msg && !saving && (
-            <div style={{ background:msg.type==='success'?'#f0fdf4':'#fef2f2', border:`1px solid ${msg.type==='success'?'#bbf7d0':'#fecaca'}`, borderRadius:8, padding:'10px 14px', fontSize:'0.875rem', color:msg.type==='success'?'#166534':'#991b1b', marginBottom:16 }}>
-              <i className={`bi bi-${msg.type==='success'?'check-circle':'exclamation-triangle'} me-2`}/>{msg.text}
-            </div>
-          )}
-
           <div style={{ display:'flex', gap:10 }}>
             <button className="btn-outline" onClick={() => { setPreview([]); setHeaders([]); if (fileRef.current) fileRef.current.value=''; }}>
               <i className="bi bi-x" /> ยกเลิก

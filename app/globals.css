@@ -267,14 +267,127 @@ h1,h2,h3,h4,h5,h6 { font-family: 'Space Grotesk', 'Prompt', sans-serif; color: v
 /* ===== SCROLLBAR ===== */
 ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
 
-/* ===== RESPONSIVE ===== */
-@media (max-width: 991px) {
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE — Tablet & Mobile
+   ═══════════════════════════════════════════════════ */
+
+/* ── Tablet + Mobile ≤ 1024px: sidebar becomes drawer ── */
+@media (max-width: 1024px) {
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
   .sidebar-overlay.open { display: block; }
-  .main { margin-left: 0; padding: 16px; }
-  .top-bar { display: flex; align-items: center; justify-content: space-between; background: white; border-radius: var(--radius); border: 1px solid var(--border); padding: 14px 18px; margin-bottom: 20px; }
+  .main { margin-left: 0 !important; padding: 16px; }
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: white; border-radius: var(--radius); border: 1px solid var(--border);
+    padding: 13px 18px; margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+  }
   .hero-main-title { font-size: 2rem; }
+  /* Surface: reduce padding */
+  .surface { padding: 18px 20px; }
+  /* Page header wraps */
+  .page-header { flex-wrap: wrap; gap: 10px; }
+  /* Tabs scrollable on tablet */
+  .tab-switch { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tab-switch::-webkit-scrollbar { display: none; }
+  .tab-btn { white-space: nowrap; min-width: 130px; }
+}
+
+/* ── Mobile ≤ 640px: aggressive simplification ── */
+@media (max-width: 640px) {
+  :root { --radius: 12px; --radius-sm: 8px; }
+
+  .main { padding: 10px 12px; }
+
+  /* Surface */
+  .surface { padding: 14px 16px; border-radius: 12px; margin-bottom: 12px; }
+
+  /* Page header stacks */
+  .page-header { flex-direction: column; align-items: flex-start; margin-bottom: 16px; }
+  .page-header > div:last-child { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+  .page-title { font-size: 1.25rem; }
+  .page-subtitle { font-size: 0.8rem; }
+
+  /* Tabs */
+  .tab-switch { border-radius: 10px; margin-bottom: 14px; }
+  .tab-btn { padding: 11px 14px; font-size: 0.8rem; min-width: 110px; }
+
+  /* Section headers */
+  .section-hd { font-size: 0.88rem; padding-bottom: 10px; margin-bottom: 12px; }
+
+  /* KPI grid: 2 cols on phone */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
+  .kpi-card { padding: 14px 12px; }
+  .kpi-value { font-size: 1.6rem; }
+
+  /* Perf-split: single column */
+  .perf-split { flex-direction: column; }
+  .perf-split > div { min-width: unset !important; }
+
+  /* IDP rating: single column */
+  .ir-rating-group { grid-template-columns: 1fr !important; gap: 8px; }
+  .ir-summary-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px; }
+  .ir-summary-card { padding: 12px 10px; }
+  .ir-summary-val { font-size: 1.5rem; }
+  .ir-star-btn { width: 32px !important; height: 32px !important; }
+  .ir-radar-wrap { height: 220px; }
+
+  /* Tables: horizontal scroll */
+  .data-table, .roster-table, .dev-plan-table, .table-perf { min-width: 480px; }
+  .surface > div[style*="overflow"],
+  .table-scroll-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* H2H */
+  .h2h-player-block { padding: 14px 12px; }
+  .h2h-vs { font-size: 1.1rem; }
+  .metric-label { width: 70px; font-size: 0.65rem; }
+  .bar-val { width: 36px; font-size: 0.75rem; }
+
+  /* Forms */
+  .form-control, .form-select { padding: 11px 12px; font-size: 0.9rem; }
+  .btn-primary, .btn-outline { padding: 11px 18px; font-size: 0.875rem; }
+  .btn-sm { padding: 8px 12px !important; font-size: 0.78rem !important; }
+
+  /* Modal */
+  .modal-overlay { padding: 10px; align-items: flex-end; }
+  .modal-content, .modal-box {
+    padding: 20px 16px 28px; max-height: 95vh;
+    border-radius: 18px 18px 14px 14px;
+  }
+  .modal-close { top: 14px; right: 14px; }
+
+  /* Buttons in top bar */
+  .page-header .btn-primary,
+  .page-header .btn-outline { flex: 1; justify-content: center; min-width: 0; }
+
+  /* Info flex wrap smaller */
+  .info-box { flex: 1 1 calc(50% - 6px); min-width: 80px; }
+
+  /* Hero title */
+  .hero-main-title { font-size: 1.6rem !important; }
+  .hero-stats { grid-template-columns: repeat(3,1fr); margin-top: 28px; padding-top: 20px; }
+  .hero-stat-num { font-size: 1.7rem; }
+
+  /* Scout hero */
+  .pc-name { font-size: 1.6rem; }
+  .scout-hero-content { padding: 18px; }
+
+  /* Leaders */
+  .leaders-wrap { padding: 18px; }
+
+  /* Tab switch: full stretch */
+  .tab-switch { display: flex; }
+  .tab-btn { flex: 1; min-width: 0; padding: 11px 8px; font-size: 0.75rem; }
+
+  /* Toast: full width at bottom */
+}
+
+/* ── Horizontal scroll helper ── */
+.table-scroll-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 10px;
 }
 
 /* ===== DARK LOGIN ===== */
@@ -463,24 +576,36 @@ h1,h2,h3,h4,h5,h6 { font-family: 'Space Grotesk', 'Prompt', sans-serif; color: v
   }
   .ir-score-fill { border-radius: 3pt !important; }
 
-  /* ── 12. SCOUT REPORT (scoutPrintArea) ── */
+  /* ── 12. SCOUT REPORT ── */
   #scoutPrintArea { display: block !important; }
 
-  /* Hero: ลดขนาดให้พอดี A4 */
-  #scoutPrintArea > div:first-child {
-    border-radius: 10pt !important;
-    margin-bottom: 4mm !important;
-    padding: 14px 18px !important;
+  /* Hero compact */
+  #scoutHero {
+    margin-bottom: 3mm !important;
+    border-radius: 8pt !important;
+    min-height: unset !important;
+    overflow: visible !important;
     break-inside: avoid;
   }
-  /* FC26 card ในหน้า Scout ย่อลง 60% */
-  #scoutPrintArea > div:first-child [style*="clipPath"],
-  #scoutPrintArea > div:first-child [style*="clip-path"] {
-    transform: scale(0.62) !important;
-    transform-origin: top left !important;
+  #scoutHeroInner {
+    padding: 12px 16px !important;
+    gap: 12px !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+  }
+  /* FC26 card ย่อ — zoom collapses layout box */
+  #scoutHeroCard {
+    zoom: 0.48 !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+  }
+  /* OVR badge ย่อ */
+  #scoutOVRBadge {
+    zoom: 0.80 !important;
+    flex-shrink: 0 !important;
   }
 
-  /* Perf-split: คงเป็น side-by-side */
+  /* Perf-split: side by side */
   .perf-split {
     display: flex !important;
     gap: 8px !important;
@@ -488,7 +613,61 @@ h1,h2,h3,h4,h5,h6 { font-family: 'Space Grotesk', 'Prompt', sans-serif; color: v
   }
   .perf-split > div { flex: 1 !important; min-width: 0 !important; }
 
-  /* Info-flex: ให้ wrap แต่ไม่หาย */
+  /* Perf metrics + radar: side by side */
+  #scoutPerfSection {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: flex-start !important;
+  }
+  #scoutPerfSection > div { flex: 1 !important; min-width: 0 !important; }
+
+  /* History charts: 3 per row */
+  #scoutHistoryCharts {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  /* Body KPI: 4 col */
+  #scoutBodyKPI {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px !important;
+  }
+  /* Body trends: 3 per row */
+  #scoutBodyTrends {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  /* Skill grid: 3 per row */
+  #scoutSkillGrid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  /* IDP: behaviour/lifestyle/technical 3 col */
+  #scoutIDPSection .ir-rating-group {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 4px !important;
+  }
+  #scoutIDPSection .ir-rating-item {
+    padding: 3px 6px !important;
+  }
+
+  /* Attendance + Wellness side by side */
+  #scoutAttendSection,
+  #scoutWellnessSection {
+    break-inside: avoid;
+  }
+
+  /* RPE table compact */
+  #scoutRPESection .data-table { font-size: 7pt !important; }
+  #scoutRPESection .data-table td { padding: 2px 5px !important; }
+
+  /* Hide videos in print */
+  #scoutVideoPrint { display: none !important; }
+
+  /* Info-flex */
   .info-flex { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; }
 
   /* ── 13. TEAM REPORT ── */

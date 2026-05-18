@@ -397,13 +397,12 @@ export async function POST(req: NextRequest) {
 
       // ── GLOBAL CLUB SETTINGS ───────────────────────────────────────────────
       case 'getClubSettings': {
+        const allPages = 'dashboard,roster,scout,skill,attendance,wellness,ir,compare,lineup,teamreport,performance,quicktest,register,training';
         try {
           const { data } = await sb.from('app_settings').select('value').eq('key','club_allowed_pages').single();
-          const all = 'dashboard,roster,scout,teamreport,compare,lineup,ir,performance,quicktest,register,training';
-          return NextResponse.json({ pages: data?.value ?? all });
+          return NextResponse.json({ pages: data?.value ?? allPages });
         } catch {
-          const all = 'dashboard,roster,scout,teamreport,compare,lineup,ir,performance,quicktest,register,training';
-          return NextResponse.json({ pages: all });
+          return NextResponse.json({ pages: allPages });
         }
       }
 

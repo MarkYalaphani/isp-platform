@@ -5,6 +5,7 @@ import { Athlete, Page, User } from '@/lib/types';
 import { getScorePoint } from '@/lib/score';
 import { VIDEO_DB, DEV_DATA, VideoItem } from '@/lib/devData';
 import { callGAS } from '@/lib/api';
+import { showToast } from '@/lib/toast';
 
 interface Props {
   athletes: Athlete[];
@@ -112,22 +113,21 @@ function VideoFormModal({
   const [category, setCategory] = useState(initial?.category || 'speed30');
   const [vol,      setVol]      = useState(initial?.vol ?? 1);
   const [saving,   setSaving]   = useState(false);
-  const [msg,      setMsg]      = useState('');
 
   const videoId = extractYouTubeId(url);
   const thumb   = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : '';
   const isEdit  = !!initial?.dbId;
 
   const handleSave = async () => {
-    if (!videoId || !title || !category) return setMsg('กรุณากรอกข้อมูลให้ครบ');
-    setSaving(true); setMsg('');
+    if (!videoId || !title || !category) { showToast('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
+    setSaving(true);
     try {
       const res = await callGAS('saveTrainingVideo', {
         video: { dbId: initial?.dbId, id: videoId, title, category, vol },
       }) as { status: string };
       if (res.status === 'success') { onSaved(); onClose(); }
-      else setMsg('บันทึกไม่สำเร็จ');
-    } catch (e: unknown) { setMsg(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด'); }
+      else showToast('บันทึกไม่สำเร็จ', 'error');
+    } catch (e: unknown) { showToast(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด', 'error'); }
     finally { setSaving(false); }
   };
 
@@ -180,8 +180,6 @@ function VideoFormModal({
           </div>
         </div>
 
-        {msg && <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontSize: '0.8rem' }}>{msg}</div>}
-
         <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
           <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ flex: 1 }}>
             {saving ? <><span className="spinner-ring" style={{ width: 14, height: 14, borderWidth: 2, margin: 0 }} /> บันทึก...</> : <><i className="bi bi-floppy me-1" />บันทึก</>}
@@ -199,7 +197,6 @@ function VideoManager({ videos, onReload }: { videos: VideoItem[]; onReload: () 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [seeding, setSeeding]       = useState(false);
   const [filterCat, setFilterCat]   = useState('ALL');
-  const [msg, setMsg]               = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleDelete = async (v: VideoItem) => {
     if (!v.dbId) return;
@@ -208,17 +205,17 @@ function VideoManager({ videos, onReload }: { videos: VideoItem[]; onReload: () 
     try {
       await callGAS('deleteTrainingVideo', { dbId: v.dbId });
       onReload();
-    } catch { setMsg({ type: 'error', text: 'ลบไม่สำเร็จ' }); }
+    } catch { showToast('ลบไม่สำเร็จ', 'error'); }
     finally { setDeletingId(null); }
   };
 
   const handleSeed = async () => {
-    setSeeding(true); setMsg(null);
+    setSeeding(true);
     try {
       const res = await callGAS('seedTrainingVideos', { videos: VIDEO_DB.map(v => ({ id: v.id, title: v.title, category: v.category, vol: v.vol ?? 1 })) }) as { status: string; message: string };
-      setMsg({ type: res.status === 'success' ? 'success' : 'error', text: res.message || 'เสร็จแล้ว' });
+      showToast(res.message || 'เสร็จแล้ว', res.status === 'success' ? 'success' : 'error');
       onReload();
-    } catch (e: unknown) { setMsg({ type: 'error', text: e instanceof Error ? e.message : 'เกิดข้อผิดพลาด' }); }
+    } catch (e: unknown) { showToast(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด', 'error'); }
     finally { setSeeding(false); }
   };
 
@@ -246,12 +243,6 @@ function VideoManager({ videos, onReload }: { videos: VideoItem[]; onReload: () 
           {filtered.length} รายการ
         </span>
       </div>
-
-      {msg && (
-        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 8, fontSize: '0.82rem', fontWeight: 600, background: msg.type === 'success' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${msg.type === 'success' ? '#bbf7d0' : '#fecaca'}`, color: msg.type === 'success' ? '#166534' : '#991b1b' }}>
-          {msg.text}
-        </div>
-      )}
 
       {/* Table */}
       <div className="surface" style={{ padding: 0, overflow: 'hidden' }}>
