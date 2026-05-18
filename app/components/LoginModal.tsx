@@ -57,12 +57,24 @@ export default function LoginModal({ onLogin }: Props) {
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
-      display: 'flex', fontFamily: "'Space Grotesk','Prompt',sans-serif",
-      background: '#060d1f',
+      display: 'flex', flexDirection: 'row', flexWrap: 'wrap',
+      fontFamily: "'Space Grotesk','Prompt',sans-serif",
+      background: '#060d1f', overflowY: 'auto',
     }}>
+      <style>{`
+        @media (max-width: 700px) {
+          .login-left-panel { display: none !important; }
+          .login-right-panel {
+            flex: 1 1 100% !important;
+            min-height: 100dvh !important;
+            border-left: none !important;
+            padding: 32px 24px !important;
+          }
+        }
+      `}</style>
 
       {/* ── LEFT: Brand Panel ── */}
-      <div style={{
+      <div className="login-left-panel" style={{
         flex: '1 1 55%', minWidth: 0,
         background: 'linear-gradient(145deg,#060d1f 0%,#0c1a3a 50%,#071428 100%)',
         position: 'relative', overflow: 'hidden',
@@ -152,7 +164,7 @@ export default function LoginModal({ onLogin }: Props) {
       </div>
 
       {/* ── RIGHT: Login Form ── */}
-      <div style={{
+      <div className="login-right-panel" style={{
         flex:'0 0 clamp(320px,40%,460px)',
         background:'#0f172a',
         borderLeft:'1px solid rgba(255,255,255,0.06)',

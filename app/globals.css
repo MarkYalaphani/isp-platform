@@ -390,6 +390,43 @@ h1,h2,h3,h4,h5,h6 { font-family: 'Space Grotesk', 'Prompt', sans-serif; color: v
   border-radius: 10px;
 }
 
+/* ═══ Portrait phone (narrow + tall) ═══ */
+@media (max-width: 480px) {
+  /* Tighter spacing */
+  .main { padding: 8px 10px !important; }
+  .surface { padding: 12px 14px !important; border-radius: 10px !important; }
+
+  /* Page header: stack, buttons full-width */
+  .page-header { margin-bottom: 12px !important; }
+  .page-title { font-size: 1.15rem !important; }
+
+  /* Tabs: icon only hint, very compact */
+  .tab-btn { padding: 10px 6px !important; font-size: 0.72rem !important; }
+
+  /* 2-col grids → 1 col on tiny screens */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 6px !important; }
+
+  /* Section header smaller */
+  .section-hd { font-size: 0.82rem !important; }
+
+  /* Top bar compact */
+  .top-bar { padding: 10px 14px !important; margin-bottom: 10px !important; }
+
+  /* Prevent any horizontal overflow */
+  body { overflow-x: hidden !important; }
+  .main > * { max-width: 100vw; overflow-x: hidden; }
+}
+
+/* ═══ Landscape phone (wide + short) ═══ */
+@media (max-height: 500px) and (orientation: landscape) {
+  .main { padding: 6px 12px !important; }
+  .surface { padding: 10px 14px !important; margin-bottom: 8px !important; }
+  .page-header { margin-bottom: 8px !important; }
+  .page-title { font-size: 1.1rem !important; }
+  .tab-switch { margin-bottom: 8px !important; }
+  canvas { max-height: 140px !important; }
+}
+
 /* ===== DARK LOGIN ===== */
 .login-box { background: #1e293b; border-radius: 24px; padding: 48px 40px; width: 100%; max-width: 420px; box-shadow: 0 25px 60px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.07); position: relative; overflow: hidden; }
 .login-box::before { content: ''; position: absolute; top: -80px; right: -80px; width: 250px; height: 250px; border-radius: 50%; background: radial-gradient(circle, rgba(56,189,248,0.15) 0%, transparent 70%); pointer-events: none; }
