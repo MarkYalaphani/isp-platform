@@ -1,0 +1,617 @@
+'use client';
+
+import { useEffect, useState, use } from 'react';
+import {
+  Chart as ChartJS, RadialLinearScale, PointElement, LineElement,
+  Filler, Tooltip, CategoryScale, LinearScale,
+} from 'chart.js';
+import { Radar, Line } from 'react-chartjs-2';
+import { getScorePoint, SCORE_COLORS } from '@/lib/score';
+import { DEV_DATA, VIDEO_DB } from '@/lib/devData';
+
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, CategoryScale, LinearScale);
+
+/* ── constants ── */
+const METRICS = [
+  { key:'speed30',  field:'Speed30',     label:'Speed 30m',   unit:'s',    color:'#f472b6', icon:'bi-lightning-charge-fill' },
+  { key:'cmj',      field:'CMJ',         label:'CMJ',         unit:'cm',   color:'#818cf8', icon:'bi-arrow-up-circle-fill'  },
+  { key:'agility',  field:'Agility',     label:'Agility',     unit:'s',    color:'#fb923c', icon:'bi-arrow-repeat'          },
+  { key:'situp',    field:'Situp',       label:'Sit-up',      unit:'reps', color:'#facc15', icon:'bi-person-fill'           },
+  { key:'longjump', field:'LongJump',    label:'Long Jump',   unit:'cm',   color:'#a3e635', icon:'bi-dash-lg'               },
+  { key:'yoyo',     field:'YoYo',        label:'Yo-Yo',       unit:'m',    color:'#f87171', icon:'bi-heart-pulse-fill'      },
+  { key:'pushup',   field:'Pushup',      label:'Push-up',     unit:'reps', color:'#4ade80', icon:'bi-activity'              },
+  { key:'sitreach', field:'SitAndReach', label:'Sit & Reach', unit:'cm',   color:'#38bdf8', icon:'bi-arrows-expand'         },
+];
+
+const HISTORY_FIELDS = [
+  { field:'Rating',      label:'Overall Rating', color:'#38bdf8' },
+  { field:'Speed30',     label:'Speed 30m',      color:'#f472b6' },
+  { field:'Agility',     label:'Agility',        color:'#fb923c' },
+  { field:'CMJ',         label:'CMJ',            color:'#818cf8' },
+  { field:'LongJump',    label:'Long Jump',      color:'#a3e635' },
+  { field:'YoYo',        label:'Yo-Yo',          color:'#f87171' },
+  { field:'Pushup',      label:'Push-up',        color:'#4ade80' },
+  { field:'Situp',       label:'Sit-up',         color:'#facc15' },
+  { field:'SitAndReach', label:'Sit & Reach',    color:'#c084fc' },
+];
+
+const IR_SECTIONS = [
+  { key:'behaviour', label:'Behaviour', color:'#818cf8', icon:'bi-emoji-smile-fill',
+    items:[
+      {field:'B_OnTime',label:'Be on Time'},{field:'B_Effort',label:'Effort'},
+      {field:'B_Teamwork',label:'Teamwork'},{field:'B_Respect',label:'Respect'},
+      {field:'B_Attendance',label:'Attendance'},{field:'B_Participation',label:'Participation'},
+      {field:'B_Improvement',label:'Improvement'},
+    ], scoreField:'BehaviourScore' },
+  { key:'lifestyle', label:'Lifestyle', color:'#34d399', icon:'bi-heart-fill',
+    items:[
+      {field:'L_Sleep',label:'Sleep'},{field:'L_Hydration',label:'Hydration'},
+      {field:'L_Diet',label:'Diet'},{field:'L_ScreenTime',label:'Screen Time'},
+    ], scoreField:'LifestyleScore' },
+  { key:'technical', label:'Technical', color:'#f472b6', icon:'bi-trophy-fill',
+    items:[
+      {field:'T_Motricity',label:'Motricity'},{field:'T_Technical',label:'Technical'},
+      {field:'T_Tactic',label:'Tactic'},{field:'T_OffFundam',label:'Off. Fundamental'},
+      {field:'T_DefFundam',label:'Def. Fundamental'},{field:'T_Fitness',label:'Fitness'},
+    ], scoreField:'TechnicalScore' },
+];
+
+const BADGES = [
+  {emoji:'🎯',label:'First Test',   check:(h:number)=>h>=1},
+  {emoji:'📅',label:'Veteran (5+)', check:(h:number)=>h>=5},
+  {emoji:'🏆',label:'Elite',        check:(_h:number,r:number)=>r>=80},
+  {emoji:'⭐',label:'Perfect Score',check:(_h:number,_r:number,sc:Record<string,number>)=>Object.values(sc).some(s=>s>=5)},
+  {emoji:'💪',label:'All-Rounder',  check:(_h:number,_r:number,sc:Record<string,number>)=>{const v=Object.values(sc).filter(s=>s>0);return v.length>=6&&v.every(s=>s>=3);}},
+  {emoji:'📈',label:'Most Improved',check:(h:number,_r:number,_sc:Record<string,number>,hist:HistRecord[])=>h>=2&&Number(hist[hist.length-1]?.Rating)>Number(hist[0]?.Rating)},
+  {emoji:'⚡',label:'Speed Demon',  check:(_h:number,_r:number,sc:Record<string,number>)=>sc['speed30']>=5},
+  {emoji:'❤️',label:'Iron Lungs',  check:(_h:number,_r:number,sc:Record<string,number>)=>sc['yoyo']>=5},
+];
+
+/* ── helpers ── */
+function calcAge(dob:string){if(!dob)return null;const d=new Date(dob);if(isNaN(d.getTime()))return null;return Math.floor((Date.now()-d.getTime())/31557600000);}
+function calcBMI(h:string,w:string){const hn=parseFloat(h),wn=parseFloat(w);if(!hn||!wn)return'—';return(wn/Math.pow(hn/100,2)).toFixed(1);}
+function fmtDate(ts:string){try{const d=new Date(ts);return isNaN(d.getTime())?'':d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'});}catch{return'';}}
+function fmtShort(ts:string,i:number){try{const d=new Date(ts);return isNaN(d.getTime())?`#${i+1}`:`${d.getDate()}/${d.getMonth()+1}/${String(d.getFullYear()).slice(2)}`;}catch{return`#${i+1}`;}}
+function getGrade(r:number){
+  if(r>=80)return{label:'Elite',   emoji:'🏆',color:'#10b981',bg:'linear-gradient(135deg,#10b981,#047857)',border:'#34d399',shadow:'rgba(16,185,129,0.35)'};
+  if(r>=60)return{label:'Good',    emoji:'⭐',color:'#3b82f6',bg:'linear-gradient(135deg,#3b82f6,#1d4ed8)',border:'#60a5fa',shadow:'rgba(59,130,246,0.35)'};
+  if(r>=40)return{label:'Average', emoji:'📈',color:'#f59e0b',bg:'linear-gradient(135deg,#f59e0b,#b45309)',border:'#fbbf24',shadow:'rgba(239,68,68,0.3)'};
+  return          {label:'Fair',   emoji:'📊',color:'#ef4444',bg:'linear-gradient(135deg,#ef4444,#b91c1c)',border:'#f87171',shadow:'rgba(239,68,68,0.3)'};
+}
+function irScoreColor(s:number){if(s>=5)return'#16a34a';if(s>=4)return'#22c55e';if(s>=3)return'#f59e0b';if(s>=2)return'#f97316';return'#ef4444';}
+function irGrade(pct:number){if(pct>=90)return{label:'Excellent',color:'#10b981'};if(pct>=75)return{label:'Good',color:'#3b82f6'};if(pct>=50)return{label:'Average',color:'#f59e0b'};return{label:'Below Avg',color:'#ef4444'};}
+function getTrend(data:(number|null)[]){const v=data.filter(x=>x!==null)as number[];if(v.length<2)return null;const first=v[0],last=v[v.length-1];if(!first)return null;const pct=Math.round(((last-first)/first)*100);return{pct:Math.abs(pct),up:last>=first};}
+
+/* ── types ── */
+type HistRecord={Timestamp:string;Rating:number;Speed30:string;CMJ:string;Agility:string;Situp:string;LongJump:string;YoYo:string;Pushup:string;SitAndReach:string;Height:string;Weight:string;BMI:string;Fat:string;Muscle:string;VO2Max:string};
+type IRRecord=Record<string,number|string>;
+type AthleteData={Name:string;Nickname:string;DOB:string;Team:string;Position:string;Club:string;Province:string;DomFoot:string;DomHand:string;PhotoUrl:string;TestCount:number;PlayerID:string;History:HistRecord[];Latest:Record<string,string|number>|null;IRHistory:IRRecord[]};
+
+const RADAR_OPTS={responsive:true,plugins:{legend:{display:false}},scales:{r:{min:0,max:5,ticks:{stepSize:1,font:{size:9},backdropColor:'transparent'},pointLabels:{font:{size:10,weight:600 as const},color:'#475569'},grid:{color:'rgba(0,0,0,0.06)'},angleLines:{color:'rgba(0,0,0,0.06)'}}}};
+const LINE_OPTS={responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.05)'}},x:{ticks:{font:{size:8},maxRotation:30},grid:{display:false}}}};
+
+/* ── component ── */
+export default function PublicAthletePage({params}:{params:Promise<{playerId:string}>}){
+  const {playerId}=use(params);
+  const [data,setData]=useState<AthleteData|null>(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+
+  useEffect(()=>{
+    fetch(`/api/public/athlete/${playerId}`)
+      .then(r=>r.json())
+      .then(d=>{if(d.error)setError(d.error);else setData(d);})
+      .catch(()=>setError('ไม่สามารถโหลดข้อมูลได้'))
+      .finally(()=>setLoading(false));
+  },[playerId]);
+
+  if(loading)return(
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#0f172a'}}>
+      <div style={{textAlign:'center',color:'white'}}>
+        <div style={{width:48,height:48,border:'4px solid rgba(56,189,248,0.3)',borderTop:'4px solid #38bdf8',borderRadius:'50%',animation:'spin 1s linear infinite',margin:'0 auto 16px'}}/>
+        <p>กำลังโหลด...</p>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    </div>
+  );
+
+  if(error||!data)return(
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#0f172a',color:'white',textAlign:'center'}}>
+      <div><div style={{fontSize:'4rem',marginBottom:16}}>❌</div><h2>{error||'ไม่พบข้อมูล'}</h2></div>
+    </div>
+  );
+
+  const latest  =data.Latest;
+  const HIST    =data.History||[];
+  const irHistory=data.IRHistory||[];
+  const rating  =Number(latest?.Rating||0);
+  const grade   =getGrade(rating);
+  const dob     =data.DOB;
+  const age     =calcAge(dob);
+  const bmi     =calcBMI(String(latest?.Height||''),String(latest?.Weight||''));
+  const initials=(data.Name||'?').split(' ').map((w:string)=>w[0]).join('').slice(0,2).toUpperCase();
+  const lastTest=HIST.length?fmtDate(HIST[HIST.length-1].Timestamp):'—';
+
+  const scores=METRICS.reduce<Record<string,number>>((acc,m)=>{
+    acc[m.key]=latest?getScorePoint(m.key,String(latest[m.field]||''),dob):0;
+    return acc;
+  },{});
+
+  const physicalAge=(()=>{
+    const valid=Object.values(scores).filter(s=>s>0);
+    if(!valid.length||!age)return null;
+    const avg=valid.reduce((a,b)=>a+b,0)/valid.length;
+    return Math.max(8,age+Math.round((avg-3)*1.5));
+  })();
+
+  const earnedBadges=BADGES.filter(b=>b.check(HIST.length,rating,scores,HIST));
+  const strengths  =METRICS.filter(m=>scores[m.key]>=4);
+  const weaknesses =METRICS.filter(m=>scores[m.key]>0&&scores[m.key]<=2);
+
+  const histLabels=HIST.map((r,i)=>fmtShort(r.Timestamp,i));
+
+  function lineData(field:string,color:string){
+    return{
+      labels:histLabels,
+      datasets:[{
+        data:HIST.map(r=>{const v=r[field as keyof HistRecord];if(v===undefined||v==='')return null;const n=typeof v==='number'?v:parseFloat(String(v));return isNaN(n)?null:n;}),
+        borderColor:color,backgroundColor:color+'18',tension:0.35,pointRadius:4,pointHoverRadius:6,
+        pointBackgroundColor:color,fill:true,borderWidth:2,
+      }],
+    };
+  }
+
+  const radarData={
+    labels:METRICS.map(m=>m.label),
+    datasets:[{label:data.Name,data:METRICS.map(m=>scores[m.key]||0),backgroundColor:'rgba(56,189,248,0.12)',borderColor:'#38bdf8',borderWidth:2.5,pointBackgroundColor:'#38bdf8',pointRadius:4}],
+  };
+
+  const INFO_ITEMS=[
+    {key:'height',  label:'Height',   icon:'bi-arrows-vertical',  color:'#38bdf8',val:latest?.Height  ?`${latest.Height} cm` :'—'},
+    {key:'weight',  label:'Weight',   icon:'bi-bag-fill',          color:'#818cf8',val:latest?.Weight  ?`${latest.Weight} kg` :'—'},
+    {key:'bmi',     label:'BMI',      icon:'bi-calculator-fill',   color:'#fb923c',val:bmi!=='—'?bmi:'—'},
+    {key:'fat',     label:'Body Fat', icon:'bi-droplet-fill',      color:'#f472b6',val:latest?.Fat     ?`${latest.Fat} %`    :'—'},
+    {key:'muscle',  label:'Muscle',   icon:'bi-lightning-fill',    color:'#4ade80',val:latest?.Muscle  ?`${latest.Muscle} %` :'—'},
+    {key:'vo2max',  label:'VO₂ Max',  icon:'bi-heart-pulse-fill',  color:'#f87171',val:latest?.VO2Max  ?`${latest.VO2Max}`   :'—'},
+    {key:'domfoot', label:'Dom. Foot',icon:'bi-geo-fill',          color:'#a3e635',val:data.DomFoot||'—'},
+    {key:'domhand', label:'Dom. Hand',icon:'bi-hand-index-fill',   color:'#facc15',val:data.DomHand||'—'},
+    {key:'age',     label:'Age',      icon:'bi-calendar3',         color:'#c084fc',val:age!=null?`${age} yrs`:'—'},
+    {key:'province',label:'Province', icon:'bi-geo-alt-fill',      color:'#38bdf8',val:data.Province||'—'},
+  ];
+
+  const latestIR=irHistory.length?irHistory[0]:null;
+
+  return(
+    <div style={{minHeight:'100vh',background:'#f8fafc',fontFamily:"'Prompt','Segoe UI',sans-serif"}}>
+      <style>{`
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .pub-surface{background:white;border:1px solid #e2e8f0;border-radius:14px;padding:20px;margin-bottom:16px}
+        .pub-hd{display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.875rem;color:#334155;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f1f5f9}
+        @media(max-width:600px){.pub-grid3{grid-template-columns:1fr!important}.pub-grid4{grid-template-columns:repeat(2,1fr)!important}}
+      `}</style>
+
+      {/* ── HERO ── */}
+      <div style={{position:'relative',overflow:'hidden',background:'linear-gradient(135deg,#0c1628 0%,#0f2040 60%,#0c1628 100%)'}}>
+        {data.PhotoUrl&&(
+          <div style={{position:'absolute',inset:0,zIndex:0,overflow:'hidden'}}>
+            <img src={data.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top',filter:'blur(28px) brightness(0.22) saturate(1.4)',transform:'scale(1.1)'}}/>
+          </div>
+        )}
+        <div style={{position:'absolute',inset:0,zIndex:1,background:'radial-gradient(ellipse at 75% 50%,rgba(56,189,248,0.1) 0%,transparent 65%)',pointerEvents:'none'}}/>
+        <div style={{position:'relative',zIndex:2,maxWidth:800,margin:'0 auto',padding:'32px 20px'}}>
+          <div style={{fontSize:'0.58rem',fontWeight:700,letterSpacing:3,color:'#38bdf8',textTransform:'uppercase',marginBottom:20}}>ISP — ATHLETE PROFILE</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:28,flexWrap:'wrap'}}>
+            {/* Left */}
+            <div style={{display:'flex',alignItems:'center',gap:24,flex:1,minWidth:240}}>
+              <div style={{width:120,height:120,minWidth:120,borderRadius:20,border:'3px solid rgba(56,189,248,0.6)',background:'rgba(56,189,248,0.08)',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0,boxShadow:'0 8px 32px rgba(0,0,0,0.5)'}}>
+                {data.PhotoUrl?<img src={data.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top'}}/>
+                  :<span style={{fontSize:'2.4rem',fontWeight:800,color:'#38bdf8',lineHeight:1}}>{initials}</span>}
+              </div>
+              <div>
+                <div style={{fontSize:'1.75rem',fontWeight:800,color:'#ffffff',lineHeight:1.1,textTransform:'uppercase',letterSpacing:0.5}}>{data.Name}</div>
+                {data.Nickname&&<div style={{fontSize:'0.875rem',color:'#7dd3fc',fontStyle:'italic',marginTop:4}}>"{data.Nickname}"</div>}
+                <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:12}}>
+                  {[{icon:'bi-people-fill',val:data.Team},{icon:'bi-person-badge',val:data.Position},{icon:'bi-building',val:data.Club},{icon:'bi-geo-alt-fill',val:data.Province}]
+                    .filter(x=>x.val).map(x=>(
+                    <span key={x.icon} style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:'0.78rem',color:'rgba(255,255,255,0.85)',background:'rgba(255,255,255,0.1)',borderRadius:20,padding:'5px 12px',border:'1px solid rgba(255,255,255,0.1)'}}>
+                      <i className={`bi ${x.icon}`} style={{color:'#38bdf8',fontSize:'0.75rem'}}/>{x.val}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {/* Right */}
+            <div style={{display:'flex',alignItems:'center',gap:20,flexShrink:0}}>
+              <div style={{display:'flex',flexDirection:'column',gap:8,alignItems:'flex-end'}}>
+                <div style={{display:'flex',gap:10}}>
+                  {[
+                    {label:'TESTS',   val:String(HIST.length)},
+                    {label:'AGE',     val:age!=null?`${age}`:'—'},
+                    {label:'PHYS AGE',val:physicalAge!=null?`~${physicalAge}`:'—',hl:physicalAge!=null&&age!=null&&physicalAge>age},
+                    {label:'TEAM',    val:data.Team||'—'},
+                  ].map(s=>(
+                    <div key={s.label} style={{textAlign:'center',background:(s as {hl?:boolean}).hl?'rgba(52,211,153,0.12)':'rgba(255,255,255,0.07)',border:`1px solid ${(s as {hl?:boolean}).hl?'rgba(52,211,153,0.3)':'rgba(255,255,255,0.1)'}`,borderRadius:10,padding:'10px 16px',minWidth:64}}>
+                      <div style={{fontSize:'1.25rem',fontWeight:800,color:(s as {hl?:boolean}).hl?'#34d399':'white',lineHeight:1}}>{s.val}</div>
+                      <div style={{fontSize:'0.58rem',color:'#94a3b8',textTransform:'uppercase',letterSpacing:1.5,marginTop:4}}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {HIST.length>0&&<div style={{fontSize:'0.72rem',color:'#64748b'}}><i className="bi bi-clock me-1"/>Last test: {lastTest}</div>}
+              </div>
+              <div style={{textAlign:'center',borderRadius:16,padding:'18px 26px',background:grade.bg,border:`2px solid ${grade.border}`,boxShadow:`0 8px 24px ${grade.shadow}`}}>
+                <div style={{fontSize:'0.6rem',fontWeight:700,letterSpacing:2,color:'rgba(255,255,255,0.7)',textTransform:'uppercase',marginBottom:4}}>RATING</div>
+                <div style={{fontSize:'3rem',fontWeight:900,color:'white',lineHeight:1}}>{rating}</div>
+                <div style={{fontSize:'0.78rem',fontWeight:700,color:'rgba(255,255,255,0.95)',marginTop:6}}>{grade.emoji} {grade.label}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:800,margin:'0 auto',padding:'20px 16px'}}>
+
+        {/* ── STRENGTHS / WEAKNESSES ── */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}} className="pub-grid2">
+          <div style={{background:'linear-gradient(135deg,#f0fdf4,#dcfce7)',border:'1px solid #bbf7d0',borderRadius:14,padding:18}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+              <div style={{width:28,height:28,background:'#16a34a',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <i className="bi bi-star-fill" style={{color:'white',fontSize:'0.75rem'}}/>
+              </div>
+              <span style={{fontWeight:700,fontSize:'0.875rem',color:'#166534'}}>Strengths</span>
+              <span style={{marginLeft:'auto',background:'#16a34a',color:'white',borderRadius:20,padding:'1px 8px',fontSize:'0.7rem',fontWeight:700}}>{strengths.length}</span>
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {strengths.length===0?<span style={{color:'#6b7280',fontSize:'0.82rem'}}>ยังไม่มีจุดแข็งที่โดดเด่น</span>
+                :strengths.map(m=>(
+                <span key={m.key} style={{background:'#16a34a',color:'white',borderRadius:6,padding:'4px 10px',fontSize:'0.75rem',fontWeight:700}}>
+                  <i className={`bi ${m.icon} me-1`}/>{m.label} {scores[m.key]}/5
+                </span>
+              ))}
+            </div>
+          </div>
+          <div style={{background:'linear-gradient(135deg,#fff7ed,#ffedd5)',border:'1px solid #fed7aa',borderRadius:14,padding:18}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+              <div style={{width:28,height:28,background:'#ea580c',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <i className="bi bi-exclamation-triangle-fill" style={{color:'white',fontSize:'0.7rem'}}/>
+              </div>
+              <span style={{fontWeight:700,fontSize:'0.875rem',color:'#9a3412'}}>Needs Work</span>
+              <span style={{marginLeft:'auto',background:'#ea580c',color:'white',borderRadius:20,padding:'1px 8px',fontSize:'0.7rem',fontWeight:700}}>{weaknesses.length}</span>
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {weaknesses.length===0?<span style={{color:'#6b7280',fontSize:'0.82rem'}}>ไม่มีจุดอ่อนวิกฤต</span>
+                :weaknesses.map(m=>(
+                <span key={m.key} style={{background:'#ea580c',color:'white',borderRadius:6,padding:'4px 10px',fontSize:'0.75rem',fontWeight:700}}>
+                  <i className={`bi ${m.icon} me-1`}/>{m.label} {scores[m.key]}/5
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── BADGES ── */}
+        {earnedBadges.length>0&&(
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16,padding:'12px 16px',background:'white',border:'1px solid #e2e8f0',borderRadius:12}}>
+            <span style={{fontSize:'0.7rem',fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:1,alignSelf:'center',marginRight:4}}>Achievements</span>
+            {earnedBadges.map(b=>(
+              <span key={b.label} style={{display:'inline-flex',alignItems:'center',gap:5,background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:20,padding:'5px 12px',fontSize:'0.78rem',fontWeight:600,color:'#334155'}}>
+                <span style={{fontSize:'1rem'}}>{b.emoji}</span>{b.label}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* ── PHYSICAL INFO ── */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10,marginBottom:16}}>
+          {INFO_ITEMS.map(item=>{
+            const isEmpty=item.val==='—';
+            return(
+              <div key={item.key} style={{background:'white',border:'1px solid #e2e8f0',borderRadius:10,padding:'12px 10px',textAlign:'center',borderTop:`3px solid ${item.color}`}}>
+                <div style={{width:32,height:32,background:item.color+'18',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
+                  <i className={`bi ${item.icon}`} style={{color:item.color,fontSize:'0.95rem'}}/>
+                </div>
+                <div style={{fontSize:'0.65rem',color:'#94a3b8',textTransform:'uppercase',letterSpacing:1,marginBottom:3}}>{item.label}</div>
+                <div style={{fontSize:'0.95rem',fontWeight:800,color:isEmpty?'#cbd5e1':'#0f172a'}}>{item.val}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── PHYSICAL AGE ── */}
+        {physicalAge!==null&&age!==null&&(
+          <div style={{marginBottom:16,background:physicalAge>age?'linear-gradient(135deg,#f0fdf4,#dcfce7)':physicalAge<age?'linear-gradient(135deg,#fff7ed,#ffedd5)':'linear-gradient(135deg,#eff6ff,#dbeafe)',border:`1px solid ${physicalAge>age?'#bbf7d0':physicalAge<age?'#fed7aa':'#bfdbfe'}`,borderRadius:12,padding:'16px 20px',display:'flex',alignItems:'center',gap:20,flexWrap:'wrap'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:44,height:44,borderRadius:12,background:physicalAge>age?'#16a34a':physicalAge<age?'#ea580c':'#2563eb',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <i className="bi bi-person-fill" style={{color:'white',fontSize:'1.2rem'}}/>
+              </div>
+              <div>
+                <div style={{fontSize:'0.65rem',fontWeight:700,letterSpacing:2,textTransform:'uppercase',color:'#64748b'}}>Physical Age</div>
+                <div style={{display:'flex',alignItems:'baseline',gap:6,marginTop:2}}>
+                  <span style={{fontSize:'2rem',fontWeight:900,color:physicalAge>age?'#16a34a':physicalAge<age?'#ea580c':'#2563eb',lineHeight:1}}>~{physicalAge}</span>
+                  <span style={{fontSize:'0.85rem',color:'#64748b'}}>ปี</span>
+                </div>
+              </div>
+            </div>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{fontWeight:700,fontSize:'0.9rem',color:'#0f172a',marginBottom:4}}>
+                {physicalAge>age?`🚀 ร่างกายเทียบเท่าคนอายุ ${physicalAge} ปี — เกินกว่าอายุจริง ${physicalAge-age} ปี`
+                  :physicalAge<age?`⚠️ ร่างกายเทียบเท่าคนอายุ ${physicalAge} ปี — ต่ำกว่าอายุจริง ${age-physicalAge} ปี`
+                  :`✓ ร่างกายสมกับอายุ ${age} ปี — พัฒนาการปกติ`}
+              </div>
+              <div style={{fontSize:'0.78rem',color:'#64748b'}}>อายุจริง {age} ปี · คำนวณจากคะแนนสมรรถภาพ {Object.values(scores).filter(s=>s>0).length} รายการ</div>
+            </div>
+          </div>
+        )}
+
+        {/* ── PERFORMANCE METRICS + RADAR ── */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:16,marginBottom:16,alignItems:'start'}}>
+          <div className="pub-surface" style={{margin:0}}>
+            <div className="pub-hd"><i className="bi bi-bar-chart-fill" style={{color:'#38bdf8'}}/> Performance Metrics</div>
+            <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <thead>
+                <tr style={{borderBottom:'2px solid #f1f5f9'}}>
+                  <th style={{textAlign:'left',padding:'8px 10px',fontSize:'0.72rem',color:'#94a3b8',fontWeight:700,textTransform:'uppercase'}}>Metric</th>
+                  <th style={{textAlign:'center',padding:'8px 10px',fontSize:'0.72rem',color:'#94a3b8',fontWeight:700,textTransform:'uppercase'}}>Value</th>
+                  <th style={{textAlign:'center',padding:'8px 10px',fontSize:'0.72rem',color:'#94a3b8',fontWeight:700,textTransform:'uppercase'}}>Score</th>
+                  <th style={{width:100,padding:'8px 10px',fontSize:'0.72rem',color:'#94a3b8',fontWeight:700,textTransform:'uppercase'}}>Bar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {METRICS.map(m=>{
+                  const rawVal=latest?.[m.field];
+                  const strVal=rawVal!==undefined&&rawVal!==''?String(rawVal):'';
+                  const display=strVal?`${strVal} ${m.unit}`:'—';
+                  const sc=scores[m.key];
+                  const col=sc>0?SCORE_COLORS[sc]:null;
+                  const rowBg=sc>=4?'rgba(16,185,129,0.04)':sc>0&&sc<=2?'rgba(239,68,68,0.04)':'transparent';
+                  return(
+                    <tr key={m.key} style={{background:rowBg,borderBottom:'1px solid #f8fafc'}}>
+                      <td style={{padding:'9px 10px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          <div style={{width:26,height:26,background:m.color+'18',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                            <i className={`bi ${m.icon}`} style={{color:m.color,fontSize:'0.8rem'}}/>
+                          </div>
+                          <span style={{fontWeight:600,fontSize:'0.875rem'}}>{m.label}</span>
+                        </div>
+                      </td>
+                      <td style={{textAlign:'center',fontWeight:700,fontSize:'0.875rem',padding:'9px 10px'}}>{display}</td>
+                      <td style={{textAlign:'center',padding:'9px 10px'}}>
+                        {col?<span style={{background:col.bg,color:col.color,borderRadius:20,padding:'3px 10px',fontSize:'0.75rem',fontWeight:700,whiteSpace:'nowrap'}}>{sc}/5 · {col.label}</span>
+                          :<span style={{color:'#cbd5e1',fontSize:'0.8rem'}}>—</span>}
+                      </td>
+                      <td style={{padding:'9px 10px'}}>
+                        <div style={{background:'#f1f5f9',borderRadius:20,height:8,overflow:'hidden'}}>
+                          <div style={{height:'100%',width:sc>0?`${(sc/5)*100}%`:'0%',background:col?`linear-gradient(90deg,${col.color},${col.color}99)`:'#e2e8f0',borderRadius:20,transition:'width 0.6s ease'}}/>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="pub-surface" style={{margin:0,minWidth:260,display:'flex',flexDirection:'column',alignItems:'center'}}>
+            <div className="pub-hd" style={{width:'100%'}}><i className="bi bi-broadcast" style={{color:'#38bdf8'}}/> Skill Radar</div>
+            <div style={{width:'100%',maxWidth:280}}>
+              <Radar data={radarData} options={RADAR_OPTS}/>
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:8,justifyContent:'center'}}>
+              {METRICS.map(m=>(
+                <div key={m.key} style={{display:'flex',alignItems:'center',gap:4,fontSize:'0.7rem',color:'#64748b'}}>
+                  <div style={{width:8,height:8,borderRadius:2,background:scores[m.key]>=4?'#10b981':scores[m.key]>0&&scores[m.key]<=2?'#ef4444':'#94a3b8'}}/>
+                  {m.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── DEVELOPMENT PLAN ── */}
+        {METRICS.some(m=>scores[m.key]>0)&&(
+          <div className="pub-surface">
+            <div className="pub-hd"><i className="bi bi-graph-up-arrow" style={{color:'#818cf8'}}/> Development Plan</div>
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.82rem'}}>
+                <thead>
+                  <tr style={{borderBottom:'2px solid #f1f5f9'}}>
+                    <th style={{textAlign:'left',padding:'8px 10px',color:'#94a3b8',fontWeight:700,fontSize:'0.72rem',textTransform:'uppercase',width:140}}>ทักษะ</th>
+                    <th style={{textAlign:'center',padding:'8px 10px',color:'#94a3b8',fontWeight:700,fontSize:'0.72rem',textTransform:'uppercase',width:80}}>คะแนน</th>
+                    <th style={{padding:'8px 10px',color:'#94a3b8',fontWeight:700,fontSize:'0.72rem',textTransform:'uppercase'}}>ผลกระทบ</th>
+                    <th style={{padding:'8px 10px',color:'#94a3b8',fontWeight:700,fontSize:'0.72rem',textTransform:'uppercase'}}>โปรแกรมแนะนำ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {METRICS.filter(m=>scores[m.key]>0).sort((a,b)=>scores[a.key]-scores[b.key]).map((m,i)=>{
+                    const sc=scores[m.key];
+                    const dev=DEV_DATA[m.key];
+                    const col=SCORE_COLORS[sc];
+                    const isWeak=sc<=2;
+                    return(
+                      <tr key={m.key} style={{background:i%2===0?'white':'#f8fafc',borderBottom:'1px solid #f1f5f9'}}>
+                        <td style={{padding:'9px 10px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8}}>
+                            <i className={`bi ${m.icon}`} style={{color:m.color,fontSize:'0.9rem'}}/>
+                            <span style={{fontWeight:600}}>{dev?.label||m.label}</span>
+                          </div>
+                        </td>
+                        <td style={{textAlign:'center',padding:'9px 10px'}}>
+                          <span style={{background:col.bg,color:col.color,borderRadius:20,padding:'3px 12px',fontWeight:700,fontSize:'0.75rem'}}>{sc}/5</span>
+                        </td>
+                        <td style={{color:isWeak?'#dc2626':'#166534',fontSize:'0.8rem',padding:'9px 10px',maxWidth:200}}>
+                          {isWeak?dev?.badImpact:dev?.goodImpact}
+                        </td>
+                        <td style={{padding:'9px 10px'}}>
+                          <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                            {(isWeak?dev?.badRec:dev?.goodRec)?.map((r,ri)=>(
+                              <span key={ri} style={{background:isWeak?'#fef2f2':'#f0fdf4',color:isWeak?'#991b1b':'#166534',border:`1px solid ${isWeak?'#fecaca':'#bbf7d0'}`,borderRadius:4,padding:'2px 8px',fontSize:'0.72rem'}}>{r}</span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── HISTORY CHARTS ── */}
+        {HIST.length>=2&&(
+          <div className="pub-surface">
+            <div className="pub-hd"><i className="bi bi-graph-up" style={{color:'#34d399'}}/> Historical Progress <span style={{fontSize:'0.75rem',fontWeight:400,color:'#94a3b8',marginLeft:8}}>{HIST.length} sessions</span></div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}} className="pub-grid3">
+              {HISTORY_FIELDS.map(hc=>{
+                const chartVals=HIST.map(r=>{const v=r[hc.field as keyof HistRecord];if(v===undefined||v==='')return null;const n=typeof v==='number'?v:parseFloat(String(v));return isNaN(n)?null:n;});
+                const trend=getTrend(chartVals);
+                return(
+                  <div key={hc.field} style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:12,padding:'14px 14px 10px',borderTop:`3px solid ${hc.color}`}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                      <span style={{fontSize:'0.75rem',fontWeight:700,color:'#334155'}}>{hc.label}</span>
+                      {trend&&<span style={{fontSize:'0.68rem',fontWeight:700,color:trend.up?'#16a34a':'#dc2626',background:trend.up?'#f0fdf4':'#fef2f2',borderRadius:4,padding:'2px 6px'}}>{trend.up?'▲':'▼'} {trend.pct}%</span>}
+                    </div>
+                    <Line data={lineData(hc.field,hc.color)} options={LINE_OPTS}/>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── INDIVIDUAL REPORT ── */}
+        {irHistory.length>0&&latestIR&&(()=>{
+          const overall=Number(latestIR.OverallIRScore)||0;
+          const og=irGrade(overall);
+          return(
+            <div className="pub-surface">
+              <div className="pub-hd">
+                <i className="bi bi-clipboard2-check-fill" style={{color:'#818cf8'}}/>
+                Individual Report <span style={{fontSize:'0.72rem',color:'#94a3b8',fontWeight:400,marginLeft:6}}>Ekkono Method</span>
+                <span style={{marginLeft:'auto',fontSize:'0.72rem',color:'#94a3b8'}}>{irHistory.length} session{irHistory.length>1?'s':''}</span>
+              </div>
+              {/* Session info */}
+              <div style={{display:'flex',flexWrap:'wrap',gap:10,marginBottom:20,padding:'12px 16px',background:'#f8fafc',borderRadius:10,fontSize:'0.8rem',color:'#475569'}}>
+                {latestIR.Season&&<span><i className="bi bi-calendar3 me-1"/>{String(latestIR.Season)}</span>}
+                {latestIR.Period&&<span><i className="bi bi-clock me-1"/>{String(latestIR.Period)}</span>}
+                {latestIR.Coach&&<span><i className="bi bi-person-fill me-1"/>Coach: {String(latestIR.Coach)}</span>}
+                {latestIR.Timestamp&&<span style={{marginLeft:'auto',color:'#94a3b8'}}>{String(latestIR.Timestamp).split('T')[0]}</span>}
+              </div>
+              {/* 4 score cards */}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:24}} className="pub-grid4">
+                {[
+                  {label:'Behaviour', pct:Number(latestIR.BehaviourScore)||0,color:'#818cf8'},
+                  {label:'Lifestyle', pct:Number(latestIR.LifestyleScore)||0, color:'#34d399'},
+                  {label:'Technical', pct:Number(latestIR.TechnicalScore)||0, color:'#f472b6'},
+                  {label:'Overall IR',pct:overall,color:'#38bdf8',big:true},
+                ].map(c=>{
+                  const g=irGrade(c.pct);
+                  return(
+                    <div key={c.label} style={{background:(c as {big?:boolean}).big?'#0f172a':'white',border:`1px solid ${(c as {big?:boolean}).big?'#1e293b':'#e2e8f0'}`,borderTop:`3px solid ${c.color}`,borderRadius:12,padding:'16px 14px',textAlign:'center'}}>
+                      <div style={{fontSize:'0.62rem',fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',color:(c as {big?:boolean}).big?'rgba(255,255,255,0.5)':'#94a3b8',marginBottom:6}}>{c.label}</div>
+                      <div style={{fontSize:'2rem',fontWeight:900,color:(c as {big?:boolean}).big?'white':'#0f172a',lineHeight:1}}>{c.pct}<span style={{fontSize:'1rem',fontWeight:500,marginLeft:1}}>%</span></div>
+                      <div style={{marginTop:8,background:(c as {big?:boolean}).big?'rgba(255,255,255,0.1)':'#f1f5f9',borderRadius:20,height:6,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${c.pct}%`,background:c.color,borderRadius:20}}/>
+                      </div>
+                      <div style={{fontSize:'0.68rem',marginTop:6,fontWeight:700,color:g.color}}>{g.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* 3 sections */}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:20}} className="pub-grid3">
+                {IR_SECTIONS.map(sec=>(
+                  <div key={sec.key} style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:10,padding:14}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,paddingBottom:10,borderBottom:`2px solid ${sec.color}20`}}>
+                      <i className={`bi ${sec.icon}`} style={{color:sec.color,fontSize:'0.9rem'}}/>
+                      <span style={{fontWeight:700,fontSize:'0.8rem',color:'#334155'}}>{sec.label}</span>
+                      <span style={{marginLeft:'auto',fontWeight:800,fontSize:'0.85rem',color:sec.color}}>{Number(latestIR[sec.scoreField])||0}%</span>
+                    </div>
+                    {sec.items.map(item=>{
+                      const val=Number(latestIR[item.field])||0;
+                      return(
+                        <div key={item.field} style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}>
+                          <span style={{flex:1,fontSize:'0.72rem',color:'#475569',fontWeight:500}}>{item.label}</span>
+                          <div style={{display:'flex',gap:3}}>
+                            {[1,2,3,4,5].map(n=>(
+                              <div key={n} style={{width:14,height:14,borderRadius:3,background:val>=n?irScoreColor(val):'#e2e8f0'}}/>
+                            ))}
+                          </div>
+                          <span style={{fontSize:'0.7rem',fontWeight:700,color:val>0?irScoreColor(val):'#cbd5e1',minWidth:18,textAlign:'right'}}>{val>0?val:'—'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              {/* Comments */}
+              {(latestIR.GoodLevel||latestIR.ToImprove||latestIR.Comments)&&(
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:12,marginBottom:16}}>
+                  {latestIR.GoodLevel&&(
+                    <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:10,padding:14}}>
+                      <div style={{fontSize:'0.68rem',fontWeight:700,color:'#16a34a',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}><i className="bi bi-check-circle-fill me-1"/>สิ่งที่ดี</div>
+                      <p style={{margin:0,fontSize:'0.82rem',color:'#166534'}}>{String(latestIR.GoodLevel)}</p>
+                    </div>
+                  )}
+                  {latestIR.ToImprove&&(
+                    <div style={{background:'#fef3c7',border:'1px solid #fde68a',borderRadius:10,padding:14}}>
+                      <div style={{fontSize:'0.68rem',fontWeight:700,color:'#b45309',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}><i className="bi bi-arrow-up-circle-fill me-1"/>สิ่งที่ต้องพัฒนา</div>
+                      <p style={{margin:0,fontSize:'0.82rem',color:'#92400e'}}>{String(latestIR.ToImprove)}</p>
+                    </div>
+                  )}
+                  {latestIR.Comments&&(
+                    <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:10,padding:14}}>
+                      <div style={{fontSize:'0.68rem',fontWeight:700,color:'#1d4ed8',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}><i className="bi bi-chat-text-fill me-1"/>หมายเหตุโค้ช</div>
+                      <p style={{margin:0,fontSize:'0.82rem',color:'#1e40af'}}>{String(latestIR.Comments)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Overall badge */}
+              <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:'#0f172a',borderRadius:10}}>
+                <div style={{fontSize:'2rem',fontWeight:900,color:'white',lineHeight:1}}>{overall}%</div>
+                <div>
+                  <div style={{fontSize:'0.75rem',fontWeight:700,color:og.color}}>{og.label}</div>
+                  <div style={{fontSize:'0.68rem',color:'#64748b'}}>Overall Individual Report Score</div>
+                </div>
+                <div style={{marginLeft:'auto',flex:1,background:'rgba(255,255,255,0.08)',borderRadius:20,height:8,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${overall}%`,background:'linear-gradient(90deg,#38bdf8,#818cf8)',borderRadius:20}}/>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── TRAINING VIDEOS ── */}
+        {weaknesses.length>0&&(
+          <div className="pub-surface">
+            <div className="pub-hd"><i className="bi bi-youtube" style={{color:'#ef4444'}}/> Recommended Training Videos</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:16}}>
+              {weaknesses.map(m=>{
+                const vid=VIDEO_DB.find(v=>v.category===m.key);
+                if(!vid)return null;
+                return(
+                  <div key={m.key} style={{background:'white',border:'1px solid #e2e8f0',borderRadius:12,overflow:'hidden',boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+                    <div style={{position:'relative',paddingBottom:'56.25%',height:0,overflow:'hidden'}}>
+                      <iframe src={`https://www.youtube.com/embed/${vid.id}`} title={vid.title} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',border:'none'}} allowFullScreen/>
+                    </div>
+                    <div style={{padding:'12px 14px'}}>
+                      <div style={{display:'inline-flex',alignItems:'center',gap:5,background:m.color+'18',borderRadius:6,padding:'3px 8px',marginBottom:8}}>
+                        <i className={`bi ${m.icon}`} style={{color:m.color,fontSize:'0.75rem'}}/>
+                        <span style={{fontSize:'0.7rem',fontWeight:700,color:m.color}}>{m.label}</span>
+                      </div>
+                      <div style={{fontWeight:700,fontSize:'0.85rem',color:'#0f172a',lineHeight:1.3}}>{vid.title}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{textAlign:'center',padding:'16px 0',borderTop:'1px solid #e2e8f0',fontSize:'0.72rem',color:'#94a3b8',marginTop:8}}>
+          <i className="bi bi-shield-check me-2"/>Powered by <strong style={{color:'#38bdf8'}}>ISP Improve Sports Performance</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
