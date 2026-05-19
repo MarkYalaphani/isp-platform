@@ -48,7 +48,14 @@ type EditForm = { username: string; newPassword: string; role: string; displayNa
 export default function AdminPage() {
   const [users, setUsers]               = useState<UserRecord[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [addForm, setAddForm]           = useState({ username:'', password:'', role:'club', displayName:'', clubId:'' });
+  const genClubId = (base = '') => {
+    const b = base.trim().toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,8);
+    const suffix = Math.random().toString(36).slice(2,5).toUpperCase();
+    return b ? `${b}-${suffix}` : `CLUB-${suffix}${Math.random().toString(36).slice(2,4).toUpperCase()}`;
+  };
+  const [addForm, setAddForm] = useState(() => ({
+    username:'', password:'', role:'club', displayName:'', clubId: genClubId(),
+  }));
   const [saving, setSaving]             = useState(false);
   const [editModal, setEditModal]       = useState<EditForm|null>(null);
   const [editSaving, setEditSaving]     = useState(false);
@@ -106,7 +113,7 @@ export default function AdminPage() {
       const res = await callGAS('saveUser', addForm) as { status:string; message:string };
       if (res.status === 'success') {
         showToast(res.message, 'success');
-        setAddForm({ username:'', password:'', role:'club', displayName:'', clubId:'' });
+        setAddForm({ username:'', password:'', role:'club', displayName:'', clubId: genClubId() });
         loadUsers();
       } else showToast(res.message, 'error');
     } finally { setSaving(false); }
@@ -316,7 +323,17 @@ export default function AdminPage() {
             <form onSubmit={handleAdd}>
               <div className="mb-3">
                 <label className="form-label">Username *</label>
-                <input className="form-control" value={addForm.username} onChange={e=>setAddForm(f=>({...f,username:e.target.value}))} placeholder="ตัวอักษรและตัวเลขเท่านั้น"/>
+                <input className="form-control" value={addForm.username}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setAddForm(f => ({
+                      ...f,
+                      username: val,
+                      // Auto-update Club ID only if user hasn't manually edited it
+                      clubId: val.trim() ? genClubId(val) : genClubId(),
+                    }));
+                  }}
+                  placeholder="ตัวอักษรและตัวเลขเท่านั้น"/>
               </div>
               <div className="mb-3">
                 <label className="form-label">Password *</label>
@@ -327,8 +344,31 @@ export default function AdminPage() {
                 <input className="form-control" value={addForm.displayName} onChange={e=>setAddForm(f=>({...f,displayName:e.target.value}))} placeholder="ชื่อสโมสร หรือชื่อผู้ใช้"/>
               </div>
               <div className="mb-3">
-                <label className="form-label">Club ID</label>
-                <input className="form-control" value={addForm.clubId} onChange={e=>setAddForm(f=>({...f,clubId:e.target.value}))} placeholder="ใช้กรองนักกีฬาตามสโมสร"/>
+                <label className="form-label" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span>Club ID <span style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:400, letterSpacing:0 }}>(สร้างอัตโนมัติ)</span></span>
+                  <button type="button" onClick={() => setAddForm(f=>({...f, clubId: genClubId(f.username)}))}
+                    style={{ background:'none', border:'none', color:'#38bdf8', cursor:'pointer', fontSize:'0.72rem', fontWeight:700, padding:'0 2px', display:'flex', alignItems:'center', gap:4 }}>
+                    <i className="bi bi-arrow-clockwise"/>สร้างใหม่
+                  </button>
+                </label>
+                <div style={{ position:'relative' }}>
+                  <input className="form-control" value={addForm.clubId}
+                    onChange={e=>setAddForm(f=>({...f,clubId:e.target.value}))}
+                    placeholder="Club ID"
+                    style={{ fontFamily:'monospace', fontWeight:700, letterSpacing:1, paddingRight:36 }}
+                    list="existing-club-ids"
+                  />
+                  <i className="bi bi-upc-scan" style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', color:'#94a3b8', fontSize:'0.85rem', pointerEvents:'none' }}/>
+                </div>
+                {/* Suggest existing Club IDs */}
+                <datalist id="existing-club-ids">
+                  {[...new Set(users.map(u=>u.ClubID).filter(Boolean))].map(id=>(
+                    <option key={id} value={id}/>
+                  ))}
+                </datalist>
+                <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', marginTop:4 }}>
+                  ใช้กรองนักกีฬาในสโมสร — แก้ไขได้ตามต้องการ
+                </div>
               </div>
               <div className="mb-4">
                 <label className="form-label">Role</label>
