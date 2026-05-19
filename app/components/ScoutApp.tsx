@@ -152,7 +152,7 @@ export default function ScoutApp() {
             {currentPage === 'training'    && <TrainingPage athletes={athletes} onNavigate={navigate} user={user} />}
             {currentPage === 'performance' && <UpdateResultsPage athletes={athletes} onSuccess={loadAthletes} />}
             {currentPage === 'quicktest'   && <QuickTestPage athletes={athletes} onSuccess={loadAthletes} />}
-            {currentPage === 'register'    && <RegisterPage onSuccess={async () => { await loadAthletes(); navigate('roster'); }} user={user} />}
+            {currentPage === 'register'    && <RegisterPage onSuccess={async () => { navigate('roster'); loadAthletes(); setTimeout(loadAthletes, 3500); setTimeout(loadAthletes, 7000); }} user={user} />}
             {currentPage === 'teamreport'  && <TeamReportPage athletes={athletes} onNavigate={navigate} user={user} />}
             {currentPage === 'compare'     && <ComparePage athletes={athletes} onNavigate={navigate} />}
             {currentPage === 'lineup'       && <LineupPage athletes={athletes} onNavigate={navigate} user={user} />}

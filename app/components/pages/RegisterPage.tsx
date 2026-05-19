@@ -45,12 +45,8 @@ export default function RegisterPage({ onSuccess, user }: Props) {
       };
       const res = await callGAS('saveAthlete', payload) as { status: string; message: string };
       if (res.status === 'success') {
-        showToast('บันทึกสำเร็จ! กำลังโหลดข้อมูล...', 'success');
-        // GAS needs time to commit — wait then reload
-        await new Promise(r => setTimeout(r, 3000));
-        onSuccess();
-        // Reload again after another 3s in case GAS was slow
-        setTimeout(onSuccess, 3000);
+        showToast(res.message || 'บันทึกสำเร็จ!', 'success');
+        onSuccess(); // navigate to roster + start loading immediately
       } else {
         showToast(res.message || 'บันทึกไม่สำเร็จ', 'error');
       }
