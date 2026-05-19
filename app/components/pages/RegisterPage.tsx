@@ -5,7 +5,7 @@ import { User } from '@/lib/types';
 import { callGAS } from '@/lib/api';
 import { showToast } from '@/lib/toast';
 
-interface Props { onSuccess: () => void; user: User; }
+interface Props { onSuccess: () => void | Promise<void>; user: User; }
 
 const POSITIONS = ['Forward', 'Midfielder', 'Defender', 'Goalkeeper'];
 const TEAMS = ['U12','U13','U14','U15','U16','U17','U18','Senior'];
@@ -45,10 +45,14 @@ export default function RegisterPage({ onSuccess, user }: Props) {
       };
       const res = await callGAS('saveAthlete', payload) as { status: string; message: string };
       if (res.status === 'success') {
-        showToast(res.message, 'success');
-        setTimeout(onSuccess, 1200);
+        showToast('บันทึกสำเร็จ! กำลังโหลดข้อมูล...', 'success');
+        // GAS needs time to commit — wait then reload
+        await new Promise(r => setTimeout(r, 3000));
+        onSuccess();
+        // Reload again after another 3s in case GAS was slow
+        setTimeout(onSuccess, 3000);
       } else {
-        showToast(res.message, 'error');
+        showToast(res.message || 'บันทึกไม่สำเร็จ', 'error');
       }
     } catch {
       showToast('เกิดข้อผิดพลาด', 'error');
