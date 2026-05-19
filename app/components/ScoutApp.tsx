@@ -25,6 +25,7 @@ import QuickTestPage from './pages/QuickTestPage';
 import LineupPage from './pages/LineupPage';
 import WellnessPage from './pages/WellnessPage';
 import TesterPage from './pages/TesterPage';
+import HelpPage from './pages/HelpPage';
 import UserProfileModal from './UserProfileModal';
 import ToastContainer from './ToastContainer';
 import BottomNav from './BottomNav';
@@ -159,6 +160,7 @@ export default function ScoutApp() {
             {currentPage === 'adminUsers'  && user.role === 'admin' && <AdminPage />}
             {currentPage === 'migrate'     && user.role === 'admin' && <MigratePage />}
             {currentPage === 'tester'      && user.role === 'admin' && <TesterPage athletes={athletes} user={user} onNavigate={navigate} />}
+            {currentPage === 'help'         && <HelpPage onNavigate={navigate} />}
           </>
         )}
         <BottomNav currentPage={currentPage} onNavigate={navigate} onOpenMenu={() => setSidebarOpen(true)} />

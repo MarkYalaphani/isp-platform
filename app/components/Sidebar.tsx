@@ -17,7 +17,7 @@ export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpe
   const canAccess = (page: Page): boolean => {
     if (user.role === 'admin') return true;
     if (user.role === 'club_pro') return page !== 'adminUsers' && page !== 'migrate';
-    if (page === 'home') return true;
+    if (page === 'home' || page === 'help') return true;
     if (clubAllowedPages.length === 0) return true; // default while loading
     return clubAllowedPages.includes(page);
   };
@@ -102,6 +102,7 @@ export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpe
       <div className="nav-menu">
         <div className="nav-section">Main</div>
         {link('home', 'bi-house-fill', 'Home')}
+        {link('help', 'bi-book-fill', 'คู่มือการใช้งาน')}
 
         <div className="nav-section">Overview</div>
         {link('dashboard', 'bi-grid-1x2', 'Dashboard')}
