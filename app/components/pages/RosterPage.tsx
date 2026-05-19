@@ -78,9 +78,9 @@ function RatingRing({ rating, size = 44 }: { rating: number; size?: number }) {
 }
 
 /* ── Athlete Card (grid view) ───────────────────────────── */
-function AthleteCard({ a, onView, onEdit, onDelete, canDelete, deleting }: {
+function AthleteCard({ a, onView, onEdit, onDelete, canDelete, canEdit, deleting }: {
   a: Athlete; onView: () => void; onEdit: () => void;
-  onDelete: () => void; canDelete: boolean; deleting: boolean;
+  onDelete: () => void; canDelete: boolean; canEdit: boolean; deleting: boolean;
 }) {
   const age = calcAge(a.DOB);
   const pc  = posColor(a.Position);
@@ -145,9 +145,11 @@ function AthleteCard({ a, onView, onEdit, onDelete, canDelete, deleting }: {
         <button onClick={onView} style={{ flex: 1, padding: '8px', background: 'none', border: 'none', cursor: 'pointer', color: '#38bdf8', fontSize: '0.72rem', fontWeight: 700 }}>
           <i className="bi bi-eye me-1" />ดูรายงาน
         </button>
-        <button onClick={onEdit} style={{ padding: '8px 12px', background: 'none', border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-          <i className="bi bi-pencil" />
-        </button>
+        {canEdit && (
+          <button onClick={onEdit} style={{ padding: '8px 12px', background: 'none', border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+            <i className="bi bi-pencil" />
+          </button>
+        )}
         {canDelete && (
           <button onClick={onDelete} disabled={deleting} style={{ padding: '8px 12px', background: 'none', border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer', color: '#ef4444', fontSize: '0.8rem' }}>
             {deleting ? <span className="spinner-ring" style={{ width: 12, height: 12, borderWidth: 2, margin: 0 }} /> : <i className="bi bi-trash" />}
@@ -160,16 +162,34 @@ function AthleteCard({ a, onView, onEdit, onDelete, canDelete, deleting }: {
 
 /* ── Main ────────────────────────────────────────────────── */
 export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Props) {
-  const [search,     setSearch]     = useState('');
-  const [filterTeam, setFilterTeam] = useState('ALL');
-  const [filterPos,  setFilterPos]  = useState('ALL');
-  const [filterAge,  setFilterAge]  = useState('ALL');
-  const [sortKey,    setSortKey]    = useState<SortKey>('rating');
-  const [sortDir,    setSortDir]    = useState<'asc' | 'desc'>('desc');
-  const [viewMode,   setViewMode]   = useState<ViewMode>('table');
-  const [page,       setPage]       = useState(1);
-  const [deleting,   setDeleting]   = useState('');
+  const [search,      setSearch]      = useState('');
+  const [filterTeam,  setFilterTeam]  = useState('ALL');
+  const [filterPos,   setFilterPos]   = useState('ALL');
+  const [filterAge,   setFilterAge]   = useState('ALL');
+  const [filterClub,  setFilterClub]  = useState('ALL'); // admin: filter by clubId
+  const [sortKey,     setSortKey]     = useState<SortKey>('rating');
+  const [sortDir,     setSortDir]     = useState<'asc' | 'desc'>('desc');
+  const [viewMode,    setViewMode]    = useState<ViewMode>('table');
+  const [page,        setPage]        = useState(1);
+  const [deleting,    setDeleting]    = useState('');
   const [editAthlete, setEditAthlete] = useState<Athlete | null>(null);
+
+  /* can this user edit/delete athlete a? */
+  const canEditAthlete = (a: Athlete) =>
+    user.role === 'admin'
+      ? (!user.clubId || a.ClubID === user.clubId) // admin edits own club only
+      : a.ClubID === user.clubId;
+
+  /* distinct clubs for admin club selector */
+  const clubOptions = useMemo(() => {
+    if (user.role !== 'admin') return [];
+    const map = new Map<string, number>();
+    athletes.forEach(a => {
+      const id = a.ClubID || '(ไม่มี Club)';
+      map.set(id, (map.get(id) || 0) + 1);
+    });
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [athletes, user.role]);
 
   /* options */
   const teams = useMemo(() => ['ALL', ...Array.from(new Set(athletes.map(a => a.Team).filter(Boolean))).sort()], [athletes]);
@@ -179,6 +199,10 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return athletes.filter(a => {
+      if (filterClub !== 'ALL') {
+        const id = a.ClubID || '(ไม่มี Club)';
+        if (id !== filterClub) return false;
+      }
       if (filterTeam !== 'ALL' && a.Team !== filterTeam) return false;
       if (filterPos  !== 'ALL' && a.Position !== filterPos) return false;
       if (filterAge  !== 'ALL' && ageGroup(calcAge(a.DOB)) !== filterAge) return false;
@@ -188,7 +212,7 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
       }
       return true;
     });
-  }, [athletes, search, filterTeam, filterPos, filterAge]);
+  }, [athletes, search, filterTeam, filterPos, filterAge, filterClub]);
 
   const sorted = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
@@ -291,6 +315,36 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
           </div>
         ))}
       </div>
+
+      {/* Admin: Club selector banner */}
+      {user.role === 'admin' && clubOptions.length > 0 && (
+        <div style={{ background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 12, padding: '10px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <i className="bi bi-shield-lock-fill" style={{ color: '#38bdf8', fontSize: '0.9rem' }} />
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0369a1' }}>ดูในฐานะ Admin</span>
+            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>— เลือก Club ที่ต้องการดู</span>
+          </div>
+          <select className="form-select" style={{ width: 'auto', minWidth: 200, borderColor: '#38bdf8', fontWeight: 700 }}
+            value={filterClub} onChange={e => { setFilterClub(e.target.value); resetPage(); }}>
+            <option value="ALL">👁 ดูทุก Club ({athletes.length} คน)</option>
+            {clubOptions.map(([id, cnt]) => (
+              <option key={id} value={id}>
+                {id === user.clubId ? '⭐ ' : ''}{id} ({cnt} คน){id === user.clubId ? ' — ทีมของฉัน' : ''}
+              </option>
+            ))}
+          </select>
+          {filterClub !== 'ALL' && filterClub !== user.clubId && (
+            <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#92400e', borderRadius: 6, padding: '3px 10px', fontWeight: 700, border: '1px solid #fde68a' }}>
+              <i className="bi bi-eye me-1" />ดูได้อย่างเดียว — แก้ไขไม่ได้
+            </span>
+          )}
+          {filterClub !== 'ALL' && filterClub === user.clubId && (
+            <span style={{ fontSize: '0.72rem', background: '#f0fdf4', color: '#166534', borderRadius: 6, padding: '3px 10px', fontWeight: 700, border: '1px solid #bbf7d0' }}>
+              <i className="bi bi-pencil me-1" />ทีมของคุณ — แก้ไขได้
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Filter bar */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -410,8 +464,10 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
                       <td>
                         <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
                           <button className="btn-primary btn-sm" style={{ padding: '4px 8px' }} onClick={() => onNavigate('scout', a.PlayerID)} title="ดูรายงาน"><i className="bi bi-eye" /></button>
-                          <button className="btn-outline btn-sm" style={{ padding: '4px 8px' }} onClick={() => setEditAthlete(a)} title="แก้ไข"><i className="bi bi-pencil" /></button>
-                          {(user.role === 'admin' || a.ClubID === user.clubId) && (
+                          {canEditAthlete(a) && (
+                            <button className="btn-outline btn-sm" style={{ padding: '4px 8px' }} onClick={() => setEditAthlete(a)} title="แก้ไข"><i className="bi bi-pencil" /></button>
+                          )}
+                          {canEditAthlete(a) && (
                             <button className="btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleDelete(a)} disabled={deleting === a.PlayerID} title="ลบ">
                               {deleting === a.PlayerID ? <span className="spinner-ring" style={{ width: 12, height: 12, borderWidth: 2, margin: 0 }} /> : <i className="bi bi-trash" />}
                             </button>
@@ -439,7 +495,8 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
                   onView={() => onNavigate('scout', a.PlayerID)}
                   onEdit={() => setEditAthlete(a)}
                   onDelete={() => handleDelete(a)}
-                  canDelete={user.role === 'admin' || a.ClubID === user.clubId}
+                  canEdit={canEditAthlete(a)}
+                  canDelete={canEditAthlete(a)}
                   deleting={deleting === a.PlayerID}
                 />
               ))}
