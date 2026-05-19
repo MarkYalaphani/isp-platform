@@ -27,6 +27,7 @@ import WellnessPage from './pages/WellnessPage';
 import TesterPage from './pages/TesterPage';
 import UserProfileModal from './UserProfileModal';
 import ToastContainer from './ToastContainer';
+import BottomNav from './BottomNav';
 
 export default function ScoutApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -127,7 +128,7 @@ export default function ScoutApp() {
       <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
       <Sidebar currentPage={currentPage} onNavigate={navigate} user={user} onLogout={handleLogout} isOpen={sidebarOpen} onEditProfile={() => setShowProfile(true)} clubAllowedPages={clubAllowedPages} />
 
-      <main className="main">
+      <main className="main has-bottom-nav">
         <div className="top-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <img src="https://res.cloudinary.com/dkmi9kye7/image/upload/v1778663857/687674443_978558021239852_7124371302269064381_n_jzn6zg.jpg" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 6 }} alt="" />
@@ -160,6 +161,7 @@ export default function ScoutApp() {
             {currentPage === 'tester'      && user.role === 'admin' && <TesterPage athletes={athletes} user={user} onNavigate={navigate} />}
           </>
         )}
+        <BottomNav currentPage={currentPage} onNavigate={navigate} onOpenMenu={() => setSidebarOpen(true)} />
       </main>
       {showProfile && user && (
         <UserProfileModal
