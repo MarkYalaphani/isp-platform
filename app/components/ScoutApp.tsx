@@ -64,13 +64,13 @@ export default function ScoutApp() {
     if (!user) return;
     setLoading(true);
     try {
-      const data = await callGAS('getAthleteData') as Athlete[] | { error: string }[];
+      // Pass role+clubId → server filters by club_id for non-admin
+      const data = await callGAS('getAthleteData', {
+        role: user.role,
+        clubId: user.clubId || '',
+      }) as Athlete[] | { error: string }[];
       if (Array.isArray(data)) {
-        const valid = data.filter((a): a is Athlete => !('error' in a));
-        const filtered = user.role === 'admin' || !user.clubId
-          ? valid
-          : valid.filter(a => !a.ClubID || a.ClubID === user.clubId);
-        setAthletes(filtered);
+        setAthletes(data.filter((a): a is Athlete => !('error' in a)));
       }
     } catch (e) {
       console.error('Failed to load athletes', e);

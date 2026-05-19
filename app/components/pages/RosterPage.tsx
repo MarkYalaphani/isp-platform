@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Athlete, User, Page } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { showToast } from '@/lib/toast';
 import EditAthleteModal from '../EditAthleteModal';
 
 interface Props { athletes: Athlete[]; onRefresh: () => void; user: User; onNavigate: (p: Page, id?: string) => void; }
@@ -225,8 +226,17 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
   const handleDelete = async (a: Athlete) => {
     if (!confirm(`ลบข้อมูลของ "${a.Name}"?\n\nประวัติทั้งหมดจะถูกลบด้วย`)) return;
     setDeleting(a.PlayerID);
-    try { await callGAS('deleteAthlete', { playerId: a.PlayerID }); onRefresh(); }
-    finally { setDeleting(''); }
+    try {
+      const res = await callGAS('deleteAthlete', { playerId: a.PlayerID }) as { status: string; message?: string };
+      if (res.status === 'success') {
+        showToast(`ลบ ${a.Name} สำเร็จ`, 'success');
+        onRefresh();
+      } else {
+        showToast(res.message || 'ลบไม่สำเร็จ', 'error');
+      }
+    } catch {
+      showToast('เกิดข้อผิดพลาด', 'error');
+    } finally { setDeleting(''); }
   };
 
   /* summary stats */
@@ -401,7 +411,7 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
                         <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
                           <button className="btn-primary btn-sm" style={{ padding: '4px 8px' }} onClick={() => onNavigate('scout', a.PlayerID)} title="ดูรายงาน"><i className="bi bi-eye" /></button>
                           <button className="btn-outline btn-sm" style={{ padding: '4px 8px' }} onClick={() => setEditAthlete(a)} title="แก้ไข"><i className="bi bi-pencil" /></button>
-                          {user.role === 'admin' && (
+                          {(user.role === 'admin' || (user.role !== 'admin' && a.ClubID === user.clubId)) && (
                             <button className="btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleDelete(a)} disabled={deleting === a.PlayerID} title="ลบ">
                               {deleting === a.PlayerID ? <span className="spinner-ring" style={{ width: 12, height: 12, borderWidth: 2, margin: 0 }} /> : <i className="bi bi-trash" />}
                             </button>
@@ -429,7 +439,7 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
                   onView={() => onNavigate('scout', a.PlayerID)}
                   onEdit={() => setEditAthlete(a)}
                   onDelete={() => handleDelete(a)}
-                  canDelete={user.role === 'admin'}
+                  canDelete={user.role === 'admin' || a.ClubID === user.clubId}
                   deleting={deleting === a.PlayerID}
                 />
               ))}
