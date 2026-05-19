@@ -69,7 +69,7 @@ export default function ScoutApp() {
         const valid = data.filter((a): a is Athlete => !('error' in a));
         const filtered = user.role === 'admin' || !user.clubId
           ? valid
-          : valid.filter(a => a.ClubID === user.clubId);
+          : valid.filter(a => !a.ClubID || a.ClubID === user.clubId);
         setAthletes(filtered);
       }
     } catch (e) {

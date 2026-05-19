@@ -39,7 +39,7 @@ export default function RegisterPage({ onSuccess, user }: Props) {
     try {
       const payload = {
         ...form,
-        clubId: user.role === 'club' ? user.clubId : '',
+        clubId: user.role !== 'admin' ? (user.clubId || '') : '',
         photoBase64: photo?.base64 || '',
         photoMimeType: photo?.mime || '',
       };
