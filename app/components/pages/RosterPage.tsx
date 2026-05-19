@@ -411,7 +411,7 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
                         <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
                           <button className="btn-primary btn-sm" style={{ padding: '4px 8px' }} onClick={() => onNavigate('scout', a.PlayerID)} title="ดูรายงาน"><i className="bi bi-eye" /></button>
                           <button className="btn-outline btn-sm" style={{ padding: '4px 8px' }} onClick={() => setEditAthlete(a)} title="แก้ไข"><i className="bi bi-pencil" /></button>
-                          {(user.role === 'admin' || (user.role !== 'admin' && a.ClubID === user.clubId)) && (
+                          {(user.role === 'admin' || a.ClubID === user.clubId) && (
                             <button className="btn-danger btn-sm" style={{ padding: '4px 8px' }} onClick={() => handleDelete(a)} disabled={deleting === a.PlayerID} title="ลบ">
                               {deleting === a.PlayerID ? <span className="spinner-ring" style={{ width: 12, height: 12, borderWidth: 2, margin: 0 }} /> : <i className="bi bi-trash" />}
                             </button>
