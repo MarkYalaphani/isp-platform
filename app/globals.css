@@ -389,6 +389,18 @@ html, body { max-width: 100vw; overflow-x: hidden; }
 
   /* Score pill smaller */
   .score-pill { font-size: 0.78rem !important; padding: 3px 10px !important; }
+
+  /* ── Home: Top Performers + Squad Overview ── */
+  .hp-live-grid { grid-template-columns: 1fr !important; }
+
+  /* ── Skill page: collapse 2-col to 1-col ── */
+  .skill-main-grid { grid-template-columns: 1fr !important; }
+  .skill-score-panel { position: static !important; }
+
+  /* ── Skill item: stack label above buttons ── */
+  .skill-item { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+  .skill-btn-row { width: 100% !important; }
+  .skill-btn-row button { flex: 1 !important; }
 }
 
 /* ── Portrait phone ≤ 480px ── */
@@ -408,6 +420,15 @@ html, body { max-width: 100vw; overflow-x: hidden; }
   .tab-switch { margin-bottom: 8px !important; }
   canvas { max-height: 130px !important; }
 }
+
+/* ── Home live grid ── */
+.hp-live-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+
+/* ── Skill assessment layout ── */
+.skill-main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
+.skill-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg); transition: border-color 0.15s; }
+.skill-btn-row { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.skill-score-panel { position: sticky; top: 80px; }
 
 /* ── Scroll helpers ── */
 .table-scroll-wrap {

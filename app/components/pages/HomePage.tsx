@@ -266,7 +266,7 @@ export default function HomePage({ athletes, onNavigate, user }: Props) {
       </div>
 
       {/* ══════ LIVE OVERVIEW ═════════════════════════════════════ */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:20 }}>
+      <div className="hp-live-grid">
 
         {/* Top Performers */}
         <div className="surface hp-card" style={{ padding:'18px 20px' }}>

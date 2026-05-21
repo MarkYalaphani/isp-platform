@@ -340,7 +340,7 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
       )}
 
       {/* Main grid: left form + right scores */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 18, alignItems: 'start' }}>
+      <div className="skill-main-grid">
 
         {/* ── LEFT: Assessment form — all categories at once ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -395,17 +395,14 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
                     const val = form[sk.key as SkillKey] as number || 0;
                     const sl  = SCORE_LABELS[val];
                     return (
-                      <div key={sk.key} style={{
-                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                        borderRadius: 10, background: 'var(--bg)',
+                      <div key={sk.key} className="skill-item" style={{
                         border: `1.5px solid ${val > 0 ? cat.color + '55' : 'var(--border)'}`,
-                        transition: 'border-color 0.15s',
                       }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sk.labelTH}</div>
                           <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 1 }}>{sk.desc}</div>
                         </div>
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+                        <div className="skill-btn-row">
                           {[1, 2, 3, 4, 5].map(n => (
                             <button key={n} onClick={() => setSkill(sk.key as SkillKey, val === n ? 0 : n)} style={{
                               width: 30, height: 30, borderRadius: 7, border: '1.5px solid',
@@ -450,7 +447,7 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
         </div>
 
         {/* ── RIGHT: Score panel ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 80 }}>
+        <div className="skill-score-panel" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Overall score */}
           <div className="surface" style={{ textAlign: 'center', borderTop: '3px solid #38bdf8' }}>

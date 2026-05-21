@@ -13,7 +13,8 @@ function calcAge(dob: string) {
   if (!dob || dob === '-') return null;
   const d = new Date(dob);
   if (isNaN(d.getTime())) return null;
-  return Math.floor((Date.now() - d.getTime()) / 31557600000);
+  const age = Math.floor((Date.now() - d.getTime()) / 31557600000);
+  return age >= 0 && age <= 120 ? age : null;
 }
 function ageGroup(age: number | null) {
   if (age === null) return 'unknown';
