@@ -593,7 +593,7 @@ export default function WellnessPage({ athletes, user }: Props) {
           {histLoading && <div style={{textAlign:'center',padding:40}}><div className="spinner-ring"/></div>}
 
           {histId && !histLoading && (
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,alignItems:'start'}}>
+            <div className="grid-2col" style={{alignItems:'start'}}>
               {/* Wellness history */}
               <div className="surface" style={{padding:0,overflow:'hidden'}}>
                 <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:'0.85rem',display:'flex',alignItems:'center',gap:8}}>

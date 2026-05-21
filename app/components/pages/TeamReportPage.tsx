@@ -117,7 +117,7 @@ export default function TeamReportPage({ athletes, onNavigate, user }: Props) {
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+        <div className="grid-report">
           {/* Rating Distribution */}
           <div className="surface">
             <div className="section-hd"><i className="bi bi-bar-chart-fill" style={{ color: '#38bdf8' }} /> Rating Distribution</div>

@@ -104,7 +104,7 @@ function SingleTab({ athletes, onSuccess }: Props) {
         </select>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' }}>
+      <div className="grid-form-side">
         <div>
           {/* Body Composition */}
           <div className="surface mb-4">

@@ -316,7 +316,7 @@ export default function AttendancePage({ athletes, user }: Props) {
 
       {/* ══════════ TAB: HISTORY ══════════ */}
       {view === 'history' && (
-        <div style={{ display:'grid', gridTemplateColumns:'280px 1fr', gap:16, alignItems:'start' }}>
+        <div className="grid-attend-hist">
           {/* Session list */}
           <div className="surface" style={{ padding:0, overflow:'hidden' }}>
             <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', fontWeight:700, fontSize:'0.85rem', display:'flex', justifyContent:'space-between', alignItems:'center' }}>

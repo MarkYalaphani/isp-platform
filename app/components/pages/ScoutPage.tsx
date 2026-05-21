@@ -988,7 +988,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
           </div>
 
           {/* ── SW CARDS ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+          <div className="grid-2col" style={{ marginBottom: 20 }}>
             <div style={{ background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', border: '1px solid #bbf7d0', borderRadius: 'var(--radius-sm)', padding: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <div style={{ width: 28, height: 28, background: '#16a34a', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

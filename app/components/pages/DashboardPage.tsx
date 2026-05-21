@@ -292,7 +292,7 @@ export default function DashboardPage({ athletes, onNavigate }: Props) {
           </div>
 
           {/* Score distribution + Age group */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:18 }}>
+          <div className="grid-2col" style={{ marginBottom:18 }}>
             {/* Score distribution */}
             <div className="surface">
               <div className="section-hd" style={{ marginBottom:12 }}>
@@ -336,7 +336,7 @@ export default function DashboardPage({ athletes, onNavigate }: Props) {
           </div>
 
           {/* Position analysis + Testing status */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:18 }}>
+          <div className="grid-2col" style={{ marginBottom:18 }}>
             {/* Position analysis */}
             <div className="surface" style={{ padding:0, overflow:'hidden' }}>
               <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', fontWeight:700, fontSize:'0.85rem', display:'flex', alignItems:'center', gap:8 }}>
@@ -639,7 +639,7 @@ export default function DashboardPage({ athletes, onNavigate }: Props) {
               </div>
 
               {/* Radar + bars */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+              <div className="grid-2col" style={{ marginBottom:16 }}>
                 <div className="surface">
                   <div style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--text-muted)', marginBottom:10, textTransform:'uppercase', letterSpacing:1 }}>Radar Chart</div>
                   <div style={{ height:280, position:'relative' }}><Radar data={radarData} options={radarOpts}/></div>
