@@ -914,7 +914,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
               <input ref={photoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
 
               {/* CENTER: Name + team info — top-aligned, fills space */}
-              <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', justifyContent:'flex-start', paddingTop:4 }}>
+              <div className="scout-hero-center" style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', justifyContent:'flex-start', paddingTop:4 }}>
                 <div style={{ fontSize:'0.55rem', fontWeight:700, letterSpacing:3, color:'#38bdf8', textTransform:'uppercase', marginBottom:8 }}>ISP</div>
                 <div style={{ fontSize:'2rem', fontWeight:800, color:'#ffffff', lineHeight:1.05, textTransform:'uppercase', letterSpacing:0.5 }}>{athlete.Name}</div>
                 {athlete.Nickname && <div style={{ fontSize:'0.9rem', color:'#7dd3fc', fontStyle:'italic', marginTop:4, marginBottom:14 }}>"{athlete.Nickname}"</div>}
@@ -943,7 +943,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                 </div>
 
                 {/* Mini stats row — bottom of center */}
-                <div style={{ marginTop:'auto', paddingTop:16, display:'flex', gap:8, flexWrap:'wrap' }}>
+                <div className="scout-hero-stats" style={{ marginTop:'auto', paddingTop:16, display:'flex', gap:8, flexWrap:'wrap' }}>
                   {[
                     { label:'TESTS',    val: String(HIST.length) },
                     { label:'AGE',      val: age != null ? `${age}` : '—' },
@@ -967,7 +967,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
               }}>
                 {/* Team logo + name at top of badge */}
                 {(user?.logoUrl || athlete.Team) && (
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, marginBottom:12, paddingBottom:12, borderBottom:'1px solid rgba(255,255,255,0.25)', width:'100%' }}>
+                  <div className="scout-badge-team" style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, marginBottom:12, paddingBottom:12, borderBottom:'1px solid rgba(255,255,255,0.25)', width:'100%' }}>
                     {user?.logoUrl && <img src={user.logoUrl} alt="" style={{ width:38, height:38, objectFit:'contain', filter:'drop-shadow(0 2px 6px rgba(0,0,0,0.5))' }}/>}
                     {athlete.Team && <span style={{ fontSize:'0.68rem', fontWeight:800, color:'white', textTransform:'uppercase', letterSpacing:1, textAlign:'center', maxWidth:90, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{athlete.Team}</span>}
                   </div>
@@ -1620,7 +1620,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                   </div>
 
                   {/* ── 3 Sections Detail ── */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }}>
+                  <div className="scout-ir-3col" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }}>
                     {IR_SECTIONS.map(sec => (
                       <div key={sec.key} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 10, borderBottom: `2px solid ${sec.color}20` }}>

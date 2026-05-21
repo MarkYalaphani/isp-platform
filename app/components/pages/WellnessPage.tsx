@@ -507,7 +507,7 @@ export default function WellnessPage({ athletes, user }: Props) {
               </div>
               <div>
                 <label className="form-label">ประเภท</label>
-                <div style={{display:'flex',gap:6}}>
+                <div className="wellness-session-types" style={{display:'flex',gap:6}}>
                   {SESSION_TYPES.map(t=>(
                     <button key={t.id} onClick={()=>setRType(t.id)} style={{
                       padding:'8px 10px',borderRadius:8,fontWeight:700,fontSize:'0.72rem',cursor:'pointer',

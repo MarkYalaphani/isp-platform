@@ -407,6 +407,35 @@ html, body { max-width: 100vw; overflow-x: hidden; }
   .grid-form-side   { grid-template-columns: 1fr !important; gap: 12px !important; }
   .grid-attend-hist { grid-template-columns: 1fr !important; }
   .grid-report      { grid-template-columns: 1fr !important; gap: 12px !important; }
+
+  /* ── Scout hero: vertical stack ── */
+  #scoutHeroInner {
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 14px 16px !important;
+    gap: 14px !important;
+  }
+  #scoutHeroCard { zoom: 0.82 !important; }
+  .scout-hero-center { width: 100% !important; }
+  .scout-hero-stats  { margin-top: 14px !important; }
+  .scout-badge-team  { display: none !important; }
+  #scoutOVRBadge {
+    align-self: center !important;
+    min-width: 100px !important;
+    padding: 14px 20px !important;
+    border-radius: 14px !important;
+  }
+
+  /* ── Scout: 3-col charts → 2-col ── */
+  #scoutHistoryCharts { grid-template-columns: repeat(2,1fr) !important; }
+  #scoutBodyTrends    { grid-template-columns: repeat(2,1fr) !important; }
+
+  /* ── Scout IR sections: 3-col → 1-col ── */
+  .scout-ir-3col { grid-template-columns: 1fr !important; }
+
+  /* ── Wellness session type buttons wrap ── */
+  .wellness-session-types { flex-wrap: wrap !important; gap: 4px !important; }
+  .wellness-session-types button { font-size: 0.68rem !important; padding: 6px 8px !important; }
 }
 
 /* ── Portrait phone ≤ 480px ── */
