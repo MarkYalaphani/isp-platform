@@ -17,9 +17,13 @@ function calcAge(dob: string) {
 }
 function ageGroup(age: number | null) {
   if (age === null) return 'unknown';
-  if (age <= 12) return 'U-12';
-  if (age <= 15) return 'U-15';
-  if (age <= 18) return 'U-18';
+  if (age <= 8)   return 'U-8';
+  if (age === 9)  return 'U-9';
+  if (age === 10) return 'U-10';
+  if (age === 11) return 'U-11';
+  if (age === 12) return 'U-12';
+  if (age <= 15)  return 'U-15';
+  if (age <= 18)  return 'U-18';
   return 'Senior';
 }
 function getInitials(name: string) {
@@ -364,7 +368,7 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
         </select>
         {/* Age group */}
         <select className="form-select" style={{ width: 'auto' }} value={filterAge} onChange={e => { setFilterAge(e.target.value); resetPage(); }}>
-          {['ALL', 'U-12', 'U-15', 'U-18', 'Senior'].map(g => <option key={g} value={g}>{g === 'ALL' ? 'ทุกกลุ่มอายุ' : g}</option>)}
+          {['ALL', 'U-8', 'U-9', 'U-10', 'U-11', 'U-12', 'U-15', 'U-18', 'Senior'].map(g => <option key={g} value={g}>{g === 'ALL' ? 'ทุกกลุ่มอายุ' : g}</option>)}
         </select>
         {/* Sort */}
         <select className="form-select" style={{ width: 'auto' }} value={`${sortKey}_${sortDir}`}
