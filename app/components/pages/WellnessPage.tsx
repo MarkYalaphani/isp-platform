@@ -264,9 +264,38 @@ function RPERow({ a, rpe, duration, onChange, isLast }: {
   );
 }
 
+/* ── Team Trend helpers ─────────────────────────────────── */
+type DayWellness = { date:string; count:number; avgScore:number; avgFatigue:number; avgSleep:number; avgSoreness:number; avgStress:number; avgMood:number };
+type DayRPE      = { date:string; session:string; sessionType:string; count:number; avgRPE:number; avgLoad:number };
+
+function groupTeamWellness(rows: {checkDate:string;fatigue:number;sleepQuality:number;soreness:number;stress:number;mood:number;wellnessScore:number}[]): DayWellness[] {
+  const map = new Map<string, typeof rows>();
+  rows.forEach(r => { if (!map.has(r.checkDate)) map.set(r.checkDate,[]); map.get(r.checkDate)!.push(r); });
+  return Array.from(map.entries()).sort((a,b)=>a[0].localeCompare(b[0])).map(([date, rs]) => ({
+    date, count: rs.length,
+    avgScore:    Math.round(rs.reduce((s,r)=>s+r.wellnessScore,0)/rs.length),
+    avgFatigue:  +(rs.reduce((s,r)=>s+r.fatigue,0)/rs.length).toFixed(2),
+    avgSleep:    +(rs.reduce((s,r)=>s+r.sleepQuality,0)/rs.length).toFixed(2),
+    avgSoreness: +(rs.reduce((s,r)=>s+r.soreness,0)/rs.length).toFixed(2),
+    avgStress:   +(rs.reduce((s,r)=>s+r.stress,0)/rs.length).toFixed(2),
+    avgMood:     +(rs.reduce((s,r)=>s+r.mood,0)/rs.length).toFixed(2),
+  }));
+}
+
+function groupTeamRPE(rows: {sessionDate:string;sessionName:string;sessionType:string;rpe:number;trainingLoad:number}[]): DayRPE[] {
+  const map = new Map<string, typeof rows>();
+  rows.forEach(r => { const k=`${r.sessionDate}||${r.sessionName}`; if(!map.has(k))map.set(k,[]); map.get(k)!.push(r); });
+  return Array.from(map.entries()).sort((a,b)=>a[0].localeCompare(b[0])).map(([key, rs]) => {
+    const [date, session] = key.split('||');
+    return { date, session, sessionType:rs[0].sessionType, count:rs.length,
+      avgRPE:  +(rs.reduce((s,r)=>s+r.rpe,0)/rs.length).toFixed(1),
+      avgLoad: Math.round(rs.reduce((s,r)=>s+r.trainingLoad,0)/rs.length) };
+  });
+}
+
 /* ── Main ─────────────────────────────────────────────────── */
 export default function WellnessPage({ athletes, user }: Props) {
-  const [view, setView] = useState<'wellness'|'rpe'|'history'>('wellness');
+  const [view, setView] = useState<'wellness'|'rpe'|'history'|'team'>('wellness');
 
   /* filters */
   const [filterTeam, setFilterTeam] = useState('ALL');
@@ -383,6 +412,33 @@ export default function WellnessPage({ athletes, user }: Props) {
     return { marked:withRPE.length, total:filtered.length, avgRPE, avgLoad };
   }, [rVals, filtered, rDuration]);
 
+  /* ── TEAM TREND state ─── */
+  const [tTeam,       setTTeam]       = useState('ALL');
+  const [tDays,       setTDays]       = useState<30|60|90|0>(30);
+  const [tLoading,    setTLoading]    = useState(false);
+  const [tWellness,   setTWellness]   = useState<DayWellness[]>([]);
+  const [tRPE,        setTRPE]        = useState<DayRPE[]>([]);
+
+  const teamNames = useMemo(() => ['ALL', ...Array.from(new Set(athletes.map(a=>a.Team).filter(Boolean))).sort()], [athletes]);
+
+  const loadTeamTrend = useCallback(async (team: string, days: number) => {
+    setTLoading(true);
+    try {
+      const ids = athletes.filter(a => team==='ALL' || a.Team===team).map(a=>a.PlayerID);
+      if (!ids.length) { setTWellness([]); setTRPE([]); return; }
+      const [wRaw, rRaw] = await Promise.all([
+        callGAS('getTeamWellnessSummary', { playerIds: ids, days: days||undefined }) as Promise<{checkDate:string;fatigue:number;sleepQuality:number;soreness:number;stress:number;mood:number;wellnessScore:number}[]>,
+        callGAS('getTeamRPESummary',     { playerIds: ids, days: days||undefined }) as Promise<{sessionDate:string;sessionName:string;sessionType:string;rpe:number;trainingLoad:number}[]>,
+      ]);
+      setTWellness(groupTeamWellness(Array.isArray(wRaw)?wRaw:[]));
+      setTRPE(groupTeamRPE(Array.isArray(rRaw)?rRaw:[]));
+    } catch { /* silent */ } finally { setTLoading(false); }
+  }, [athletes]);
+
+  useEffect(() => {
+    if (view==='team') loadTeamTrend(tTeam, tDays);
+  }, [view, tTeam, tDays, loadTeamTrend]);
+
   return (
     <div>
       {/* Header */}
@@ -393,7 +449,7 @@ export default function WellnessPage({ athletes, user }: Props) {
         </div>
         <button className="btn-primary"
           onClick={view==='wellness' ? saveWellness : saveRPE}
-          disabled={view==='history' || (view==='wellness' ? wSaving : rSaving)}>
+          disabled={view==='history'||view==='team' || (view==='wellness' ? wSaving : rSaving)}>
           {(view==='wellness' ? wSaving : rSaving)
             ? <><span className="spinner-ring" style={{width:14,height:14,borderWidth:2,margin:0}}/> บันทึก...</>
             : <><i className="bi bi-floppy me-1"/>บันทึก</>}
@@ -405,8 +461,9 @@ export default function WellnessPage({ athletes, user }: Props) {
         {([
           {id:'wellness', icon:'bi-heart-pulse-fill', label:'Wellness ก่อนซ้อม'},
           {id:'rpe',      icon:'bi-speedometer2',     label:'Training Load'},
-          {id:'history',  icon:'bi-graph-up',         label:'ประวัติรายบุคคล'},
-        ] as {id:'wellness'|'rpe'|'history';icon:string;label:string}[]).map(t=>(
+          {id:'history',  icon:'bi-person-lines-fill',label:'ประวัติรายบุคคล'},
+          {id:'team',     icon:'bi-people-fill',      label:'Trend ทีม'},
+        ] as {id:'wellness'|'rpe'|'history'|'team';icon:string;label:string}[]).map(t=>(
           <button key={t.id} className={`tab-btn${view===t.id?' active':''}`} onClick={()=>setView(t.id)}>
             <i className={`bi ${t.icon} me-1`}/>{t.label}
           </button>
@@ -750,6 +807,202 @@ export default function WellnessPage({ athletes, user }: Props) {
                 </div>
               </div>
             </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ TEAM TREND TAB ══ */}
+      {view==='team' && (
+        <div>
+          {/* Controls */}
+          <div className="surface" style={{marginBottom:16,padding:'14px 18px'}}>
+            <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end'}}>
+              <div style={{flex:1,minWidth:160}}>
+                <label className="form-label">ทีม / รุ่นอายุ</label>
+                <select className="form-select" value={tTeam} onChange={e=>setTTeam(e.target.value)}>
+                  {teamNames.map(t=><option key={t} value={t}>{t==='ALL'?'ทุกทีม':t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="form-label">ช่วงเวลา</label>
+                <div style={{display:'flex',gap:4}}>
+                  {([{v:30,l:'30 วัน'},{v:60,l:'60 วัน'},{v:90,l:'90 วัน'},{v:0,l:'ทั้งหมด'}] as {v:30|60|90|0;l:string}[]).map(o=>(
+                    <button key={o.v} onClick={()=>setTDays(o.v)} style={{padding:'8px 12px',borderRadius:8,border:`1.5px solid ${tDays===o.v?'#38bdf8':'var(--border)'}`,background:tDays===o.v?'#38bdf8':'var(--surface)',color:tDays===o.v?'white':'var(--text-muted)',fontWeight:700,fontSize:'0.78rem',cursor:'pointer'}}>
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button className="btn-outline btn-sm" onClick={()=>loadTeamTrend(tTeam,tDays)} disabled={tLoading}>
+                <i className="bi bi-arrow-clockwise me-1"/>{tLoading ? 'กำลังโหลด...' : 'โหลดข้อมูล'}
+              </button>
+            </div>
+          </div>
+
+          {tLoading && <div style={{textAlign:'center',padding:40}}><div className="spinner-ring"/></div>}
+
+          {!tLoading && tWellness.length===0 && tRPE.length===0 && (
+            <div style={{textAlign:'center',padding:60,color:'var(--text-muted)'}}>
+              <i className="bi bi-bar-chart-line" style={{fontSize:'3rem',display:'block',marginBottom:10,color:'#cbd5e1'}}/>
+              <p>ยังไม่มีข้อมูลในช่วงเวลาที่เลือก</p>
+            </div>
+          )}
+
+          {!tLoading && (tWellness.length>0 || tRPE.length>0) && (
+            <div>
+              {/* ── Summary KPI ── */}
+              {(() => {
+                const lastW = tWellness[tWellness.length-1];
+                const lastR = tRPE[tRPE.length-1];
+                const avgW = tWellness.length ? Math.round(tWellness.reduce((s,d)=>s+d.avgScore,0)/tWellness.length) : 0;
+                const avgR = tRPE.length ? +(tRPE.reduce((s,d)=>s+d.avgRPE,0)/tRPE.length).toFixed(1) : 0;
+                const avgL = tRPE.length ? Math.round(tRPE.reduce((s,d)=>s+d.avgLoad,0)/tRPE.length) : 0;
+                return (
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:10,marginBottom:16}}>
+                    {[
+                      {label:'Wellness เฉลี่ย',val:`${avgW}%`,icon:'bi-heart-pulse-fill',color:'#10b981',sub:`${tWellness.length} วัน`},
+                      {label:'Wellness ล่าสุด',val:lastW?`${lastW.avgScore}%`:'—',icon:'bi-calendar-check',color:'#38bdf8',sub:lastW?fmtDate(lastW.date):''},
+                      {label:'RPE เฉลี่ย',val:avgR?String(avgR):'—',icon:'bi-speedometer2',color:'#f59e0b',sub:`${tRPE.length} sessions`},
+                      {label:'Load เฉลี่ย',val:avgL?`${avgL} AU`:'—',icon:'bi-lightning-charge-fill',color:'#f97316',sub:lastR?`ล่าสุด: ${fmtDate(lastR.date)}`:''},
+                    ].map(k=>(
+                      <div key={k.label} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 14px',borderLeft:`3px solid ${k.color}`}}>
+                        <i className={`bi ${k.icon}`} style={{color:k.color,fontSize:'0.85rem',marginBottom:4,display:'block'}}/>
+                        <div style={{fontWeight:900,fontSize:'1.2rem'}}>{k.val}</div>
+                        <div style={{fontSize:'0.62rem',color:'var(--text-muted)',fontWeight:600,marginTop:2}}>{k.label}</div>
+                        {k.sub && <div style={{fontSize:'0.58rem',color:'#94a3b8',marginTop:1}}>{k.sub}</div>}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* ── Charts ── */}
+              <div className="grid-2col" style={{marginBottom:16,alignItems:'start'}}>
+                {/* Wellness Trend */}
+                {tWellness.length>0 && (()=>{
+                  const labels = tWellness.map(d=>{ try{return new Date(d.date).toLocaleDateString('th-TH',{day:'numeric',month:'short'});}catch{return d.date;} });
+                  const data = {
+                    labels,
+                    datasets:[
+                      {label:'Overall %',data:tWellness.map(d=>d.avgScore),borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,0.12)',borderWidth:2.5,pointRadius:4,tension:0.4,fill:true},
+                      {label:'⚡ Freshness',data:tWellness.map(d=>+(d.avgFatigue*20).toFixed(1)),borderColor:'#fbbf24',borderWidth:1.5,pointRadius:2,tension:0.3,fill:false,borderDash:[4,3] as number[]},
+                      {label:'😴 Sleep',    data:tWellness.map(d=>+(d.avgSleep*20).toFixed(1)),borderColor:'#a78bfa',borderWidth:1.5,pointRadius:2,tension:0.3,fill:false,borderDash:[4,3] as number[]},
+                      {label:'💪 Soreness', data:tWellness.map(d=>+(d.avgSoreness*20).toFixed(1)),borderColor:'#34d399',borderWidth:1.5,pointRadius:2,tension:0.3,fill:false,borderDash:[4,3] as number[]},
+                      {label:'🧠 Stress',   data:tWellness.map(d=>+(d.avgStress*20).toFixed(1)),borderColor:'#f472b6',borderWidth:1.5,pointRadius:2,tension:0.3,fill:false,borderDash:[4,3] as number[]},
+                      {label:'😊 Mood',     data:tWellness.map(d=>+(d.avgMood*20).toFixed(1)),borderColor:'#fb923c',borderWidth:1.5,pointRadius:2,tension:0.3,fill:false,borderDash:[4,3] as number[]},
+                    ],
+                  };
+                  const opts={responsive:true,maintainAspectRatio:false,
+                    plugins:{legend:{display:true,position:'bottom' as const,labels:{boxWidth:10,font:{size:10}}},tooltip:{mode:'index' as const,intersect:false,callbacks:{label:(ctx:never)=>{const c=ctx as {dataset:{label:string};raw:number};return ` ${c.dataset.label}: ${c.raw}%`;}}}},
+                    scales:{y:{min:0,max:100,ticks:{stepSize:20,font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}};
+                  return (
+                    <div className="surface" style={{padding:'14px 16px'}}>
+                      <div style={{fontWeight:700,fontSize:'0.82rem',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
+                        <i className="bi bi-heart-pulse-fill" style={{color:'#10b981'}}/>Wellness Trend
+                        <span style={{marginLeft:'auto',fontSize:'0.68rem',color:'var(--text-muted)',fontWeight:400}}>ค่าเฉลี่ยทีม · {tWellness.length} วัน</span>
+                      </div>
+                      <div style={{height:220}}><Line data={data} options={opts}/></div>
+                    </div>
+                  );
+                })()}
+
+                {/* Training Load Trend */}
+                {tRPE.length>0 && (()=>{
+                  const labels = tRPE.map(d=>{ try{return `${new Date(d.date).toLocaleDateString('th-TH',{day:'numeric',month:'short'})}${d.session?' ('+d.session+')':''}`;}catch{return d.date;} });
+                  const zoneColor=(load:number)=>load<=150?'rgba(16,185,129,0.75)':load<=300?'rgba(56,189,248,0.75)':load<=450?'rgba(245,158,11,0.75)':'rgba(239,68,68,0.75)';
+                  const data={labels,datasets:[
+                    {type:'bar' as const,label:'Avg Load (AU)',data:tRPE.map(d=>d.avgLoad),backgroundColor:tRPE.map(d=>zoneColor(d.avgLoad)),borderRadius:5,yAxisID:'y'},
+                    {type:'line' as const,label:'Avg RPE',data:tRPE.map(d=>d.avgRPE),borderColor:'#f59e0b',borderWidth:2.5,pointRadius:4,tension:0.3,fill:false,yAxisID:'y2'},
+                  ]};
+                  const opts={responsive:true,maintainAspectRatio:false,
+                    plugins:{legend:{display:true,position:'bottom' as const,labels:{boxWidth:10,font:{size:10}}},tooltip:{mode:'index' as const,intersect:false}},
+                    scales:{y:{position:'left' as const,ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'},title:{display:true,text:'Avg Load (AU)',font:{size:9}}},y2:{position:'right' as const,min:0,max:10,ticks:{font:{size:10}},grid:{display:false},title:{display:true,text:'Avg RPE',font:{size:9}}},x:{ticks:{font:{size:9},maxRotation:40},grid:{display:false}}}};
+                  return (
+                    <div className="surface" style={{padding:'14px 16px'}}>
+                      <div style={{fontWeight:700,fontSize:'0.82rem',marginBottom:6,display:'flex',alignItems:'center',gap:6}}>
+                        <i className="bi bi-speedometer2" style={{color:'#f59e0b'}}/>Training Load Trend
+                        <span style={{marginLeft:'auto',fontSize:'0.68rem',color:'var(--text-muted)',fontWeight:400}}>ค่าเฉลี่ยทีม · {tRPE.length} sessions</span>
+                      </div>
+                      <div style={{height:220}}><Bar data={data as never} options={opts}/></div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* ── Daily Summary Table ── */}
+              {(tWellness.length>0 || tRPE.length>0) && (
+                <div className="grid-2col" style={{alignItems:'start'}}>
+                  {tWellness.length>0 && (
+                    <div className="surface" style={{padding:0,overflow:'hidden'}}>
+                      <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:'0.82rem',display:'flex',gap:6,alignItems:'center'}}>
+                        <i className="bi bi-heart-pulse-fill" style={{color:'#10b981'}}/>สรุป Wellness รายวัน
+                      </div>
+                      <div style={{overflowX:'auto'}}>
+                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.75rem'}}>
+                          <thead><tr style={{background:'var(--bg)'}}>
+                            {['วันที่','จำนวน','Overall','⚡','😴','💪','🧠','😊'].map(h=>(
+                              <th key={h} style={{padding:'7px 10px',textAlign:'center',fontWeight:700,color:'var(--text-muted)',borderBottom:'1px solid var(--border)',whiteSpace:'nowrap'}}>{h}</th>
+                            ))}
+                          </tr></thead>
+                          <tbody>
+                            {[...tWellness].reverse().slice(0,20).map((d,i)=>{
+                              const wc=wellnessColor(d.avgScore);
+                              const m=(v:number)=>{
+                                const c=v>=4?'#10b981':v>=3?'#38bdf8':v>=2?'#f59e0b':'#ef4444';
+                                return <span style={{fontWeight:700,color:c}}>{v.toFixed(1)}</span>;
+                              };
+                              return (
+                                <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2===0?'white':'var(--bg)'}}>
+                                  <td style={{padding:'7px 10px',fontWeight:600,whiteSpace:'nowrap'}}>{fmtDate(d.date)}</td>
+                                  <td style={{textAlign:'center',color:'var(--text-muted)'}}>{d.count}</td>
+                                  <td style={{textAlign:'center'}}><span style={{fontWeight:900,color:wc}}>{d.avgScore}%</span></td>
+                                  <td style={{textAlign:'center'}}>{m(d.avgFatigue)}</td>
+                                  <td style={{textAlign:'center'}}>{m(d.avgSleep)}</td>
+                                  <td style={{textAlign:'center'}}>{m(d.avgSoreness)}</td>
+                                  <td style={{textAlign:'center'}}>{m(d.avgStress)}</td>
+                                  <td style={{textAlign:'center'}}>{m(d.avgMood)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  {tRPE.length>0 && (
+                    <div className="surface" style={{padding:0,overflow:'hidden'}}>
+                      <div style={{padding:'10px 16px',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:'0.82rem',display:'flex',gap:6,alignItems:'center'}}>
+                        <i className="bi bi-speedometer2" style={{color:'#f59e0b'}}/>สรุป Training Load รายวัน
+                      </div>
+                      <div style={{overflowX:'auto'}}>
+                        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.75rem'}}>
+                          <thead><tr style={{background:'var(--bg)'}}>
+                            {['วันที่','Session','จำนวน','Avg RPE','Avg Load','Zone'].map(h=>(
+                              <th key={h} style={{padding:'7px 10px',textAlign:'center',fontWeight:700,color:'var(--text-muted)',borderBottom:'1px solid var(--border)',whiteSpace:'nowrap'}}>{h}</th>
+                            ))}
+                          </tr></thead>
+                          <tbody>
+                            {[...tRPE].reverse().slice(0,20).map((d,i)=>{
+                              const lz=loadZone(d.avgLoad);
+                              return (
+                                <tr key={i} style={{borderBottom:'1px solid var(--border)',background:i%2===0?'white':'var(--bg)'}}>
+                                  <td style={{padding:'7px 10px',fontWeight:600,whiteSpace:'nowrap'}}>{fmtDate(d.date)}</td>
+                                  <td style={{padding:'7px 10px',color:'var(--text-muted)',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.session}</td>
+                                  <td style={{textAlign:'center',color:'var(--text-muted)'}}>{d.count}</td>
+                                  <td style={{textAlign:'center'}}><span style={{fontWeight:900,color:rpeColor(Math.round(d.avgRPE))}}>{d.avgRPE}</span></td>
+                                  <td style={{textAlign:'center'}}><span style={{fontWeight:900,color:lz.color}}>{d.avgLoad}</span></td>
+                                  <td style={{textAlign:'center'}}><span style={{fontSize:'0.68rem',fontWeight:700,color:lz.color}}>{lz.label}</span></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

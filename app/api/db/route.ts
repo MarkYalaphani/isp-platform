@@ -617,6 +617,33 @@ export async function POST(req: NextRequest) {
         return NextResponse.json((data||[]).map(r=>({ id:r.id, playerId:r.player_id, sessionDate:r.session_date, sessionName:r.session_name, sessionType:r.session_type, rpe:r.rpe, durationMin:r.duration_min, trainingLoad:r.training_load, notes:r.notes||'', createdBy:r.created_by||'' })));
       }
 
+      // ── TEAM TREND SUMMARIES ───────────────────────────────────────────────
+      case 'getTeamWellnessSummary': {
+        const { playerIds, days } = params as { playerIds: string[]; days?: number };
+        if (!playerIds?.length) return NextResponse.json([]);
+        let q = sb.from('wellness_checks').select('player_id,check_date,fatigue,sleep_quality,soreness,stress,mood,wellness_score').in('player_id', playerIds);
+        if (days) {
+          const from = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+          q = q.gte('check_date', from);
+        }
+        const { data, error } = await q.order('check_date', { ascending: true });
+        if (error) throw error;
+        return NextResponse.json((data||[]).map(r=>({ playerId:r.player_id, checkDate:r.check_date, fatigue:r.fatigue, sleepQuality:r.sleep_quality, soreness:r.soreness, stress:r.stress, mood:r.mood, wellnessScore:r.wellness_score })));
+      }
+
+      case 'getTeamRPESummary': {
+        const { playerIds, days } = params as { playerIds: string[]; days?: number };
+        if (!playerIds?.length) return NextResponse.json([]);
+        let q = sb.from('training_rpe').select('player_id,session_date,session_name,session_type,rpe,duration_min,training_load').in('player_id', playerIds);
+        if (days) {
+          const from = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+          q = q.gte('session_date', from);
+        }
+        const { data, error } = await q.order('session_date', { ascending: true });
+        if (error) throw error;
+        return NextResponse.json((data||[]).map(r=>({ playerId:r.player_id, sessionDate:r.session_date, sessionName:r.session_name, sessionType:r.session_type, rpe:r.rpe, durationMin:r.duration_min, trainingLoad:r.training_load })));
+      }
+
       // ── TRAINING VIDEOS (Admin CRUD) ───────────────────────────────────────
       case 'getTrainingVideos': {
         const { data, error } = await sb.from('training_videos')
