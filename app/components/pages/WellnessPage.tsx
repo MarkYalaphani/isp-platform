@@ -1,9 +1,16 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Line, Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS, CategoryScale, LinearScale, PointElement,
+  LineElement, BarElement, Tooltip, Legend, Filler,
+} from 'chart.js';
 import { Athlete, User, WellnessRecord, RPERecord } from '@/lib/types';
 import { callGAS } from '@/lib/api';
 import { showToast } from '@/lib/toast';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Filler);
 
 interface Props { athletes: Athlete[]; user: User; }
 
@@ -593,6 +600,90 @@ export default function WellnessPage({ athletes, user }: Props) {
           {histLoading && <div style={{textAlign:'center',padding:40}}><div className="spinner-ring"/></div>}
 
           {histId && !histLoading && (
+            <div>
+
+            {/* ── CHARTS ── */}
+            {(wellnessHist.length > 0 || rpeHist.length > 0) && (
+              <div className="grid-2col" style={{marginBottom:16,alignItems:'start'}}>
+
+                {/* Wellness Trend */}
+                {wellnessHist.length > 0 && (() => {
+                  const rows = [...wellnessHist].reverse().slice(-20);
+                  const labels = rows.map(r => { try { return new Date(r.checkDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}); } catch { return r.checkDate; } });
+                  const data = {
+                    labels,
+                    datasets: [
+                      { label:'Overall %', data: rows.map(r=>r.wellnessScore), borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,0.1)', borderWidth:2.5, pointRadius:4, tension:0.4, fill:true, yAxisID:'y' },
+                      { label:'⚡ Freshness', data: rows.map(r=>r.fatigue*20), borderColor:'#fbbf24', borderWidth:1.5, pointRadius:2, tension:0.3, fill:false, borderDash:[4,3] as number[], yAxisID:'y' },
+                      { label:'😴 Sleep',    data: rows.map(r=>r.sleepQuality*20), borderColor:'#a78bfa', borderWidth:1.5, pointRadius:2, tension:0.3, fill:false, borderDash:[4,3] as number[], yAxisID:'y' },
+                      { label:'💪 Soreness', data: rows.map(r=>r.soreness*20), borderColor:'#34d399', borderWidth:1.5, pointRadius:2, tension:0.3, fill:false, borderDash:[4,3] as number[], yAxisID:'y' },
+                      { label:'🧠 Stress',   data: rows.map(r=>r.stress*20), borderColor:'#f472b6', borderWidth:1.5, pointRadius:2, tension:0.3, fill:false, borderDash:[4,3] as number[], yAxisID:'y' },
+                      { label:'😊 Mood',     data: rows.map(r=>r.mood*20), borderColor:'#fb923c', borderWidth:1.5, pointRadius:2, tension:0.3, fill:false, borderDash:[4,3] as number[], yAxisID:'y' },
+                    ],
+                  };
+                  const opts = {
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{ legend:{ display:true, position:'bottom' as const, labels:{ boxWidth:10, font:{ size:10 } } }, tooltip:{ mode:'index' as const, intersect:false } },
+                    scales:{ y:{ min:0, max:100, ticks:{ stepSize:20, font:{ size:10 } }, grid:{ color:'rgba(0,0,0,0.05)' } }, x:{ ticks:{ font:{ size:10 } }, grid:{ display:false } } },
+                  };
+                  return (
+                    <div className="surface" style={{padding:'14px 16px'}}>
+                      <div style={{fontWeight:700,fontSize:'0.82rem',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+                        <i className="bi bi-heart-pulse-fill" style={{color:'#10b981'}}/>Wellness Trend
+                        <span style={{marginLeft:'auto',fontSize:'0.68rem',color:'var(--text-muted)'}}>{rows.length} sessions</span>
+                      </div>
+                      <div style={{height:200}}><Line data={data} options={opts}/></div>
+                    </div>
+                  );
+                })()}
+
+                {/* Training Load */}
+                {rpeHist.length > 0 && (() => {
+                  const rows = [...rpeHist].reverse().slice(-20);
+                  const labels = rows.map(r => { try { return new Date(r.sessionDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}); } catch { return r.sessionDate; } });
+                  const zoneColor = (load:number) => load<=150?'rgba(16,185,129,0.7)':load<=300?'rgba(56,189,248,0.7)':load<=450?'rgba(245,158,11,0.7)':'rgba(239,68,68,0.7)';
+                  const data = {
+                    labels,
+                    datasets: [
+                      {
+                        type:'bar' as const,
+                        label:'Training Load (AU)',
+                        data: rows.map(r=>r.trainingLoad),
+                        backgroundColor: rows.map(r=>zoneColor(r.trainingLoad)),
+                        borderRadius:5, yAxisID:'y',
+                      },
+                      {
+                        type:'line' as const,
+                        label:'RPE',
+                        data: rows.map(r=>r.rpe),
+                        borderColor:'#f59e0b', borderWidth:2, pointRadius:4,
+                        tension:0.3, fill:false, yAxisID:'y2',
+                      },
+                    ],
+                  };
+                  const opts = {
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{ legend:{ display:true, position:'bottom' as const, labels:{ boxWidth:10, font:{ size:10 } } }, tooltip:{ mode:'index' as const, intersect:false } },
+                    scales:{
+                      y:{ position:'left' as const, ticks:{ font:{ size:10 } }, grid:{ color:'rgba(0,0,0,0.05)' }, title:{ display:true, text:'Load (AU)', font:{ size:9 } } },
+                      y2:{ position:'right' as const, min:0, max:10, ticks:{ font:{ size:10 } }, grid:{ display:false }, title:{ display:true, text:'RPE', font:{ size:9 } } },
+                      x:{ ticks:{ font:{ size:10 } }, grid:{ display:false } },
+                    },
+                  };
+                  return (
+                    <div className="surface" style={{padding:'14px 16px'}}>
+                      <div style={{fontWeight:700,fontSize:'0.82rem',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+                        <i className="bi bi-speedometer2" style={{color:'#f59e0b'}}/>Training Load
+                        <span style={{marginLeft:'auto',fontSize:'0.68rem',color:'var(--text-muted)'}}>{rows.length} sessions</span>
+                      </div>
+                      <div style={{height:200}}><Bar data={data as never} options={opts}/></div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* ── HISTORY TABLES ── */}
             <div className="grid-2col" style={{alignItems:'start'}}>
               {/* Wellness history */}
               <div className="surface" style={{padding:0,overflow:'hidden'}}>
@@ -658,6 +749,7 @@ export default function WellnessPage({ athletes, user }: Props) {
                   }
                 </div>
               </div>
+            </div>
             </div>
           )}
         </div>
