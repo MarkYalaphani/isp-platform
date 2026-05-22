@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
 import { Athlete, AttendanceRecord, AttendanceStatus, SessionType, User } from '@/lib/types';
 import { callGAS } from '@/lib/api';
 import { showToast } from '@/lib/toast';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 interface Props { athletes: Athlete[]; user: User; }
 
@@ -511,6 +515,33 @@ function AttendanceStats({ athletes, sessions }: { athletes: Athlete[]; sessions
           </div>
         ))}
       </div>
+
+      {/* Attendance Rate Bar Chart */}
+      {perAthlete.length > 0 && (
+        <div className="surface" style={{ marginBottom:16, padding:'14px 16px' }}>
+          <div style={{ fontWeight:700, fontSize:'0.82rem', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
+            <i className="bi bi-bar-chart-fill" style={{ color:'#38bdf8' }}/>Attendance Rate รายนักกีฬา
+          </div>
+          <div style={{ height: Math.max(160, perAthlete.length * 22) }}>
+            <Bar
+              data={{
+                labels: perAthlete.map(x => x.athlete.Nickname || x.athlete.Name.split(' ')[0]),
+                datasets: [
+                  { label:'มา + สาย (%)', data: perAthlete.map(x=>x.rate||0),
+                    backgroundColor: perAthlete.map(x=>(x.rate||0)>=90?'rgba(16,185,129,0.75)':(x.rate||0)>=75?'rgba(56,189,248,0.75)':(x.rate||0)>=60?'rgba(245,158,11,0.75)':'rgba(239,68,68,0.75)'),
+                    borderRadius:4 },
+                ],
+              }}
+              options={{
+                indexAxis:'y' as const,
+                responsive:true, maintainAspectRatio:false,
+                plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=>`${c.raw}% (${perAthlete[c.dataIndex]?.present+perAthlete[c.dataIndex]?.late}/${perAthlete[c.dataIndex]?.total} sessions)` } } },
+                scales:{ x:{ min:0, max:100, ticks:{font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} }, y:{ ticks:{font:{size:10}} } },
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Per-athlete table */}
       <div className="surface" style={{ padding:0, overflow:'hidden' }}>

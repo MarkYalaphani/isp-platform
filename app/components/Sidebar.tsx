@@ -2,6 +2,7 @@
 
 import { Page, User } from '@/lib/types';
 import { LOGO_URL } from '@/lib/devData';
+import { useLang } from '@/lib/lang';
 
 interface Props {
   currentPage: Page;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpen, onEditProfile, clubAllowedPages = [] }: Props) {
+  const { t } = useLang();
   const canAccess = (page: Page): boolean => {
     if (user.role === 'admin') return true;
     if (user.role === 'club_pro') return page !== 'adminUsers' && page !== 'migrate';
@@ -101,35 +103,35 @@ export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpe
 
       <div className="nav-menu">
         <div className="nav-section">Main</div>
-        {link('home', 'bi-house-fill', 'Home')}
-        {link('help', 'bi-book-fill', 'คู่มือการใช้งาน')}
+        {link('home', 'bi-house-fill', t('Home'))}
+        {link('help', 'bi-book-fill', t('คู่มือการใช้งาน'))}
 
         <div className="nav-section">Overview</div>
-        {link('dashboard', 'bi-grid-1x2', 'Dashboard')}
+        {link('dashboard', 'bi-grid-1x2', t('Dashboard'))}
 
         <div className="nav-section">Athletes</div>
-        {link('roster',     'bi-people',           'Roster')}
-        {link('scout',      'bi-person-vcard',      'Scout Report')}
-        {link('skill',      'bi-bullseye',           'Skill Assessment')}
-        {link('attendance', 'bi-check2-square',      'เช็คชื่อซ้อม')}
-        {link('wellness',   'bi-heart-pulse-fill',   'Wellness & Load')}
-        {link('ir',         'bi-clipboard2-check',   'IDP')}
-        {link('compare', 'bi-intersect', 'Compare')}
-        {link('lineup', 'bi-diagram-3-fill', 'Line Up')}
+        {link('roster',     'bi-people',           t('Roster'))}
+        {link('scout',      'bi-person-vcard',      t('Scout Report'))}
+        {link('skill',      'bi-bullseye',          t('Skill Assessment'))}
+        {link('attendance', 'bi-check2-square',     t('เช็คชื่อซ้อม'))}
+        {link('wellness',   'bi-heart-pulse-fill',  t('Wellness & Load'))}
+        {link('ir',         'bi-clipboard2-check',  t('IDP'))}
+        {link('compare',    'bi-intersect',         t('Compare'))}
+        {link('lineup',     'bi-diagram-3-fill',    t('Line Up'))}
 
         <div className="nav-section">Training & Media</div>
-        {link('training', 'bi-play-btn-fill', 'Video Training')}
+        {link('training', 'bi-play-btn-fill', t('Video Training'))}
 
         <div className="nav-section">Data</div>
-        {link('leaderboard','bi-trophy-fill',         'Leaderboard')}
-        {link('teamreport', 'bi-bar-chart-line-fill', 'Team Report')}
-        {link('matchlog',   'bi-shield-check',        'Match Log')}
-        {link('calendar',   'bi-calendar3',           'ตารางซ้อม/แข่ง')}
-        {link('goals',      'bi-stars',               'Training Program')}
-        {link('performance', 'bi-clipboard-data', 'Update Results')}
-        {link('quicktest', 'bi-lightning-fill', 'Quick Test')}
-        {link('register', 'bi-person-plus', 'Add Athlete')}
-        {link('batchadd', 'bi-people-fill', 'เพิ่มหลายคน')}
+        {link('leaderboard','bi-trophy-fill',         t('Leaderboard'))}
+        {link('teamreport', 'bi-bar-chart-line-fill', t('Team Report'))}
+        {link('matchlog',   'bi-shield-check',        t('Match Log'))}
+        {link('calendar',   'bi-calendar3',           t('ตารางซ้อม/แข่ง'))}
+        {link('goals',      'bi-stars',               t('Training Program'))}
+        {link('performance','bi-clipboard-data',       t('Update Results'))}
+        {link('quicktest',  'bi-lightning-fill',       t('Quick Test'))}
+        {link('register',   'bi-person-plus',          t('Add Athlete'))}
+        {link('batchadd',   'bi-people-fill',          t('เพิ่มหลายคน'))}
 
         {user.role === 'admin' && (
           <>

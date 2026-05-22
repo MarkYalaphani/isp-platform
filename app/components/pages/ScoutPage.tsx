@@ -12,6 +12,7 @@ import { getScorePoint, SCORE_COLORS } from '@/lib/score';
 import { DEV_DATA, VIDEO_DB } from '@/lib/devData';
 import EditAthleteModal from '../EditAthleteModal';
 import ReportBanner, { PrintHeader } from '../ReportBanner';
+import ParentReport from '../ParentReport';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale);
 
@@ -299,6 +300,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const [dateRange, setDateRange] = useState<'all'|'1y'|'6m'|'3m'>('all');
   const [goals, setGoals] = useState<Record<string,string>>({});
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showParentReport, setShowParentReport] = useState(false);
   const [goalDraft, setGoalDraft] = useState<Record<string,string>>({});
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -851,6 +853,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
             <button className="btn-outline" onClick={() => setShowEditModal(true)}><i className="bi bi-pencil-square me-1" />แก้ไขข้อมูล</button>
             <button className="btn-outline" onClick={handleShowQR}><i className="bi bi-qr-code me-1" />QR Card</button>
             <button className="btn-outline" onClick={handleDownloadCard}><i className="bi bi-download me-1" />ดาวน์โหลดการ์ด</button>
+            <button className="btn-outline" onClick={() => setShowParentReport(true)}><i className="bi bi-file-earmark-person me-1" />รายงานผู้ปกครอง</button>
             <button className="btn-primary" onClick={handlePDF}><i className="bi bi-printer me-1" />Print</button>
           </div>
         )}
@@ -1948,6 +1951,13 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── PARENT REPORT ── */}
+      {showParentReport && athlete && (
+        <div style={{ position:'fixed', inset:0, zIndex:4000, background:'var(--bg)', overflowY:'auto' }}>
+          <ParentReport athlete={athlete} user={user} onClose={() => setShowParentReport(false)} />
         </div>
       )}
 

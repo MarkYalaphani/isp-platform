@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Prompt } from "next/font/google";
 import "./globals.css";
+import { LangProvider } from "@/lib/lang";
 
 const prompt = Prompt({
   weight: ['300', '400', '500', '600', '700'],
@@ -47,7 +48,7 @@ export default function RootLayout({
         />
       </head>
       <body style={{ fontFamily: "'Prompt', 'Space Grotesk', sans-serif" }}>
-        {children}
+        <LangProvider>{children}</LangProvider>
       </body>
     </html>
   );

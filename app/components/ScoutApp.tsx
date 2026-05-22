@@ -34,8 +34,10 @@ import BatchAddPage from './pages/BatchAddPage';
 import MatchLogPage from './pages/MatchLogPage';
 import CalendarPage from './pages/CalendarPage';
 import TrainingProgramPage from './pages/TrainingProgramPage';
+import { useLang } from '@/lib/lang';
 
 export default function ScoutApp() {
+  const { lang, toggle: toggleLang } = useLang();
   const [user, setUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [athletes, setAthletes] = useState<Athlete[]>([]);
@@ -155,6 +157,9 @@ export default function ScoutApp() {
             <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>ISP</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <button onClick={toggleLang} title="Toggle Language" style={{ background:'none', border:'1px solid var(--border)', borderRadius:8, padding:'5px 10px', cursor:'pointer', color:'var(--text-muted)', fontSize:'0.75rem', fontWeight:700, letterSpacing:0.5 }}>
+              {lang === 'th' ? 'EN' : 'ไทย'}
+            </button>
             <button onClick={toggleDark} title={darkMode?'Light Mode':'Dark Mode'} style={{ background:'none', border:'1px solid var(--border)', borderRadius:8, padding:'5px 8px', cursor:'pointer', color:'var(--text-muted)', fontSize:'1rem' }}>
               <i className={`bi bi-${darkMode?'sun-fill':'moon-fill'}`}/>
             </button>
