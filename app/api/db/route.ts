@@ -644,6 +644,55 @@ export async function POST(req: NextRequest) {
         return NextResponse.json((data||[]).map(r=>({ playerId:r.player_id, sessionDate:r.session_date, sessionName:r.session_name, sessionType:r.session_type, rpe:r.rpe, durationMin:r.duration_min, trainingLoad:r.training_load })));
       }
 
+      // ── MATCH LOG ─────────────────────────────────────────────────────────
+      case 'saveMatch': {
+        const { stats: matchStats, ...matchData } = params as { stats?: unknown[]; [k: string]: unknown };
+        const { data: m, error: me } = await sb.from('matches').insert({ club_id: matchData.clubId, match_date: matchData.matchDate, opponent: matchData.opponent, venue: matchData.venue||'', match_type: matchData.matchType||'ลีก', team_name: matchData.teamName||'', score_for: Number(matchData.scoreFor)||0, score_against: Number(matchData.scoreAgainst)||0, result: matchData.result, notes: matchData.notes||'', created_by: matchData.createdBy||'' }).select().single();
+        if (me) throw me;
+        if (m && Array.isArray(matchStats) && matchStats.length > 0) {
+          const rows = (matchStats as {playerId:string;minutesPlayed:number;goals:number;assists:number;yellowCards:number;redCards:number;rating:number;notes:string}[]).map(s => ({ match_id: m.id, player_id: s.playerId, minutes_played: s.minutesPlayed||0, goals: s.goals||0, assists: s.assists||0, yellow_cards: s.yellowCards||0, red_cards: s.redCards||0, rating: s.rating||0, notes: s.notes||'' }));
+          await sb.from('match_stats').insert(rows);
+        }
+        return NextResponse.json({ status:'success', message:'บันทึกผลแข่งขันสำเร็จ' });
+      }
+      case 'getMatches': {
+        const { clubId, teamName } = params as { clubId?:string; teamName?:string };
+        let q = sb.from('matches').select('*').order('match_date',{ascending:false});
+        if (clubId) q = q.eq('club_id', clubId);
+        if (teamName) q = q.eq('team_name', teamName);
+        const { data, error } = await q;
+        if (error) throw error;
+        return NextResponse.json((data||[]).map(r=>({ id:r.id, matchDate:r.match_date, opponent:r.opponent, venue:r.venue||'', matchType:r.match_type, teamName:r.team_name||'', scoreFor:r.score_for, scoreAgainst:r.score_against, result:r.result, notes:r.notes||'', createdBy:r.created_by||'' })));
+      }
+      case 'getMatchStats': {
+        const { matchId } = params as { matchId: string };
+        const { data, error } = await sb.from('match_stats').select('*').eq('match_id', matchId);
+        if (error) throw error;
+        return NextResponse.json((data||[]).map(r=>({ id:r.id, matchId:r.match_id, playerId:r.player_id, minutesPlayed:r.minutes_played, goals:r.goals, assists:r.assists, yellowCards:r.yellow_cards, redCards:r.red_cards, rating:r.rating, notes:r.notes||'' })));
+      }
+
+      // ── CALENDAR ──────────────────────────────────────────────────────────
+      case 'saveCalendarEvent': {
+        const p = params as {title:string;eventDate:string;eventType:string;teamName:string;venue:string;notes:string;clubId:string;createdBy:string};
+        const { error } = await sb.from('calendar_events').insert({ club_id:p.clubId, event_date:p.eventDate, title:p.title, event_type:p.eventType||'training', team_name:p.teamName||'', venue:p.venue||'', notes:p.notes||'', created_by:p.createdBy||'' });
+        if (error) throw error;
+        return NextResponse.json({ status:'success', message:'บันทึกสำเร็จ' });
+      }
+      case 'getCalendarEvents': {
+        const { yearMonth, clubId } = params as { yearMonth:string; clubId?:string };
+        let q = sb.from('calendar_events').select('*').like('event_date', `${yearMonth}%`).order('event_date');
+        if (clubId) q = q.eq('club_id', clubId);
+        const { data, error } = await q;
+        if (error) throw error;
+        return NextResponse.json((data||[]).map(r=>({ id:r.id, eventDate:r.event_date, title:r.title, eventType:r.event_type, teamName:r.team_name||'', venue:r.venue||'', notes:r.notes||'', createdBy:r.created_by||'' })));
+      }
+      case 'deleteCalendarEvent': {
+        const { id } = params as { id:string };
+        const { error } = await sb.from('calendar_events').delete().eq('id', id);
+        if (error) throw error;
+        return NextResponse.json({ status:'success' });
+      }
+
       // ── TRAINING VIDEOS (Admin CRUD) ───────────────────────────────────────
       case 'getTrainingVideos': {
         const { data, error } = await sb.from('training_videos')

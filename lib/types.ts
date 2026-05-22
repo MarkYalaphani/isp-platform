@@ -96,7 +96,7 @@ export interface UserRecord {
   ClubID: string;
 }
 
-export type Page = 'home' | 'dashboard' | 'roster' | 'scout' | 'ir' | 'skill' | 'attendance' | 'training' | 'performance' | 'register' | 'adminUsers' | 'teamreport' | 'compare' | 'quicktest' | 'migrate' | 'lineup' | 'wellness' | 'tester' | 'help';
+export type Page = 'home' | 'dashboard' | 'roster' | 'scout' | 'ir' | 'skill' | 'attendance' | 'training' | 'performance' | 'register' | 'adminUsers' | 'teamreport' | 'compare' | 'quicktest' | 'migrate' | 'lineup' | 'wellness' | 'tester' | 'help' | 'leaderboard' | 'batchadd' | 'matchlog' | 'calendar' | 'goals';
 
 export interface WellnessRecord {
   id: string;

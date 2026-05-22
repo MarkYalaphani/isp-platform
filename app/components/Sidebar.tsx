@@ -121,10 +121,15 @@ export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpe
         {link('training', 'bi-play-btn-fill', 'Video Training')}
 
         <div className="nav-section">Data</div>
+        {link('leaderboard','bi-trophy-fill',         'Leaderboard')}
         {link('teamreport', 'bi-bar-chart-line-fill', 'Team Report')}
+        {link('matchlog',   'bi-shield-check',        'Match Log')}
+        {link('calendar',   'bi-calendar3',           'ตารางซ้อม/แข่ง')}
+        {link('goals',      'bi-stars',               'Training Program')}
         {link('performance', 'bi-clipboard-data', 'Update Results')}
         {link('quicktest', 'bi-lightning-fill', 'Quick Test')}
         {link('register', 'bi-person-plus', 'Add Athlete')}
+        {link('batchadd', 'bi-people-fill', 'เพิ่มหลายคน')}
 
         {user.role === 'admin' && (
           <>

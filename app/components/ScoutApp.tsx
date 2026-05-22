@@ -29,6 +29,11 @@ import HelpPage from './pages/HelpPage';
 import UserProfileModal from './UserProfileModal';
 import ToastContainer from './ToastContainer';
 import BottomNav from './BottomNav';
+import LeaderboardPage from './pages/LeaderboardPage';
+import BatchAddPage from './pages/BatchAddPage';
+import MatchLogPage from './pages/MatchLogPage';
+import CalendarPage from './pages/CalendarPage';
+import TrainingProgramPage from './pages/TrainingProgramPage';
 
 export default function ScoutApp() {
   const [user, setUser] = useState<User | null>(null);
@@ -38,8 +43,22 @@ export default function ScoutApp() {
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [scoutPlayerId, setScoutPlayerId] = useState('');
   const [showProfile, setShowProfile]   = useState(false);
+  const [darkMode, setDarkMode]         = useState(false);
   // Global Club role permissions (loaded once on mount)
   const [clubAllowedPages, setClubAllowedPages] = useState<string[]>([]);
+
+  // Dark mode init + sync to DOM
+  useEffect(() => {
+    const dm = localStorage.getItem('darkMode') === 'true';
+    setDarkMode(dm);
+    document.documentElement.setAttribute('data-theme', dm ? 'dark' : 'light');
+  }, []);
+  const toggleDark = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    localStorage.setItem('darkMode', String(next));
+    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+  };
 
   useEffect(() => {
     const saved = sessionStorage.getItem('scoutUser') || localStorage.getItem('scoutUser');
@@ -135,7 +154,12 @@ export default function ScoutApp() {
             <img src="https://res.cloudinary.com/dkmi9kye7/image/upload/v1778663857/687674443_978558021239852_7124371302269064381_n_jzn6zg.jpg" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 6 }} alt="" />
             <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>ISP</span>
           </div>
-          <button className="btn-menu" onClick={() => setSidebarOpen(true)}><i className="bi bi-list" style={{ fontSize: '1.1rem' }} /></button>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <button onClick={toggleDark} title={darkMode?'Light Mode':'Dark Mode'} style={{ background:'none', border:'1px solid var(--border)', borderRadius:8, padding:'5px 8px', cursor:'pointer', color:'var(--text-muted)', fontSize:'1rem' }}>
+              <i className={`bi bi-${darkMode?'sun-fill':'moon-fill'}`}/>
+            </button>
+            <button className="btn-menu" onClick={() => setSidebarOpen(true)}><i className="bi bi-list" style={{ fontSize: '1.1rem' }} /></button>
+          </div>
         </div>
 
         {loading && <div style={{ textAlign: 'center', padding: 40 }}><div className="spinner-ring" /></div>}
@@ -161,6 +185,11 @@ export default function ScoutApp() {
             {currentPage === 'migrate'     && user.role === 'admin' && <MigratePage />}
             {currentPage === 'tester'      && user.role === 'admin' && <TesterPage athletes={athletes} user={user} onNavigate={navigate} />}
             {currentPage === 'help'         && <HelpPage onNavigate={navigate} />}
+            {currentPage === 'leaderboard'  && <LeaderboardPage athletes={athletes} onNavigate={navigate} />}
+            {currentPage === 'batchadd'     && <BatchAddPage onSuccess={() => { navigate('roster'); loadAthletes(); setTimeout(loadAthletes,3500); }} user={user} athletes={athletes} />}
+            {currentPage === 'matchlog'     && <MatchLogPage athletes={athletes} user={user} />}
+            {currentPage === 'calendar'     && <CalendarPage athletes={athletes} user={user} onNavigate={navigate} />}
+            {currentPage === 'goals'        && <TrainingProgramPage athletes={athletes} user={user} />}
           </>
         )}
         <BottomNav currentPage={currentPage} onNavigate={navigate} onOpenMenu={() => setSidebarOpen(true)} />

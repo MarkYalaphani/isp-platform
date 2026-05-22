@@ -277,6 +277,22 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
     return { total: athletes.length, avgRating, neverTested, topName: top?.Name || '—' };
   }, [athletes]);
 
+  const exportCSV = () => {
+    const headers = ['PlayerID','ชื่อ','ชื่อเล่น','ทีม','ตำแหน่ง','วันเกิด','สโมสร','จังหวัด','Rating','Speed30','CMJ','Agility','Situp','Pushup','LongJump','YoYo','SitReach','ส่วนสูง','น้ำหนัก'];
+    const rows = sorted.map(a => [
+      a.PlayerID, a.Name, a.Nickname||'', a.Team||'', a.Position||'', a.DOB||'', a.Club||'', a.Province||'',
+      a.Latest?.Rating||'', a.Latest?.Speed30||'', a.Latest?.CMJ||'', a.Latest?.Agility||'',
+      a.Latest?.Situp||'', a.Latest?.Pushup||'', a.Latest?.LongJump||'', a.Latest?.YoYo||'', a.Latest?.SitAndReach||'',
+      a.Latest?.Height||'', a.Latest?.Weight||'',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(['﻿'+csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `roster_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
   const SortIcon = ({ k }: { k: SortKey }) => sortKey !== k ? <i className="bi bi-arrow-down-up ms-1" style={{ opacity: 0.3, fontSize: '0.65rem' }} /> :
     <i className={`bi bi-arrow-${sortDir === 'asc' ? 'up' : 'down'} ms-1`} style={{ color: '#38bdf8', fontSize: '0.65rem' }} />;
 
@@ -301,6 +317,7 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
               </button>
             ))}
           </div>
+          <button className="btn-outline" onClick={exportCSV}><i className="bi bi-download me-1" />CSV</button>
           <button className="btn-outline" onClick={() => window.print()}><i className="bi bi-printer me-1" />Print</button>
         </div>
       </div>

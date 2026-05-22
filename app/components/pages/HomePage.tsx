@@ -144,8 +144,38 @@ export default function HomePage({ athletes, onNavigate, user }: Props) {
 
   const dateStr = new Date().toLocaleDateString('th-TH', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
+  // Alerts
+  const alerts = useMemo(() => {
+    const list: { type: 'warn'|'error'; msg: string; page: Page }[] = [];
+    const overdue = athletes.filter(a => {
+      if (!a.History?.length) return true;
+      const ts = a.History[a.History.length-1]?.Timestamp || '';
+      const days = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
+      return days > 60;
+    });
+    if (overdue.length > 0) list.push({ type:'warn', msg:`${overdue.length} คนยังไม่ได้ทดสอบหรือเกิน 60 วัน`, page:'roster' });
+    if (stats.untested.length > 0) list.push({ type:'error', msg:`${stats.untested.length} คนไม่เคยทดสอบเลย`, page:'performance' });
+    return list;
+  }, [athletes, stats.untested]);
+
   return (
     <div>
+      {/* Alerts */}
+      {alerts.length > 0 && (
+        <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:14 }}>
+          {alerts.map((al,i) => (
+            <div key={i} onClick={()=>onNavigate(al.page)} style={{
+              display:'flex', alignItems:'center', gap:10, padding:'9px 16px', borderRadius:10, cursor:'pointer',
+              background: al.type==='error'?'#fef2f2':'#fffbeb',
+              border: `1px solid ${al.type==='error'?'#fecaca':'#fde68a'}`,
+            }}>
+              <i className={`bi bi-${al.type==='error'?'exclamation-triangle-fill':'exclamation-circle-fill'}`} style={{ color:al.type==='error'?'#dc2626':'#d97706', fontSize:'0.9rem' }}/>
+              <span style={{ flex:1, fontSize:'0.82rem', fontWeight:600, color:al.type==='error'?'#991b1b':'#92400e' }}>{al.msg}</span>
+              <i className="bi bi-arrow-right-circle" style={{ color:al.type==='error'?'#dc2626':'#d97706', fontSize:'0.85rem' }}/>
+            </div>
+          ))}
+        </div>
+      )}
       <style>{`
         @keyframes hglow  { 0%,100%{opacity:0.5} 50%{opacity:1} }
         @keyframes drift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-24px,18px)} }
