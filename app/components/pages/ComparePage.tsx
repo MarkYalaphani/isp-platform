@@ -218,6 +218,16 @@ export default function ComparePage({ athletes, onNavigate }: Props) {
 
       {pA && pB && (
         <>
+          {/* No-data warning */}
+          {(!pA.Latest || !pB.Latest) && (
+            <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10, padding:'10px 16px', marginBottom:16, display:'flex', gap:10, alignItems:'center' }}>
+              <i className="bi bi-exclamation-triangle-fill" style={{ color:'#f59e0b' }}/>
+              <span style={{ fontSize:'0.82rem', fontWeight:600, color:'#92400e' }}>
+                {!pA.Latest && !pB.Latest ? 'ทั้งสองคนยังไม่เคยทดสอบ' : !pA.Latest ? `${pA.Name} ยังไม่มีข้อมูลการทดสอบ` : `${pB.Name} ยังไม่มีข้อมูลการทดสอบ`}
+                {' — กราฟจะแสดงเมื่อมีข้อมูล'}
+              </span>
+            </div>
+          )}
           {/* ── Hero cards — pA · VS · pB (correct order) ── */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 50px 1fr', gap:16, marginBottom:20, alignItems:'center' }}>
             <ProfileCard athlete={pA} color="#38bdf8" onScout={()=>onNavigate('scout',pA.PlayerID)}/>

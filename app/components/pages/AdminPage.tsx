@@ -107,7 +107,13 @@ export default function AdminPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!addForm.username || !addForm.password) { showToast('Username และ Password จำเป็น', 'error'); return; }
+    if (!addForm.username.trim() || !addForm.password.trim()) { showToast('Username และ Password จำเป็น', 'error'); return; }
+    if (users.some(u => u.Username.toLowerCase() === addForm.username.trim().toLowerCase())) {
+      showToast(`Username "${addForm.username}" มีอยู่แล้ว`, 'error'); return;
+    }
+    if (addForm.clubId && users.some(u => u.ClubID && u.ClubID === addForm.clubId.trim())) {
+      showToast(`Club ID "${addForm.clubId}" ถูกใช้แล้ว — กด Generate ใหม่`, 'error'); return;
+    }
     setSaving(true);
     try {
       const res = await callGAS('saveUser', addForm) as { status:string; message:string };

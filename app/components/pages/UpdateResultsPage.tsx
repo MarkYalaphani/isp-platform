@@ -66,6 +66,28 @@ function SingleTab({ athletes, onSuccess }: Props) {
   const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
     if (!form.playerId) { showToast('กรุณาเลือกนักกีฬา', 'error'); return; }
+    // Range validation
+    const checks: [string, string, number, number][] = [
+      ['ส่วนสูง', form.height, 50, 250],
+      ['น้ำหนัก', form.weight, 10, 250],
+      ['Body Fat', form.fat, 1, 60],
+      ['Muscle', form.muscle, 10, 80],
+      ['CMJ', form.cmj, 1, 150],
+      ['Speed 30m', form.speed30, 2, 20],
+      ['Agility L', form.agiL, 2, 30],
+      ['Agility R', form.agiR, 2, 30],
+      ['Sit-up', form.situp, 1, 200],
+      ['Long Jump', form.longJump, 10, 450],
+      ['Push-up', form.pushup, 1, 200],
+      ['Sit & Reach', form.sitReach, -30, 60],
+    ];
+    for (const [label, val, min, max] of checks) {
+      if (val === '' || val === undefined) continue;
+      const n = parseFloat(String(val));
+      if (isNaN(n) || n < min || n > max) {
+        showToast(`${label}: ค่าควรอยู่ระหว่าง ${min}–${max}`, 'error'); return;
+      }
+    }
     setSaving(true);
     try {
       const res = await callGAS('saveTest', {

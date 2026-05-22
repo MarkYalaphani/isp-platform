@@ -271,6 +271,17 @@ export default function IRPage({ athletes, user }: Props) {
     finally{setLoadingHist(false);}
   };
 
+  const handleDeleteIR=async(id:string)=>{
+    if(!confirm('ลบรายการ IDP นี้? ไม่สามารถกู้คืนได้')) return;
+    try {
+      const res=await callGAS('deleteIR',{id}) as {status:string;message?:string};
+      if(res.status==='success'){
+        showToast('ลบสำเร็จ','success');
+        setHistory(h=>h.filter(r=>r.id!==id));
+      } else showToast(res.message||'ลบไม่สำเร็จ','error');
+    } catch { showToast('Connection error','error'); }
+  };
+
   const athlete = athletes.find(a=>a.PlayerID===playerId);
   const histRev=[...history].reverse();
   const histLabels=histRev.map((_r,i)=>String(history[history.length-1-i]?.Timestamp||'').split(' ')[0]||`#${i+1}`);
@@ -614,6 +625,12 @@ export default function IRPage({ athletes, user }: Props) {
                           <div style={{fontWeight:900,fontSize:'1.1rem',color:oG.color}}>{Number(ir.OverallIRScore)||0}%</div>
                           <div style={{fontSize:'0.6rem',fontWeight:700,color:oG.color}}>{oG.text}</div>
                         </div>
+                        {ir.id && (
+                          <button onClick={()=>handleDeleteIR(ir.id)} title="ลบรายการนี้"
+                            style={{padding:'5px 8px',borderRadius:7,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',cursor:'pointer',fontSize:'0.78rem',flexShrink:0}}>
+                            <i className="bi bi-trash"/>
+                          </button>
+                        )}
                       </div>
                     );
                   })}

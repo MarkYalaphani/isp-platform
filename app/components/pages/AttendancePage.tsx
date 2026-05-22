@@ -83,8 +83,11 @@ export default function AttendancePage({ athletes, user }: Props) {
   }, []);
 
   /* ── Mark all present ── */
-  const markAll = (status: AttendanceStatus) =>
+  const markAll = (status: AttendanceStatus) => {
+    const label = STATUS_CFG[status].label;
+    if (!confirm(`Mark "${label}" ให้กับนักกีฬา ${filteredAthletes.length} คนทั้งหมด?`)) return;
     setStatuses(filteredAthletes.reduce((acc, a) => ({ ...acc, [a.PlayerID]: status }), {}));
+  };
 
   /* ── Save attendance ── */
   const handleSave = async () => {

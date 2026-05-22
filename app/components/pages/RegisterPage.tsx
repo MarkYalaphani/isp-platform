@@ -20,9 +20,21 @@ export default function RegisterPage({ onSuccess, user }: Props) {
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
+  const TODAY = new Date().toISOString().split('T')[0];
+
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('กรุณาเลือกไฟล์รูปภาพเท่านั้น (jpg, png, webp)', 'error');
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('ไฟล์รูปต้องไม่เกิน 5MB', 'error');
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
     const reader = new FileReader();
     reader.onload = ev => {
       const result = ev.target?.result as string;
@@ -32,9 +44,17 @@ export default function RegisterPage({ onSuccess, user }: Props) {
     reader.readAsDataURL(file);
   };
 
+  const resetForm = () => {
+    setForm({ name: '', nickname: '', dob: '', team: '', position: 'Forward', club: '', province: '', domHand: 'Right', domFoot: 'Right' });
+    setPhoto(null);
+    setPhotoPreview('');
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
   const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
-    if (!form.name) { showToast('กรุณากรอกชื่อ-นามสกุล', 'error'); return; }
+    if (!form.name.trim()) { showToast('กรุณากรอกชื่อ-นามสกุล', 'error'); return; }
+    if (form.dob && form.dob > TODAY) { showToast('วันเกิดต้องไม่เป็นวันในอนาคต', 'error'); return; }
     setSaving(true);
     try {
       const payload = {
@@ -46,7 +66,8 @@ export default function RegisterPage({ onSuccess, user }: Props) {
       const res = await callGAS('saveAthlete', payload) as { status: string; message: string };
       if (res.status === 'success') {
         showToast(res.message || 'บันทึกสำเร็จ!', 'success');
-        onSuccess(); // navigate to roster + start loading immediately
+        resetForm();
+        onSuccess();
       } else {
         showToast(res.message || 'บันทึกไม่สำเร็จ', 'error');
       }
@@ -90,7 +111,7 @@ export default function RegisterPage({ onSuccess, user }: Props) {
             </div>
             <div style={{ flex: 1, minWidth: 200 }}>
               <label className="form-label">วันเกิด</label>
-              <input type="date" className="form-control" value={form.dob} onChange={e => set('dob', e.target.value)} />
+              <input type="date" className="form-control" value={form.dob} max={TODAY} onChange={e => set('dob', e.target.value)} />
             </div>
             <div style={{ flex: 1, minWidth: 150 }}>
               <label className="form-label">รุ่นอายุ</label>

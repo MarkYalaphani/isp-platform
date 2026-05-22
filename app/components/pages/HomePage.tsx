@@ -276,7 +276,10 @@ export default function HomePage({ athletes, onNavigate, user }: Props) {
             </div>
             <div>
               <div style={{ fontWeight:800, fontSize:'0.88rem' }}>Top Performers</div>
-              <div style={{ fontSize:'0.62rem', color:'var(--text-muted)' }}>อันดับนักกีฬา · Rating สูงสุด</div>
+              <div style={{ fontSize:'0.62rem', color:'var(--text-muted)' }}>
+                อันดับนักกีฬา · Rating สูงสุด
+                <span style={{ marginLeft:6, color:'#94a3b8' }}>· อัพเดท {new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+              </div>
             </div>
             <button onClick={() => onNavigate('dashboard')} style={{ marginLeft:'auto', background:'none', border:'none', color:'#38bdf8', cursor:'pointer', fontSize:'0.7rem', fontWeight:700 }}>ดูทั้งหมด →</button>
           </div>

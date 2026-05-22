@@ -49,6 +49,7 @@ export interface Athlete {
 }
 
 export interface IRReport {
+  id: string;
   Timestamp: string;
   PlayerID: string;
   Coach: string;

@@ -34,6 +34,7 @@ function toTestRecord(r: Record<string, unknown>) {
 
 function toIRReport(r: Record<string, unknown>) {
   return {
+    id:              String(r.id               || ''),
     Timestamp:       String(r.timestamp        || ''),
     PlayerID:        String(r.player_id         || ''),
     Coach:           String(r.coach             || ''),
@@ -332,6 +333,13 @@ export async function POST(req: NextRequest) {
           .eq('player_id', playerId).order('timestamp', { ascending: false });
         if (error) throw error;
         return NextResponse.json((data||[]).map(r => toIRReport(r as Record<string,unknown>)));
+      }
+
+      case 'deleteIR': {
+        const { id } = params as { id: string };
+        const { error } = await sb.from('ir_reports').delete().eq('id', id);
+        if (error) throw error;
+        return NextResponse.json({ status: 'success' });
       }
 
       // ── USERS ──────────────────────────────────────────────────────────────
