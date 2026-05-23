@@ -131,7 +131,6 @@ export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpe
         {link('performance','bi-clipboard-data',       t('Update Results'))}
         {link('quicktest',  'bi-lightning-fill',       t('Quick Test'))}
         {link('register',   'bi-person-plus',          t('Add Athlete'))}
-        {link('batchadd',   'bi-people-fill',          t('เพิ่มหลายคน'))}
 
         {user.role === 'admin' && (
           <>
