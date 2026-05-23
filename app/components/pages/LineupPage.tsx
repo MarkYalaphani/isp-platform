@@ -640,6 +640,14 @@ export default function LineupPage({ athletes, user }: Props) {
           }
           /* Compact player rows in print */
           #shadowPrintList button { display:none!important; }
+
+          /* Page 2: formation pitch */
+          #shadowPrintPitch {
+            display:block!important;
+            page-break-before:always!important;
+            break-before:page!important;
+            width:100%!important;
+          }
         }
       `}</style>
 
@@ -829,6 +837,78 @@ export default function LineupPage({ athletes, user }: Props) {
             </div>
             <div style={{marginTop:8,fontSize:'0.48rem',fontWeight:600,color:'#94a3b8',
               letterSpacing:2,textTransform:'uppercase',textAlign:'center'}}>ISP · Shadow Team Report</div>
+          </div>
+
+          {/* Print-only: formation pitch page 2 */}
+          <div id="shadowPrintPitch" style={{display:'none'}}>
+            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',
+              borderBottom:'2.5pt solid #0f172a',paddingBottom:6,marginBottom:12}}>
+              <div>
+                <span style={{fontWeight:900,fontSize:'1.1rem',letterSpacing:2,textTransform:'uppercase',color:'#0f172a'}}>FORMATION</span>
+                <span style={{marginLeft:10,fontSize:'0.7rem',fontWeight:700,color:'#7c3aed',letterSpacing:1}}>
+                  {formation.name} · {mode==='11'?'11v11':'7v7'}
+                </span>
+              </div>
+              <span style={{fontSize:'0.6rem',color:'#94a3b8',fontWeight:600}}>
+                {new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}
+              </span>
+            </div>
+            {/* Pitch diagram */}
+            <div style={{position:'relative',width:'100%',paddingBottom:'62%',
+              background:'linear-gradient(180deg,#0e4020 0%,#145c2a 18%,#1a7835 50%,#145c2a 82%,#0e4020 100%)',
+              borderRadius:10,overflow:'hidden'}}>
+              <div style={{position:'absolute',inset:0}}><PitchLines/></div>
+              <div style={{position:'absolute',inset:0}}>
+                {formation.positions.map(pos=>{
+                  const cands=athletes.filter(a=>(shadowCandidates[pos.id]||[]).includes(a.PlayerID));
+                  const isLower=pos.y>55;
+                  return(
+                    <div key={pos.id} style={{position:'absolute',left:`${pos.x}%`,top:`${pos.y}%`,
+                      transform:'translate(-50%,-50%)',textAlign:'center',zIndex:5,minWidth:70}}>
+                      {/* Show names above dot for GK/DEF, below for MID/FWD */}
+                      {isLower&&cands.length>0&&(
+                        <div style={{marginBottom:4}}>
+                          {cands.map(a=>(
+                            <div key={a.PlayerID} style={{display:'flex',alignItems:'center',gap:3,
+                              background:'rgba(255,255,255,0.93)',borderRadius:4,padding:'2px 5px',
+                              marginBottom:2,maxWidth:100,justifyContent:'center'}}>
+                              {a.PhotoUrl&&<img src={a.PhotoUrl} style={{width:16,height:16,borderRadius:'50%',objectFit:'cover',objectPosition:'top',flexShrink:0}} alt=""/>}
+                              <span style={{fontSize:'0.5rem',fontWeight:700,color:'#0f172a',
+                                whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:76}}>
+                                {a.Nickname||a.Name?.split(' ').slice(-1)[0]||a.Name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Position circle */}
+                      <div style={{width:26,height:26,borderRadius:'50%',
+                        background:'rgba(0,0,0,0.65)',border:'2px solid rgba(255,255,255,0.9)',
+                        display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto'}}>
+                        <span style={{fontSize:'0.42rem',fontWeight:900,color:'white',textTransform:'uppercase',lineHeight:1}}>{pos.label}</span>
+                      </div>
+                      {!isLower&&cands.length>0&&(
+                        <div style={{marginTop:4}}>
+                          {cands.map(a=>(
+                            <div key={a.PlayerID} style={{display:'flex',alignItems:'center',gap:3,
+                              background:'rgba(255,255,255,0.93)',borderRadius:4,padding:'2px 5px',
+                              marginBottom:2,maxWidth:100,justifyContent:'center'}}>
+                              {a.PhotoUrl&&<img src={a.PhotoUrl} style={{width:16,height:16,borderRadius:'50%',objectFit:'cover',objectPosition:'top',flexShrink:0}} alt=""/>}
+                              <span style={{fontSize:'0.5rem',fontWeight:700,color:'#0f172a',
+                                whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:76}}>
+                                {a.Nickname||a.Name?.split(' ').slice(-1)[0]||a.Name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{marginTop:6,fontSize:'0.48rem',fontWeight:600,color:'#94a3b8',
+              letterSpacing:2,textTransform:'uppercase',textAlign:'center'}}>ISP · Shadow Team Formation</div>
           </div>
 
           {/* Pitch */}
