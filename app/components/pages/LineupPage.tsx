@@ -300,28 +300,71 @@ function FC26Card({ pos, athlete, isOver, teamLogo, onDragStart, onDragOver, onD
 /* ── Shadow Card ── */
 function ShadowCard({athlete,show,onRemove}:{athlete:Athlete;show:ShowSettings;onRemove:()=>void}) {
   const year=athlete.DOB?(()=>{try{const d=new Date(athlete.DOB);return isNaN(d.getTime())?null:d.getFullYear();}catch{return null;}})():null;
+  const age=year?new Date().getFullYear()-year:null;
   const height=athlete.Latest?.Height?String(Math.round(Number(athlete.Latest.Height)||0)):'';
   const rating=Math.round(Number(athlete.Latest?.Rating)||0);
+  const name=athlete.Name||'?';
+  const nick=athlete.Nickname&&athlete.Nickname!==name?athlete.Nickname:null;
   return (
-    <div style={{display:'flex',alignItems:'center',gap:3,background:'white',borderRadius:5,padding:'3px 6px 3px 4px',boxShadow:'0 1px 5px rgba(0,0,0,0.2)',minWidth:115}}>
-      {show.photo&&(athlete.PhotoUrl
-        ?<img src={athlete.PhotoUrl} alt="" style={{width:22,height:22,borderRadius:3,objectFit:'cover',objectPosition:'top',flexShrink:0}}/>
-        :<div style={{width:22,height:22,borderRadius:3,background:'#e2e8f0',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><span style={{fontSize:'0.4rem',fontWeight:900,color:'#64748b'}}>{ini(athlete.Name)}</span></div>
-      )}
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:'0.6rem',fontWeight:700,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.2}}>
-          {athlete.Nickname||athlete.Name?.split(' ').slice(-1)[0]||athlete.Name}
+    <div style={{display:'flex',alignItems:'center',gap:6,background:'white',borderRadius:8,
+      padding:'5px 26px 5px 5px',boxShadow:'0 2px 10px rgba(0,0,0,0.18)',minWidth:170,maxWidth:200,
+      position:'relative',border:'1px solid rgba(0,0,0,0.06)'}}>
+      {/* Remove button */}
+      <button onClick={e=>{e.stopPropagation();onRemove();}}
+        className="no-print"
+        style={{position:'absolute',top:3,right:5,background:'none',border:'none',cursor:'pointer',
+          color:'#94a3b8',fontSize:'0.95rem',lineHeight:1,padding:0,zIndex:1}}>×</button>
+      {/* Photo */}
+      {show.photo&&(
+        <div style={{width:38,height:38,borderRadius:'50%',flexShrink:0,overflow:'hidden',
+          background:'linear-gradient(135deg,#a06a00,#f0d050)',border:'2px solid #e2e8f0'}}>
+          {athlete.PhotoUrl
+            ?<img src={athlete.PhotoUrl} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top'}} alt=""/>
+            :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <span style={{fontSize:'0.65rem',fontWeight:900,color:'rgba(0,0,0,0.45)'}}>{ini(name)}</span>
+            </div>}
         </div>
-        {(show.age||show.height||show.club||show.rating)&&(
-          <div style={{display:'flex',gap:3,alignItems:'center',marginTop:1,flexWrap:'nowrap'}}>
-            {show.age&&year&&<span style={{fontSize:'0.48rem',color:'#64748b',fontWeight:600,whiteSpace:'nowrap'}}>'{String(year).slice(2)}</span>}
-            {show.height&&height&&<span style={{fontSize:'0.48rem',color:'#475569',fontWeight:600,whiteSpace:'nowrap'}}>{height}cm</span>}
-            {show.club&&athlete.Team&&<span style={{fontSize:'0.48rem',color:'#64748b',maxWidth:50,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{athlete.Team}</span>}
-            {show.rating&&<span style={{fontSize:'0.48rem',fontWeight:800,color:'#92400e',background:'#fef3c7',borderRadius:2,padding:'0 2px',whiteSpace:'nowrap'}}>{rating||'—'}</span>}
+      )}
+      {/* Info */}
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:'0.74rem',fontWeight:700,color:'#0f172a',
+          whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.3}}>
+          {name}
+        </div>
+        {nick&&(
+          <div style={{fontSize:'0.63rem',fontWeight:600,color:'#7c3aed',lineHeight:1.2,
+            whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+            {nick}
           </div>
         )}
+        <div style={{display:'flex',gap:3,alignItems:'center',marginTop:2,flexWrap:'nowrap'}}>
+          {show.age&&age&&(
+            <span style={{fontSize:'0.52rem',color:'#64748b',fontWeight:600,
+              background:'#f1f5f9',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>
+              {age} ปี
+            </span>
+          )}
+          {show.height&&height&&(
+            <span style={{fontSize:'0.52rem',color:'#0369a1',fontWeight:700,
+              background:'#e0f2fe',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>
+              {height}cm
+            </span>
+          )}
+          {show.club&&athlete.Team&&(
+            <span style={{fontSize:'0.5rem',color:'#64748b',fontWeight:600,
+              background:'#f8fafc',borderRadius:3,padding:'1px 3px',
+              maxWidth:52,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+              {athlete.Team}
+            </span>
+          )}
+          {show.rating&&rating>0&&(
+            <span style={{fontSize:'0.52rem',fontWeight:800,color:'#92400e',
+              background:'#fef3c7',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>
+              {rating}
+            </span>
+          )}
+        </div>
       </div>
-      <button onClick={e=>{e.stopPropagation();onRemove();}} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',fontSize:'0.85rem',lineHeight:1,padding:'0 1px',flexShrink:0}}>×</button>
     </div>
   );
 }
@@ -516,7 +559,7 @@ export default function LineupPage({ athletes, user }: Props) {
       <style>{`
         @media print {
           /* ── A4 Landscape, single page ── */
-          @page { size: A4 landscape; margin: 4mm 6mm; }
+          @page { size: A4 landscape; margin: 6mm 8mm; }
 
           .sidebar, .top-bar, .sidebar-overlay, .no-print { display:none!important; }
           .main { margin:0!important; padding:0!important; width:100%!important; }
@@ -593,6 +636,37 @@ export default function LineupPage({ athletes, user }: Props) {
             flex-direction:column!important;
             align-self:flex-start!important;
           }
+
+          /* ── Shadow Team print ── */
+          #shadowScene {
+            display:flex!important;
+            flex-direction:row!important;
+            gap:10px!important;
+            align-items:flex-start!important;
+            width:100%!important;
+            page-break-inside:avoid!important;
+          }
+          /* Hide settings panel */
+          #shadowScene > div:first-child { display:none!important; }
+          /* Pitch column: 52% */
+          #shadowScene > div:nth-child(3) {
+            flex:0 0 52%!important;
+            max-width:52%!important;
+            order:2!important;
+          }
+          /* Candidate list: fills remaining */
+          #shadowPrintList {
+            display:flex!important;
+            flex-direction:column!important;
+            flex:1!important;
+            min-width:0!important;
+            order:1!important;
+            align-self:flex-start!important;
+          }
+          /* Reduce pitch ratio to fit A4 landscape */
+          #shadowPitch { padding-bottom:120%!important; }
+          /* Hide shadow slot open buttons and remove (×) buttons on print */
+          #shadowScene button { display:none!important; }
         }
       `}</style>
 
@@ -647,7 +721,7 @@ export default function LineupPage({ athletes, user }: Props) {
 
       {/* ── SHADOW TEAM SCENE ── */}
       {shadowMode&&(
-        <div style={{display:'flex',gap:14,alignItems:'flex-start',flexWrap:'wrap'}}>
+        <div id="shadowScene" style={{display:'flex',gap:14,alignItems:'flex-start',flexWrap:'wrap'}}>
           {/* Settings panel */}
           <div style={{flex:'0 0 210px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,padding:14,position:'sticky',top:80,display:'flex',flexDirection:'column',gap:12}}>
             {/* Formation display */}
@@ -697,6 +771,9 @@ export default function LineupPage({ athletes, user }: Props) {
               <input className="form-control" style={{fontSize:'0.72rem',flex:1}} placeholder="ชื่อ shadow team..." value={shadowName} onChange={e=>setShadowName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSaveShadow()}/>
               <button className="btn-sm" style={{background:'#7c3aed',color:'white',border:'none',borderRadius:6,padding:'0 8px',cursor:'pointer',fontSize:'0.75rem'}} onClick={handleSaveShadow}><i className="bi bi-save"/></button>
             </div>
+            <button className="btn-outline btn-sm" onClick={()=>window.print()} style={{fontSize:'0.72rem',borderColor:'#ef4444',color:'#ef4444'}}>
+              <i className="bi bi-file-pdf me-1"/>บันทึก PDF
+            </button>
             {/* Saved shadow teams */}
             {shadowTeams.length>0&&(
               <div>
@@ -719,6 +796,63 @@ export default function LineupPage({ athletes, user }: Props) {
               </div>
             )}
           </div>
+          {/* Print-only: candidate list by position */}
+          <div id="shadowPrintList" style={{display:'none',flex:'0 0 42%',minWidth:0}}>
+            <div style={{fontWeight:900,fontSize:'0.9rem',letterSpacing:2,textTransform:'uppercase',
+              borderBottom:'2pt solid #0f172a',paddingBottom:5,marginBottom:10,color:'#0f172a'}}>
+              SHADOW TEAM
+              <span style={{marginLeft:8,fontSize:'0.6rem',fontWeight:600,color:'#64748b'}}>
+                {formation.name} · {mode==='11'?'11v11':'7v7'}
+              </span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+              {formation.positions.map(pos=>{
+                const cands=athletes.filter(a=>(shadowCandidates[pos.id]||[]).includes(a.PlayerID));
+                return(
+                  <div key={pos.id} style={{border:'1px solid #e2e8f0',borderRadius:6,padding:'6px 8px',background:cands.length?'white':'#f8fafc'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:4}}>
+                      <span style={{background:'#0f172a',color:'white',borderRadius:3,padding:'1px 5px',fontSize:'0.55rem',fontWeight:800}}>{pos.label}</span>
+                      {cands.length>0&&<span style={{fontSize:'0.52rem',color:'#64748b',fontWeight:600}}>{cands.length} คน</span>}
+                    </div>
+                    {cands.length===0
+                      ?<div style={{fontSize:'0.58rem',color:'#94a3b8',fontStyle:'italic'}}>— ยังไม่มีผู้เล่น</div>
+                      :cands.map((a,ci)=>{
+                        const ht=a.Latest?.Height?`${Math.round(Number(a.Latest.Height))}cm`:'';
+                        const ovr=Math.round(Number(a.Latest?.Rating)||0);
+                        const yr=a.DOB?(()=>{try{const d=new Date(a.DOB);return isNaN(d.getTime())?null:new Date().getFullYear()-d.getFullYear();}catch{return null;}})():null;
+                        return(
+                          <div key={a.PlayerID} style={{display:'flex',alignItems:'center',gap:5,
+                            padding:'3px 0',borderTop:ci>0?'1px solid #f1f5f9':'none'}}>
+                            <div style={{width:26,height:26,borderRadius:'50%',flexShrink:0,
+                              overflow:'hidden',background:'linear-gradient(135deg,#a06a00,#f0d050)'}}>
+                              {a.PhotoUrl
+                                ?<img src={a.PhotoUrl} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top'}} alt=""/>
+                                :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                  <span style={{fontSize:'0.42rem',fontWeight:900,color:'rgba(0,0,0,0.45)'}}>{ini(a.Name)}</span>
+                                </div>}
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:'0.65rem',fontWeight:700,color:'#0f172a',
+                                whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Name}</div>
+                              {a.Nickname&&<div style={{fontSize:'0.55rem',color:'#7c3aed',fontWeight:600}}>{a.Nickname}</div>}
+                              <div style={{display:'flex',gap:3,marginTop:1}}>
+                                {yr&&<span style={{fontSize:'0.48rem',color:'#64748b',fontWeight:600,background:'#f1f5f9',borderRadius:2,padding:'0 2px'}}>{yr} ปี</span>}
+                                {ht&&<span style={{fontSize:'0.48rem',color:'#0369a1',fontWeight:700,background:'#e0f2fe',borderRadius:2,padding:'0 2px'}}>{ht}</span>}
+                                {ovr>0&&<span style={{fontSize:'0.48rem',color:'#92400e',fontWeight:800,background:'#fef3c7',borderRadius:2,padding:'0 2px'}}>{ovr}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    }
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{marginTop:8,fontSize:'0.48rem',fontWeight:600,color:'#94a3b8',
+              letterSpacing:2,textTransform:'uppercase',textAlign:'center'}}>ISP · Shadow Team Report</div>
+          </div>
+
           {/* Pitch */}
           <div style={{flex:'1 1 400px',minWidth:320,maxWidth:pitchMaxW}}>
             <div style={{borderRadius:18,overflow:'hidden',background:'linear-gradient(160deg,#03081e 0%,#060d28 40%,#030a1c 100%)',border:'1px solid rgba(124,58,237,0.2)',boxShadow:'0 0 60px rgba(80,20,200,0.15)',padding:'14px 12px 12px'}}>
