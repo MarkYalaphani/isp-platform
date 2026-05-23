@@ -300,7 +300,15 @@ const BULK_FIELDS = [
 ];
 
 function BulkTab({ athletes, onSuccess }: Props) {
-  const [data, setData] = useState<Record<string, Record<string, string>>>({});
+  const [data, setData] = useState<Record<string, Record<string, string>>>(() => {
+    const init: Record<string, Record<string, string>> = {};
+    athletes.forEach(a => {
+      const h = String(a.Latest?.Height || '');
+      const w = String(a.Latest?.Weight || '');
+      if (h || w) init[a.PlayerID] = { height: h, weight: w };
+    });
+    return init;
+  });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(0);
   const [total, setTotal] = useState(0);
