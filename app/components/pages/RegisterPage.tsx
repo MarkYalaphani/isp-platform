@@ -170,8 +170,8 @@ function SingleTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: U
 }
 
 // ── Batch Tab ───────────────────────────────────────────────────────────────
-type Row = { name: string; nickname: string; dob: string; team: string; position: string; club: string; domFoot: string; height: string; weight: string; };
-const blankRow = (): Row => ({ name: '', nickname: '', dob: '', team: '', position: 'Forward', club: '', domFoot: 'Right', height: '', weight: '' });
+type Row = { name: string; nickname: string; dob: string; team: string; position: string; club: string; province: string; domFoot: string; domHand: string; height: string; weight: string; };
+const blankRow = (): Row => ({ name: '', nickname: '', dob: '', team: '', position: 'Forward', club: '', province: '', domFoot: 'Right', domHand: 'Right', height: '', weight: '' });
 
 const BATCH_COLS: { key: keyof Row; label: string; width: number; type?: string; options?: string[] }[] = [
   { key: 'name',     label: 'ชื่อ-นามสกุล *', width: 160 },
@@ -180,7 +180,9 @@ const BATCH_COLS: { key: keyof Row; label: string; width: number; type?: string;
   { key: 'team',     label: 'รุ่น',             width: 90,  options: TEAMS },
   { key: 'position', label: 'ตำแหน่ง',          width: 110, options: POSITIONS },
   { key: 'club',     label: 'สโมสร/รร.',        width: 120 },
+  { key: 'province', label: 'จังหวัด',           width: 130, options: PROVINCES },
   { key: 'domFoot',  label: 'เท้าถนัด',         width: 90,  options: ['Right','Left','Both'] },
+  { key: 'domHand',  label: 'มือถนัด',           width: 90,  options: ['Right','Left'] },
   { key: 'height',   label: 'สูง (cm)',          width: 90,  type: 'number' },
   { key: 'weight',   label: 'หนัก (kg)',         width: 90,  type: 'number' },
 ];
@@ -208,8 +210,9 @@ function BatchTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: Us
       try {
         const r = await callGAS('saveAthlete', {
           name: row.name, nickname: row.nickname, dob: row.dob, team: row.team,
-          position: row.position, club: row.club, domFoot: row.domFoot, domHand: 'Right',
-          province: '', clubId: user.role !== 'admin' ? (user.clubId || '') : '',
+          position: row.position, club: row.club, province: row.province,
+          domFoot: row.domFoot, domHand: row.domHand,
+          clubId: user.role !== 'admin' ? (user.clubId || '') : '',
           photoBase64: '', photoMimeType: '',
         }) as { status: string; message: string; playerId?: string };
 
