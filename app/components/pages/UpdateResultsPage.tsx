@@ -120,7 +120,18 @@ function SingleTab({ athletes, onSuccess }: Props) {
     <form onSubmit={handleSubmit}>
       <div className="surface mb-4">
         <div className="section-hd"><i className="bi bi-person" /> Select Athlete</div>
-        <select className="form-select" value={form.playerId} onChange={e => set('playerId', e.target.value)} required>
+        <select className="form-select" value={form.playerId} onChange={e => {
+            const pid = e.target.value;
+            const a = athletes.find(x => x.PlayerID === pid);
+            setForm(f => ({
+              ...f,
+              playerId: pid,
+              height:  String(a?.Latest?.Height  || ''),
+              weight:  String(a?.Latest?.Weight  || ''),
+              fat:     String(a?.Latest?.Fat     || ''),
+              muscle:  String(a?.Latest?.Muscle  || ''),
+            }));
+          }} required>
           <option value="">— เลือกนักกีฬา —</option>
           {athletes.map(a => <option key={a.PlayerID} value={a.PlayerID}>{a.Name} ({a.Team || '—'})</option>)}
         </select>
