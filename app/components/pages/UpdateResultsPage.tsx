@@ -362,7 +362,7 @@ function BulkTab({ athletes, onSuccess }: Props) {
             {athletes.map((a, i) => {
               const hasData = BULK_FIELDS.some(f => data[a.PlayerID]?.[f.k]);
               return (
-                <tr key={a.PlayerID} style={{ background: i % 2 === 0 ? 'white' : '#f8fafc' }}>
+                <tr key={a.PlayerID}>
                   <td style={{ textAlign: 'left' }}>
                     <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{a.Name}</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{a.Team || '—'}</div>
