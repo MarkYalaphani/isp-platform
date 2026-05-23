@@ -477,6 +477,19 @@ function BulkTab({ athletes, onSuccess }: Props) {
               </div>
             </div>
           )}
+
+        {/* Add button */}
+        <div style={{ display:'flex', justifyContent:'flex-end', marginTop:12 }}>
+          <button
+            className="btn-primary"
+            style={{ background:'#0f172a', padding:'9px 22px', fontSize:'0.88rem', opacity: checked.size === 0 ? 0.5 : 1 }}
+            onClick={addToTable}
+            disabled={checked.size === 0}
+          >
+            <i className="bi bi-person-plus-fill" style={{ marginRight:6 }}/>
+            เพิ่มเข้าตาราง ({checked.size} คน)
+          </button>
+        </div>
       </div>
 
       {/* ── Step 2: กรอกผล ── */}
