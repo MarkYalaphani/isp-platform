@@ -425,42 +425,57 @@ function BulkTab({ athletes, onSuccess }: Props) {
 
         {/* Athlete list */}
         {filtered.length === 0
-          ? <div style={{ padding:'16px 0', color:'var(--text-muted)', fontSize:'0.85rem' }}>ไม่พบนักกีฬา</div>
+          ? <div style={{ padding:'20px 0', textAlign:'center', color:'var(--text-muted)', fontSize:'0.85rem' }}>ไม่พบนักกีฬา</div>
           : (
-            <>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:6, maxHeight:240, overflowY:'auto', padding:'2px 0' }}>
-                {filtered.map(a => {
+            <div style={{ border:'1px solid var(--border)', borderRadius:10, overflow:'hidden', marginTop:4 }}>
+              {/* Header row */}
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 14px', background:'var(--bg)', borderBottom:'1px solid var(--border)' }}>
+                <input type="checkbox" checked={allFilteredChecked} onChange={toggleAll}
+                  style={{ accentColor:'var(--accent)', width:15, height:15, cursor:'pointer' }}/>
+                <span style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1 }}>
+                  เลือกทั้งหมด ({filtered.filter(a => !tableIds.includes(a.PlayerID)).length} คน)
+                </span>
+                <div style={{ flex:1 }}/>
+                <span style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>แสดง {filtered.length} คน</span>
+              </div>
+              {/* Rows */}
+              <div style={{ maxHeight:340, overflowY:'auto' }}>
+                {filtered.map((a, i) => {
                   const isIn = tableIds.includes(a.PlayerID);
                   const isCk = checked.has(a.PlayerID);
+                  const initials = (a.Name||'?').split(' ').map((w:string)=>w[0]).join('').slice(0,2).toUpperCase();
                   return (
-                    <label key={a.PlayerID} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:8, cursor: isIn ? 'default' : 'pointer',
-                      border:`1.5px solid ${isCk ? 'var(--accent)' : isIn ? 'var(--border)' : 'var(--border)'}`,
-                      background: isCk ? 'rgba(56,189,248,0.08)' : isIn ? 'rgba(16,185,129,0.06)' : 'var(--bg)',
-                      opacity: isIn ? 0.5 : 1, fontSize:'0.82rem' }}>
+                    <label key={a.PlayerID} style={{
+                      display:'flex', alignItems:'center', gap:10, padding:'8px 14px',
+                      borderBottom: i < filtered.length-1 ? '1px solid var(--border)' : 'none',
+                      cursor: isIn ? 'default' : 'pointer',
+                      background: isCk ? 'rgba(56,189,248,0.07)' : 'transparent',
+                      opacity: isIn ? 0.4 : 1, transition:'background 0.1s',
+                    }}>
                       <input type="checkbox" checked={isCk} disabled={isIn}
                         onChange={e => setChecked(prev => { const n = new Set(prev); e.target.checked ? n.add(a.PlayerID) : n.delete(a.PlayerID); return n; })}
-                        style={{ accentColor:'var(--accent)', cursor: isIn ? 'default' : 'pointer' }}/>
-                      <span style={{ fontWeight:600 }}>{a.Name}</span>
-                      {a.Team && <span style={{ fontSize:'0.68rem', color:'var(--accent)', background:'rgba(56,189,248,0.1)', borderRadius:4, padding:'1px 5px' }}>{a.Team}</span>}
-                      {a.Position && <span style={{ fontSize:'0.65rem', color:'var(--text-muted)' }}>{a.Position}</span>}
-                      {isIn && <i className="bi bi-check-circle-fill" style={{ color:'#10b981', fontSize:'0.75rem' }}/>}
+                        style={{ accentColor:'var(--accent)', width:15, height:15, flexShrink:0, cursor: isIn ? 'default' : 'pointer' }}/>
+                      {/* Avatar */}
+                      <div style={{ width:32, height:32, borderRadius:'50%', flexShrink:0, overflow:'hidden', background:'linear-gradient(135deg,#a06a00,#f0d050)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        {a.PhotoUrl
+                          ? <img src={a.PhotoUrl} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top' }} alt=""/>
+                          : <span style={{ fontSize:'0.55rem', fontWeight:900, color:'rgba(0,0,0,0.5)' }}>{initials}</span>}
+                      </div>
+                      {/* Name */}
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontWeight:600, fontSize:'0.85rem', color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{a.Name}</div>
+                        {a.Nickname && <div style={{ fontSize:'0.7rem', color:'var(--text-muted)' }}>{a.Nickname}</div>}
+                      </div>
+                      {/* Team */}
+                      {a.Team && <span style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--accent)', background:'rgba(56,189,248,0.1)', borderRadius:5, padding:'2px 8px', flexShrink:0 }}>{a.Team}</span>}
+                      {/* Position */}
+                      {a.Position && <span style={{ fontSize:'0.68rem', color:'var(--text-muted)', flexShrink:0, minWidth:72, textAlign:'right' }}>{a.Position}</span>}
+                      {isIn && <i className="bi bi-check-circle-fill" style={{ color:'#10b981', fontSize:'0.85rem', flexShrink:0 }}/>}
                     </label>
                   );
                 })}
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:12, flexWrap:'wrap' }}>
-                <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:'0.82rem', cursor:'pointer', fontWeight:600 }}>
-                  <input type="checkbox" checked={allFilteredChecked} onChange={toggleAll} style={{ accentColor:'var(--accent)' }}/>
-                  เลือกทั้งหมด ({filtered.filter(a => !tableIds.includes(a.PlayerID)).length} คน)
-                </label>
-                <div style={{ flex:1 }}/>
-                <span style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>เลือกแล้ว {checked.size} คน</span>
-                <button className="btn-primary btn-sm" onClick={addToTable} disabled={!checked.size}
-                  style={{ background:'#0369a1' }}>
-                  <i className="bi bi-plus-circle me-1"/>เพิ่มเข้าตารางทดสอบ
-                </button>
-              </div>
-            </>
+            </div>
           )}
       </div>
 
