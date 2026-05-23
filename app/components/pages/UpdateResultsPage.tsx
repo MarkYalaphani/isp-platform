@@ -300,39 +300,80 @@ const BULK_FIELDS = [
 ];
 
 function BulkTab({ athletes, onSuccess }: Props) {
-  const [data, setData] = useState<Record<string, Record<string, string>>>(() => {
-    const init: Record<string, Record<string, string>> = {};
-    athletes.forEach(a => {
-      const h = String(a.Latest?.Height || '');
-      const w = String(a.Latest?.Weight || '');
-      if (h || w) init[a.PlayerID] = { height: h, weight: w };
-    });
-    return init;
+  const [tableIds, setTableIds] = useState<string[]>([]);
+  const [data, setData]         = useState<Record<string, Record<string, string>>>({});
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(0);
+  const [total, setTotal]       = useState(0);
+
+  /* Filter panel state */
+  const [filterTeam, setFilterTeam] = useState('');
+  const [filterPos,  setFilterPos]  = useState('');
+  const [filterName, setFilterName] = useState('');
+  const [checked, setChecked]       = useState<Set<string>>(new Set());
+
+  const teams = Array.from(new Set(athletes.map(a => a.Team).filter(Boolean))).sort();
+  const positions = ['Goalkeeper','Defender','Midfielder','Forward'];
+
+  const filtered = athletes.filter(a => {
+    if (filterTeam && a.Team !== filterTeam) return false;
+    if (filterPos) {
+      const p = (a.Position || '').toLowerCase();
+      if (filterPos === 'Goalkeeper' && !p.includes('goal')) return false;
+      if (filterPos === 'Defender'   && !p.includes('def') && !p.includes('back')) return false;
+      if (filterPos === 'Midfielder' && !p.includes('mid')) return false;
+      if (filterPos === 'Forward'    && !/forward|fwd|wing|striker/i.test(p)) return false;
+    }
+    if (filterName) {
+      const q = filterName.toLowerCase();
+      return (a.Name||'').toLowerCase().includes(q) || (a.Nickname||'').toLowerCase().includes(q);
+    }
+    return true;
   });
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(0);
-  const [total, setTotal] = useState(0);
+
+  /* Add checked athletes to test table */
+  const addToTable = () => {
+    if (!checked.size) { showToast('กรุณาเลือกนักกีฬาก่อน', 'error'); return; }
+    const newIds = [...checked].filter(id => !tableIds.includes(id));
+    setTableIds(prev => [...prev, ...newIds]);
+    setData(prev => {
+      const next = { ...prev };
+      newIds.forEach(id => {
+        const a = athletes.find(x => x.PlayerID === id);
+        next[id] = {
+          ...( next[id] || {} ),
+          height: String(a?.Latest?.Height || ''),
+          weight: String(a?.Latest?.Weight || ''),
+        };
+      });
+      return next;
+    });
+    setChecked(new Set());
+  };
+
+  const removeFromTable = (pid: string) => {
+    setTableIds(prev => prev.filter(id => id !== pid));
+    setData(prev => { const n = { ...prev }; delete n[pid]; return n; });
+  };
 
   const setCell = (pid: string, field: string, val: string) =>
     setData(d => ({ ...d, [pid]: { ...(d[pid] || {}), [field]: val } }));
 
-  const readyCount = Object.entries(data).filter(([, v]) => Object.values(v).some(x => x !== '')).length;
+  const tableAthletes = tableIds.map(id => athletes.find(a => a.PlayerID === id)).filter(Boolean) as Athlete[];
+  const readyCount = tableAthletes.filter(a => BULK_FIELDS.some(f => data[a.PlayerID]?.[f.k])).length;
 
   const handleSave = async () => {
-    const rows = Object.entries(data).filter(([, v]) => Object.values(v).some(x => x !== ''));
+    const rows = tableAthletes.filter(a => BULK_FIELDS.some(f => data[a.PlayerID]?.[f.k]));
     if (!rows.length) { showToast('ยังไม่มีข้อมูลที่กรอก', 'error'); return; }
     if (!confirm(`บันทึกข้อมูล ${rows.length} คน?`)) return;
-
-    setSaving(true);
-    setSaved(0);
-    setTotal(rows.length);
-
+    setSaving(true); setSaved(0); setTotal(rows.length);
     let ok = 0;
-    for (const [pid, fields] of rows) {
+    for (const a of rows) {
+      const fields = data[a.PlayerID] || {};
       const yoyoDist = calcYoyoDist(fields.yoyoLevel || '', fields.yoyoShuttle || '');
       try {
         await callGAS('saveTest', {
-          playerId: pid,
+          playerId: a.PlayerID,
           height: fields.height || '', weight: fields.weight || '',
           cmj: fields.cmj || '', speed30: fields.speed30 || '',
           agiL: fields.agiL || '', agiR: fields.agiR || '',
@@ -346,80 +387,163 @@ function BulkTab({ athletes, onSuccess }: Props) {
       } catch { /* continue */ }
       setSaved(ok);
     }
-
     setSaving(false);
     showToast(`บันทึกสำเร็จ ${ok}/${rows.length} คน`, 'success');
     if (ok > 0) onSuccess();
   };
 
+  const allFilteredChecked = filtered.length > 0 && filtered.every(a => checked.has(a.PlayerID));
+  const toggleAll = () => {
+    if (allFilteredChecked) setChecked(prev => { const n = new Set(prev); filtered.forEach(a => n.delete(a.PlayerID)); return n; });
+    else setChecked(prev => { const n = new Set(prev); filtered.forEach(a => n.add(a.PlayerID)); return n; });
+  };
+
   return (
     <div>
-      <div style={{ background:'#dbeafe', border:'1px solid #bfdbfe', borderRadius:'var(--radius-sm)', padding:'12px 16px', marginBottom:20, fontSize:'0.85rem', color:'#1e40af' }}>
-        <i className="bi bi-info-circle-fill" /> กรอกเฉพาะช่องที่มีข้อมูล ช่องที่ว่างจะไม่ถูกบันทึก
-      </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="roster-table">
-          <thead>
-            <tr>
-              <th>นักกีฬา</th>
-              {BULK_FIELDS.map(f => <th key={f.k}>{f.label}</th>)}
-              <th>สถานะ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {athletes.map((a, i) => {
-              const hasData = BULK_FIELDS.some(f => data[a.PlayerID]?.[f.k]);
-              return (
-                <tr key={a.PlayerID}>
-                  <td style={{ textAlign: 'left' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{a.Name}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{a.Team || '—'}</div>
-                  </td>
-                  {BULK_FIELDS.map(f => (
-                    <td key={f.k}>
-                      {f.k === 'yoyoLevel' ? (
-                        <select className="bulk-input" value={data[a.PlayerID]?.[f.k] || ''} onChange={e => setCell(a.PlayerID, f.k, e.target.value)}>
-                          <option value="">-</option>
-                          {[5,9,11,12,13,14,15,16,17,18,19,20,21,22,23].map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                      ) : f.k === 'yoyoShuttle' ? (
-                        <select className="bulk-input" value={data[a.PlayerID]?.[f.k] || ''} onChange={e => setCell(a.PlayerID, f.k, e.target.value)}>
-                          <option value="">-</option>
-                          {[1,2,3,4,5,6,7,8].map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                      ) : (
-                        <input className="bulk-input" type="number" step="0.01"
-                          value={data[a.PlayerID]?.[f.k] || ''}
-                          onChange={e => setCell(a.PlayerID, f.k, e.target.value)} />
-                      )}
-                    </td>
-                  ))}
-                  <td style={{ textAlign: 'center' }}>
-                    {hasData
-                      ? <span style={{ fontSize:'0.7rem', color:'#22c55e', fontWeight:700 }}>✓ มีข้อมูล</span>
-                      : <span style={{ fontSize:'0.7rem', color:'#94a3b8' }}>ว่าง</span>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* ── Step 1: เลือกนักกีฬา ── */}
+      <div className="surface mb-4">
+        <div style={{ fontWeight:700, fontSize:'0.9rem', marginBottom:12, display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ background:'#0f172a', color:'white', borderRadius:'50%', width:22, height:22, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'0.72rem', fontWeight:800 }}>1</span>
+          เลือกนักกีฬาที่จะทดสอบ
+        </div>
+
+        {/* Filters */}
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:12 }}>
+          <select className="form-select" style={{ flex:'1 1 140px', maxWidth:180 }} value={filterTeam} onChange={e => setFilterTeam(e.target.value)}>
+            <option value="">— รุ่นทั้งหมด —</option>
+            {teams.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select className="form-select" style={{ flex:'1 1 140px', maxWidth:180 }} value={filterPos} onChange={e => setFilterPos(e.target.value)}>
+            <option value="">— ตำแหน่งทั้งหมด —</option>
+            {positions.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <div className="search-wrap" style={{ flex:'1 1 180px', maxWidth:260 }}>
+            <i className="bi bi-search"/>
+            <input className="form-control" placeholder="ค้นชื่อ..." value={filterName} onChange={e => setFilterName(e.target.value)} style={{ fontSize:'0.82rem' }}/>
+          </div>
+        </div>
+
+        {/* Athlete list */}
+        {filtered.length === 0
+          ? <div style={{ padding:'16px 0', color:'var(--text-muted)', fontSize:'0.85rem' }}>ไม่พบนักกีฬา</div>
+          : (
+            <>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, maxHeight:240, overflowY:'auto', padding:'2px 0' }}>
+                {filtered.map(a => {
+                  const isIn = tableIds.includes(a.PlayerID);
+                  const isCk = checked.has(a.PlayerID);
+                  return (
+                    <label key={a.PlayerID} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:8, cursor: isIn ? 'default' : 'pointer',
+                      border:`1.5px solid ${isCk ? 'var(--accent)' : isIn ? 'var(--border)' : 'var(--border)'}`,
+                      background: isCk ? 'rgba(56,189,248,0.08)' : isIn ? 'rgba(16,185,129,0.06)' : 'var(--bg)',
+                      opacity: isIn ? 0.5 : 1, fontSize:'0.82rem' }}>
+                      <input type="checkbox" checked={isCk} disabled={isIn}
+                        onChange={e => setChecked(prev => { const n = new Set(prev); e.target.checked ? n.add(a.PlayerID) : n.delete(a.PlayerID); return n; })}
+                        style={{ accentColor:'var(--accent)', cursor: isIn ? 'default' : 'pointer' }}/>
+                      <span style={{ fontWeight:600 }}>{a.Name}</span>
+                      {a.Team && <span style={{ fontSize:'0.68rem', color:'var(--accent)', background:'rgba(56,189,248,0.1)', borderRadius:4, padding:'1px 5px' }}>{a.Team}</span>}
+                      {a.Position && <span style={{ fontSize:'0.65rem', color:'var(--text-muted)' }}>{a.Position}</span>}
+                      {isIn && <i className="bi bi-check-circle-fill" style={{ color:'#10b981', fontSize:'0.75rem' }}/>}
+                    </label>
+                  );
+                })}
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:12, flexWrap:'wrap' }}>
+                <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:'0.82rem', cursor:'pointer', fontWeight:600 }}>
+                  <input type="checkbox" checked={allFilteredChecked} onChange={toggleAll} style={{ accentColor:'var(--accent)' }}/>
+                  เลือกทั้งหมด ({filtered.filter(a => !tableIds.includes(a.PlayerID)).length} คน)
+                </label>
+                <div style={{ flex:1 }}/>
+                <span style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>เลือกแล้ว {checked.size} คน</span>
+                <button className="btn-primary btn-sm" onClick={addToTable} disabled={!checked.size}
+                  style={{ background:'#0369a1' }}>
+                  <i className="bi bi-plus-circle me-1"/>เพิ่มเข้าตารางทดสอบ
+                </button>
+              </div>
+            </>
+          )}
       </div>
 
-      {saving && (
-        <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'10px 16px', marginTop:16, fontSize:'0.875rem', color:'#166534' }}>
-          <span className="spinner-ring" style={{ width:16, height:16, borderWidth:2, display:'inline-block', marginRight:8, verticalAlign:'middle' }} />
-          กำลังบันทึก {saved}/{total} คน...
+      {/* ── Step 2: กรอกผล ── */}
+      {tableIds.length > 0 && (
+        <div className="surface" style={{ padding:0 }}>
+          <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ background:'#0f172a', color:'white', borderRadius:'50%', width:22, height:22, display:'inline-flex', alignItems:'center', justifyContent:'center', fontSize:'0.72rem', fontWeight:800 }}>2</span>
+            <span style={{ fontWeight:700, fontSize:'0.9rem' }}>กรอกผลการทดสอบ</span>
+            <span style={{ fontSize:'0.78rem', color:'var(--text-muted)', marginLeft:4 }}>{tableIds.length} คน · กรอกเฉพาะช่องที่มีข้อมูล</span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="roster-table">
+              <thead>
+                <tr>
+                  <th>นักกีฬา</th>
+                  {BULK_FIELDS.map(f => <th key={f.k}>{f.label}</th>)}
+                  <th>สถานะ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableAthletes.map(a => {
+                  const hasData = BULK_FIELDS.some(f => data[a.PlayerID]?.[f.k]);
+                  return (
+                    <tr key={a.PlayerID}>
+                      <td style={{ textAlign:'left' }}>
+                        <div style={{ fontWeight:600, fontSize:'0.85rem' }}>{a.Name}</div>
+                        <div style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}>{a.Team || '—'}</div>
+                      </td>
+                      {BULK_FIELDS.map(f => (
+                        <td key={f.k}>
+                          {f.k === 'yoyoLevel' ? (
+                            <select className="bulk-input" value={data[a.PlayerID]?.[f.k] || ''} onChange={e => setCell(a.PlayerID, f.k, e.target.value)}>
+                              <option value="">-</option>
+                              {[5,9,11,12,13,14,15,16,17,18,19,20,21,22,23].map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                          ) : f.k === 'yoyoShuttle' ? (
+                            <select className="bulk-input" value={data[a.PlayerID]?.[f.k] || ''} onChange={e => setCell(a.PlayerID, f.k, e.target.value)}>
+                              <option value="">-</option>
+                              {[1,2,3,4,5,6,7,8].map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                          ) : (
+                            <input className="bulk-input" type="number" step="0.01"
+                              value={data[a.PlayerID]?.[f.k] || ''}
+                              onChange={e => setCell(a.PlayerID, f.k, e.target.value)} />
+                          )}
+                        </td>
+                      ))}
+                      <td style={{ textAlign:'center' }}>
+                        {hasData
+                          ? <span style={{ fontSize:'0.7rem', color:'#22c55e', fontWeight:700 }}>✓</span>
+                          : <span style={{ fontSize:'0.7rem', color:'#94a3b8' }}>ว่าง</span>}
+                      </td>
+                      <td>
+                        <button onClick={() => removeFromTable(a.PlayerID)} title="นำออก"
+                          style={{ padding:'3px 6px', border:'none', background:'none', color:'#ef4444', cursor:'pointer', fontSize:'0.85rem' }}>
+                          <i className="bi bi-x-circle"/>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {saving && (
+            <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'10px 16px', margin:'12px 16px 0', fontSize:'0.875rem', color:'#166534' }}>
+              <span className="spinner-ring" style={{ width:16, height:16, borderWidth:2, display:'inline-block', marginRight:8, verticalAlign:'middle' }} />
+              กำลังบันทึก {saved}/{total} คน...
+            </div>
+          )}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 16px', flexWrap:'wrap', gap:12 }}>
+            <div style={{ fontSize:'0.85rem', color:'var(--text-muted)' }}>
+              <span style={{ fontWeight:700, color:'var(--text)' }}>{readyCount}</span> คนพร้อมบันทึก
+            </div>
+            <button className="btn-primary" style={{ background:'#0f172a', padding:'10px 28px' }} onClick={handleSave} disabled={saving}>
+              {saving ? <><span className="spinner-ring" style={{width:18,height:18,borderWidth:2,margin:0}}/> กำลังบันทึก…</> : <><i className="bi bi-save2 me-1"/>บันทึกทั้งหมด</>}
+            </button>
+          </div>
         </div>
       )}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:16, flexWrap:'wrap', gap:12 }}>
-        <div style={{ fontSize:'0.85rem', color:'var(--text-muted)' }}>
-          <span style={{ fontWeight:700, color:'#0f172a' }}>{readyCount}</span> คนพร้อมบันทึก
-        </div>
-        <button className="btn-primary" style={{ background:'#0f172a', padding:'12px 36px' }} onClick={handleSave} disabled={saving}>
-          {saving ? <><span className="spinner-ring" style={{width:18,height:18,borderWidth:2,margin:0}}/> กำลังบันทึก…</> : <><i className="bi bi-save2"/> บันทึกทั้งหมด</>}
-        </button>
-      </div>
     </div>
   );
 }
