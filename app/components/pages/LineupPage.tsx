@@ -305,65 +305,74 @@ function ShadowCard({athlete,show,onRemove}:{athlete:Athlete;show:ShowSettings;o
   const rating=Math.round(Number(athlete.Latest?.Rating)||0);
   const name=athlete.Name||'?';
   const nick=athlete.Nickname&&athlete.Nickname!==name?athlete.Nickname:null;
+  const hasStats=show.age||show.height||show.club||show.rating;
   return (
-    <div style={{display:'flex',alignItems:'center',gap:6,background:'white',borderRadius:8,
-      padding:'5px 26px 5px 5px',boxShadow:'0 2px 10px rgba(0,0,0,0.18)',minWidth:170,maxWidth:200,
-      position:'relative',border:'1px solid rgba(0,0,0,0.06)'}}>
+    <div style={{width:110,background:'white',borderRadius:10,
+      boxShadow:'0 3px 14px rgba(0,0,0,0.22)',position:'relative',
+      border:'1px solid rgba(0,0,0,0.07)',overflow:'hidden',flexShrink:0}}>
       {/* Remove button */}
       <button onClick={e=>{e.stopPropagation();onRemove();}}
         className="no-print"
-        style={{position:'absolute',top:3,right:5,background:'none',border:'none',cursor:'pointer',
-          color:'#94a3b8',fontSize:'0.95rem',lineHeight:1,padding:0,zIndex:1}}>×</button>
-      {/* Photo */}
-      {show.photo&&(
-        <div style={{width:38,height:38,borderRadius:'50%',flexShrink:0,overflow:'hidden',
-          background:'linear-gradient(135deg,#a06a00,#f0d050)',border:'2px solid #e2e8f0'}}>
+        style={{position:'absolute',top:3,right:4,zIndex:10,background:'rgba(0,0,0,0.45)',
+          border:'none',cursor:'pointer',color:'white',fontSize:'0.75rem',
+          lineHeight:1,padding:'1px 4px',borderRadius:3}}>×</button>
+      {/* Photo area */}
+      {show.photo?(
+        <div style={{width:'100%',height:80,overflow:'hidden',
+          background:'linear-gradient(160deg,#1a0033,#3b0070)'}}>
           {athlete.PhotoUrl
-            ?<img src={athlete.PhotoUrl} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top'}} alt=""/>
+            ?<img src={athlete.PhotoUrl} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top center'}} alt=""/>
             :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <span style={{fontSize:'0.65rem',fontWeight:900,color:'rgba(0,0,0,0.45)'}}>{ini(name)}</span>
+              <span style={{fontSize:'1.6rem',fontWeight:900,color:'rgba(255,255,255,0.25)',fontFamily:'Arial Black,sans-serif'}}>{ini(name)}</span>
             </div>}
         </div>
+      ):(
+        <div style={{width:'100%',height:8,background:'linear-gradient(90deg,#7c3aed,#a78bfa)'}}/>
       )}
-      {/* Info */}
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:'0.74rem',fontWeight:700,color:'#0f172a',
-          whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.3}}>
+      {/* Info section */}
+      <div style={{padding:'5px 6px 6px'}}>
+        {/* Rating badge */}
+        {show.rating&&rating>0&&(
+          <div style={{position:'absolute',top:show.photo?62:2,left:5,
+            background:'rgba(0,0,0,0.75)',backdropFilter:'blur(4px)',
+            borderRadius:4,padding:'1px 5px',zIndex:5}}>
+            <span style={{fontSize:'0.62rem',fontWeight:900,color:'#fbbf24'}}>{rating}</span>
+          </div>
+        )}
+        {/* Name */}
+        <div style={{fontSize:'0.72rem',fontWeight:800,color:'#0f172a',lineHeight:1.25,
+          wordBreak:'break-word',marginTop:show.rating&&rating>0?2:0}}>
           {name}
         </div>
         {nick&&(
-          <div style={{fontSize:'0.63rem',fontWeight:600,color:'#7c3aed',lineHeight:1.2,
+          <div style={{fontSize:'0.65rem',fontWeight:700,color:'#7c3aed',lineHeight:1.2,marginTop:1,
             whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-            {nick}
+            "{nick}"
           </div>
         )}
-        <div style={{display:'flex',gap:3,alignItems:'center',marginTop:2,flexWrap:'nowrap'}}>
-          {show.age&&age&&(
-            <span style={{fontSize:'0.52rem',color:'#64748b',fontWeight:600,
-              background:'#f1f5f9',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>
-              {age} ปี
-            </span>
-          )}
-          {show.height&&height&&(
-            <span style={{fontSize:'0.52rem',color:'#0369a1',fontWeight:700,
-              background:'#e0f2fe',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>
-              {height}cm
-            </span>
-          )}
-          {show.club&&athlete.Team&&(
-            <span style={{fontSize:'0.5rem',color:'#64748b',fontWeight:600,
-              background:'#f8fafc',borderRadius:3,padding:'1px 3px',
-              maxWidth:52,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-              {athlete.Team}
-            </span>
-          )}
-          {show.rating&&rating>0&&(
-            <span style={{fontSize:'0.52rem',fontWeight:800,color:'#92400e',
-              background:'#fef3c7',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>
-              {rating}
-            </span>
-          )}
-        </div>
+        {hasStats&&(
+          <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:3}}>
+            {show.age&&age&&(
+              <span style={{fontSize:'0.5rem',color:'#64748b',fontWeight:700,
+                background:'#f1f5f9',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>
+                {age} ปี
+              </span>
+            )}
+            {show.height&&height&&(
+              <span style={{fontSize:'0.5rem',color:'#0369a1',fontWeight:700,
+                background:'#e0f2fe',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>
+                {height}cm
+              </span>
+            )}
+            {show.club&&athlete.Team&&(
+              <span style={{fontSize:'0.48rem',color:'#64748b',fontWeight:600,
+                background:'#f8fafc',borderRadius:3,padding:'1px 3px',
+                maxWidth:96,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {athlete.Team}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -382,14 +391,14 @@ function ShadowSlot({pos,candidates,allAthletes,show,onAdd,onRemove}:{
   );
   const isLower=pos.y>55;
   const cards=(
-    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+    <div style={{display:'flex',flexDirection:'row',flexWrap:'wrap',gap:4,justifyContent:'center',maxWidth:260}}>
       {candidates.map(a=><ShadowCard key={a.PlayerID} athlete={a} show={show} onRemove={()=>onRemove(a.PlayerID)}/>)}
     </div>
   );
   return (
     <div style={{position:'absolute',left:`${pos.x}%`,top:`${pos.y}%`,transform:'translate(-50%,-50%)',zIndex:open?100:10}}>
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-        {isLower&&candidates.length>0&&<div style={{marginBottom:2}}>{cards}</div>}
+        {isLower&&candidates.length>0&&<div style={{marginBottom:4}}>{cards}</div>}
         <div onClick={()=>setOpen(v=>!v)} style={{width:32,height:32,borderRadius:'50%',
           background:open?'rgba(56,189,248,0.4)':'rgba(255,255,255,0.15)',
           border:`2px solid ${open?'#38bdf8':'rgba(255,255,255,0.65)'}`,
@@ -403,7 +412,7 @@ function ShadowSlot({pos,candidates,allAthletes,show,onAdd,onRemove}:{
             </div>
           )}
         </div>
-        {!isLower&&candidates.length>0&&<div style={{marginTop:2}}>{cards}</div>}
+        {!isLower&&candidates.length>0&&<div style={{marginTop:4}}>{cards}</div>}
         {open&&(
           <div style={{position:'absolute',...(isLower?{bottom:'calc(100% + 36px)'}:{top:'calc(100% + 36px)'}),
             left:'50%',transform:'translateX(-50%)',zIndex:999,background:'white',borderRadius:8,
