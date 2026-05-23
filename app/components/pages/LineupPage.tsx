@@ -126,6 +126,13 @@ const ALL_FORMATIONS: Record<Mode, Formation[]> = { '11': FORMATIONS_11, '7': FO
 /* ── helpers ── */
 function loadLineups(): SavedLineup[] { try { return JSON.parse(localStorage.getItem('pj_lineups') || '[]'); } catch { return []; } }
 function saveLineups(ls: SavedLineup[]) { localStorage.setItem('pj_lineups', JSON.stringify(ls)); }
+
+/* ── Shadow Team ── */
+interface ShadowTeamData { id:string; name:string; formation:string; mode:Mode; candidates:Record<string,string[]>; }
+interface ShowSettings { photo:boolean; age:boolean; club:boolean; rating:boolean; height:boolean; }
+function loadShadowTeams():ShadowTeamData[] { try{return JSON.parse(localStorage.getItem('pj_shadow_teams')||'[]');}catch{return[];} }
+function saveShadowTeams(ts:ShadowTeamData[]) { localStorage.setItem('pj_shadow_teams',JSON.stringify(ts)); }
+
 function ini(name: string) { return (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); }
 /* Convert 0-5 score to 0-99 with more granularity than ×18+9 */
 function toStat(score: number) { return score > 0 ? Math.min(99, Math.round(score * 19.8)) : 0; }
@@ -290,6 +297,106 @@ function FC26Card({ pos, athlete, isOver, teamLogo, onDragStart, onDragOver, onD
   );
 }
 
+/* ── Shadow Card ── */
+function ShadowCard({athlete,show,onRemove}:{athlete:Athlete;show:ShowSettings;onRemove:()=>void}) {
+  const year=athlete.DOB?(()=>{try{const d=new Date(athlete.DOB);return isNaN(d.getTime())?null:d.getFullYear();}catch{return null;}})():null;
+  const height=athlete.Latest?.Height?String(Math.round(Number(athlete.Latest.Height)||0)):'';
+  const rating=Math.round(Number(athlete.Latest?.Rating)||0);
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:3,background:'white',borderRadius:5,padding:'3px 6px 3px 4px',boxShadow:'0 1px 5px rgba(0,0,0,0.2)',minWidth:115}}>
+      {show.photo&&(athlete.PhotoUrl
+        ?<img src={athlete.PhotoUrl} alt="" style={{width:22,height:22,borderRadius:3,objectFit:'cover',objectPosition:'top',flexShrink:0}}/>
+        :<div style={{width:22,height:22,borderRadius:3,background:'#e2e8f0',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><span style={{fontSize:'0.4rem',fontWeight:900,color:'#64748b'}}>{ini(athlete.Name)}</span></div>
+      )}
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:'0.6rem',fontWeight:700,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.2}}>
+          {athlete.Nickname||athlete.Name?.split(' ').slice(-1)[0]||athlete.Name}
+        </div>
+        {(show.age||show.height||show.club||show.rating)&&(
+          <div style={{display:'flex',gap:3,alignItems:'center',marginTop:1,flexWrap:'nowrap'}}>
+            {show.age&&year&&<span style={{fontSize:'0.48rem',color:'#64748b',fontWeight:600,whiteSpace:'nowrap'}}>'{String(year).slice(2)}</span>}
+            {show.height&&height&&<span style={{fontSize:'0.48rem',color:'#475569',fontWeight:600,whiteSpace:'nowrap'}}>{height}cm</span>}
+            {show.club&&athlete.Team&&<span style={{fontSize:'0.48rem',color:'#64748b',maxWidth:50,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{athlete.Team}</span>}
+            {show.rating&&<span style={{fontSize:'0.48rem',fontWeight:800,color:'#92400e',background:'#fef3c7',borderRadius:2,padding:'0 2px',whiteSpace:'nowrap'}}>{rating||'—'}</span>}
+          </div>
+        )}
+      </div>
+      <button onClick={e=>{e.stopPropagation();onRemove();}} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',fontSize:'0.85rem',lineHeight:1,padding:'0 1px',flexShrink:0}}>×</button>
+    </div>
+  );
+}
+
+/* ── Shadow Slot ── */
+function ShadowSlot({pos,candidates,allAthletes,show,onAdd,onRemove}:{
+  pos:FPos; candidates:Athlete[]; allAthletes:Athlete[];
+  show:ShowSettings; onAdd:(id:string)=>void; onRemove:(id:string)=>void;
+}) {
+  const [open,setOpen]=useState(false);
+  const [search,setSearch]=useState('');
+  const cIds=new Set(candidates.map(a=>a.PlayerID));
+  const available=allAthletes.filter(a=>!cIds.has(a.PlayerID)&&
+    (!search||(a.Name||'').toLowerCase().includes(search.toLowerCase())||(a.Nickname||'').toLowerCase().includes(search.toLowerCase()))
+  );
+  const isLower=pos.y>55;
+  const cards=(
+    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+      {candidates.map(a=><ShadowCard key={a.PlayerID} athlete={a} show={show} onRemove={()=>onRemove(a.PlayerID)}/>)}
+    </div>
+  );
+  return (
+    <div style={{position:'absolute',left:`${pos.x}%`,top:`${pos.y}%`,transform:'translate(-50%,-50%)',zIndex:open?100:10}}>
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+        {isLower&&candidates.length>0&&<div style={{marginBottom:2}}>{cards}</div>}
+        <div onClick={()=>setOpen(v=>!v)} style={{width:32,height:32,borderRadius:'50%',
+          background:open?'rgba(56,189,248,0.4)':'rgba(255,255,255,0.15)',
+          border:`2px solid ${open?'#38bdf8':'rgba(255,255,255,0.65)'}`,
+          display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+          backdropFilter:'blur(2px)',cursor:'pointer',position:'relative',transition:'all 0.12s'}}>
+          <span style={{fontSize:'0.42rem',fontWeight:900,color:'white',textTransform:'uppercase',lineHeight:1.1}}>{pos.label}</span>
+          <span style={{fontSize:'0.36rem',color:'rgba(255,255,255,0.7)',lineHeight:1}}>+</span>
+          {candidates.length>0&&(
+            <div style={{position:'absolute',top:-5,right:-5,width:15,height:15,borderRadius:'50%',background:'#10b981',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 2px 4px rgba(0,0,0,0.3)'}}>
+              <span style={{fontSize:'0.38rem',fontWeight:900,color:'white'}}>{candidates.length}</span>
+            </div>
+          )}
+        </div>
+        {!isLower&&candidates.length>0&&<div style={{marginTop:2}}>{cards}</div>}
+        {open&&(
+          <div style={{position:'absolute',...(isLower?{bottom:'calc(100% + 36px)'}:{top:'calc(100% + 36px)'}),
+            left:'50%',transform:'translateX(-50%)',zIndex:999,background:'white',borderRadius:8,
+            boxShadow:'0 8px 32px rgba(0,0,0,0.3)',padding:8,width:200,maxHeight:240,
+            overflow:'hidden',display:'flex',flexDirection:'column'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+              <span style={{fontSize:'0.7rem',fontWeight:700,color:'#0f172a'}}>{pos.label} — เพิ่มผู้เล่น</span>
+              <button onClick={()=>{setOpen(false);setSearch('');}} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',fontSize:'1rem',lineHeight:1,padding:0}}>×</button>
+            </div>
+            <input placeholder="ค้นหา..." value={search} onChange={e=>setSearch(e.target.value)} autoFocus
+              style={{padding:'4px 8px',border:'1px solid #e2e8f0',borderRadius:4,fontSize:'0.72rem',marginBottom:5,outline:'none',width:'100%',boxSizing:'border-box' as const}}/>
+            <div style={{overflowY:'auto',flex:1}}>
+              {available.length===0&&<div style={{textAlign:'center',padding:8,fontSize:'0.68rem',color:'#94a3b8'}}>ไม่พบนักกีฬา</div>}
+              {available.slice(0,30).map(a=>(
+                <div key={a.PlayerID} onClick={()=>{onAdd(a.PlayerID);setSearch('');setOpen(false);}}
+                  style={{display:'flex',alignItems:'center',gap:6,padding:'4px 6px',cursor:'pointer',borderRadius:4}}
+                  onMouseEnter={e=>(e.currentTarget.style.background='#f1f5f9')}
+                  onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                  {a.PhotoUrl
+                    ?<img src={a.PhotoUrl} alt="" style={{width:20,height:20,borderRadius:3,objectFit:'cover',objectPosition:'top',flexShrink:0}}/>
+                    :<div style={{width:20,height:20,borderRadius:3,background:'#e2e8f0',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><span style={{fontSize:'0.38rem',fontWeight:900,color:'#64748b'}}>{ini(a.Name)}</span></div>
+                  }
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:'0.65rem',fontWeight:600,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Name}</div>
+                    {a.Position&&<div style={{fontSize:'0.5rem',color:'#64748b'}}>{a.Position}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Pitch lines ── */
 function PitchLines() {
   const W = 'rgba(255,255,255,0.5)';
@@ -331,6 +438,16 @@ export default function LineupPage({ athletes, user }: Props) {
   const [notif, setNotif]         = useState('');
   const [teamName, setTeamName]   = useState(user?.displayName || '');
   const [teamLogo, setTeamLogo]   = useState(user?.logoUrl || '');
+
+  /* Shadow Team state */
+  const [shadowMode,setShadowMode]               = useState(false);
+  const [shadowCandidates,setShadowCandidates]   = useState<Record<string,string[]>>({});
+  const [shadowTeams,setShadowTeams]             = useState<ShadowTeamData[]>(()=>loadShadowTeams());
+  const [shadowFieldColor,setShadowFieldColor]   = useState<'green'|'blue'>('green');
+  const [shadowZoom,setShadowZoom]               = useState(90);
+  const [show,setShow]                           = useState<ShowSettings>({photo:true,age:true,club:false,rating:true,height:true});
+  const [showShadowSaved,setShowShadowSaved]     = useState(false);
+  const [shadowName,setShadowName]               = useState('');
 
   const formations = ALL_FORMATIONS[mode];
   const formation  = formations.find(f=>f.id===formId) ?? formations[0];
@@ -375,6 +492,24 @@ export default function LineupPage({ athletes, user }: Props) {
     const m=lu.mode??(FORMATIONS_7.some(f=>f.id===lu.formation)?'7':'11');
     setMode(m);setFormId(lu.formation);setAssign(lu.assignments);setSelAth(null);setShowSaved(false);notify(`โหลด "${lu.name}" สำเร็จ`);
   };
+
+  /* Shadow Team handlers */
+  const addCandidate=(posId:string,athleteId:string)=>setShadowCandidates(prev=>({...prev,[posId]:[...(prev[posId]||[]),athleteId]}));
+  const removeCandidate=(posId:string,athleteId:string)=>setShadowCandidates(prev=>{const n={...prev};n[posId]=(n[posId]||[]).filter(id=>id!==athleteId);return n;});
+  const handleSaveShadow=()=>{
+    const name=shadowName.trim()||`Shadow ${new Date().toLocaleDateString('th-TH')}`;
+    const t:ShadowTeamData={id:Date.now().toString(),name,formation:formId,mode,candidates:{...shadowCandidates}};
+    const u=[t,...shadowTeams];setShadowTeams(u);saveShadowTeams(u);setShadowName('');notify(`บันทึก "${name}" สำเร็จ`);
+  };
+  const handleLoadShadow=(t:ShadowTeamData)=>{
+    const m=t.mode??(FORMATIONS_7.some(f=>f.id===t.formation)?'7':'11');
+    setMode(m);setFormId(t.formation);setShadowCandidates(t.candidates);setShowShadowSaved(false);notify(`โหลด "${t.name}" สำเร็จ`);
+  };
+
+  const shadowGrass=shadowFieldColor==='blue'
+    ?'linear-gradient(180deg,#0a1f3a 0%,#0f2d52 18%,#1a4570 50%,#0f2d52 82%,#0a1f3a 100%)'
+    :'linear-gradient(180deg,#0e4020 0%,#145c2a 18%,#1a7835 50%,#145c2a 82%,#0e4020 100%)';
+  const pitchMaxW=Math.round(820*shadowZoom/100);
 
   return (
     <div style={{ minHeight:'100vh' }}>
@@ -469,11 +604,12 @@ export default function LineupPage({ athletes, user }: Props) {
             <div><h2 className="page-title" style={{margin:0}}>Line Up</h2><p className="page-subtitle" style={{margin:0}}>{formation.name} · {mode==='11'?'11v11':'7v7'} · {Object.keys(assign).length}/{formation.positions.length}</p></div>
           </div>
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            <button className="btn-outline btn-sm" onClick={()=>setShowPanel(v=>!v)}><i className={`bi bi-${showPanel?'chevron-right':'people-fill'} me-1`}/>{showPanel?'ซ่อน':'ผู้เล่น'}</button>
+            <button className={`btn-sm ${shadowMode?'btn-primary':'btn-outline'}`} onClick={()=>setShadowMode(v=>!v)} style={{background:shadowMode?'#7c3aed':undefined,borderColor:shadowMode?'#7c3aed':undefined}}><i className="bi bi-people-fill me-1"/>Shadow Team</button>
+            {!shadowMode&&<><button className="btn-outline btn-sm" onClick={()=>setShowPanel(v=>!v)}><i className={`bi bi-${showPanel?'chevron-right':'people-fill'} me-1`}/>{showPanel?'ซ่อน':'ผู้เล่น'}</button>
             <button className="btn-outline btn-sm" onClick={()=>{setAssign({});setSelAth(null);}}><i className="bi bi-x-circle me-1"/>ล้าง</button>
             <button className="btn-outline btn-sm" onClick={()=>setShowSaved(v=>!v)}><i className="bi bi-folder2-open me-1"/>บันทึก ({saved.length})</button>
             <button className="btn-outline btn-sm" onClick={()=>window.print()}><i className="bi bi-printer me-1"/>Print</button>
-            <button className="btn-primary btn-sm" onClick={handleSave}><i className="bi bi-save me-1"/>Save</button>
+            <button className="btn-primary btn-sm" onClick={handleSave}><i className="bi bi-save me-1"/>Save</button></>}
           </div>
         </div>
 
@@ -509,8 +645,110 @@ export default function LineupPage({ athletes, user }: Props) {
 
       {notif&&<div style={{position:'fixed',top:20,right:20,zIndex:9999,background:'#10b981',color:'white',borderRadius:10,padding:'10px 18px',fontWeight:700,fontSize:'0.85rem',boxShadow:'0 4px 20px rgba(0,0,0,0.3)'}}><i className="bi bi-check-circle me-2"/>{notif}</div>}
 
+      {/* ── SHADOW TEAM SCENE ── */}
+      {shadowMode&&(
+        <div style={{display:'flex',gap:14,alignItems:'flex-start',flexWrap:'wrap'}}>
+          {/* Settings panel */}
+          <div style={{flex:'0 0 210px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,padding:14,position:'sticky',top:80,display:'flex',flexDirection:'column',gap:12}}>
+            {/* Formation display */}
+            <div>
+              <div style={{fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Formation</div>
+              <div style={{fontSize:'1.1rem',fontWeight:900,color:'#7c3aed',letterSpacing:1}}>{formation.name}</div>
+              <div style={{fontSize:'0.65rem',color:'var(--text-muted)',marginTop:1}}>{mode==='11'?'11v11':'7v7'}</div>
+            </div>
+            <div style={{height:1,background:'var(--border)'}}/>
+            {/* Field color */}
+            <div>
+              <div style={{fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Field Color</div>
+              <select value={shadowFieldColor} onChange={e=>setShadowFieldColor(e.target.value as 'green'|'blue')}
+                style={{width:'100%',padding:'5px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',fontSize:'0.78rem',cursor:'pointer'}}>
+                <option value="green">Green</option>
+                <option value="blue">Blue (Artificial)</option>
+              </select>
+            </div>
+            {/* Zoom */}
+            <div>
+              <div style={{fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,marginBottom:4,display:'flex',justifyContent:'space-between'}}>
+                <span>Zoom field</span><span style={{color:'var(--text)',fontWeight:800}}>{shadowZoom}%</span>
+              </div>
+              <input type="range" min={50} max={100} value={shadowZoom} onChange={e=>setShadowZoom(Number(e.target.value))}
+                style={{width:'100%',accentColor:'#7c3aed',cursor:'pointer'}}/>
+            </div>
+            <div style={{height:1,background:'var(--border)'}}/>
+            {/* Display options */}
+            <div>
+              <div style={{fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Display</div>
+              <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                {([['photo','Photo'],['age','Age'],['club','Current club'],['rating','Rating (OVR)'],['height','Height']] as [keyof ShowSettings,string][]).map(([key,label])=>(
+                  <label key={key} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:'0.78rem',fontWeight:600,color:'var(--text)'}}>
+                    <input type="checkbox" checked={show[key]} onChange={e=>setShow(prev=>({...prev,[key]:e.target.checked}))}
+                      style={{accentColor:'#7c3aed',width:14,height:14,cursor:'pointer'}}/>
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{height:1,background:'var(--border)'}}/>
+            {/* Clear + Save */}
+            <button className="btn-outline btn-sm" onClick={()=>setShadowCandidates({})} style={{fontSize:'0.72rem'}}>
+              <i className="bi bi-x-circle me-1"/>ล้างทั้งหมด
+            </button>
+            <div style={{display:'flex',gap:6}}>
+              <input className="form-control" style={{fontSize:'0.72rem',flex:1}} placeholder="ชื่อ shadow team..." value={shadowName} onChange={e=>setShadowName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSaveShadow()}/>
+              <button className="btn-sm" style={{background:'#7c3aed',color:'white',border:'none',borderRadius:6,padding:'0 8px',cursor:'pointer',fontSize:'0.75rem'}} onClick={handleSaveShadow}><i className="bi bi-save"/></button>
+            </div>
+            {/* Saved shadow teams */}
+            {shadowTeams.length>0&&(
+              <div>
+                <button className="btn-outline btn-sm" style={{width:'100%',fontSize:'0.72rem'}} onClick={()=>setShowShadowSaved(v=>!v)}>
+                  <i className="bi bi-folder2-open me-1"/>Saved ({shadowTeams.length})
+                </button>
+                {showShadowSaved&&(
+                  <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:5,maxHeight:180,overflowY:'auto'}}>
+                    {shadowTeams.map(t=>(
+                      <div key={t.id} style={{display:'flex',alignItems:'center',gap:5,background:'var(--bg)',border:'1px solid var(--border)',borderRadius:7,padding:'4px 8px'}}>
+                        <span style={{fontSize:'0.68rem',fontWeight:600,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.name}</span>
+                        <button className="btn-primary btn-sm" style={{padding:'1px 6px',fontSize:'0.6rem'}} onClick={()=>handleLoadShadow(t)}>Load</button>
+                        <button className="btn-danger btn-sm" style={{padding:'1px 5px',fontSize:'0.6rem'}} onClick={()=>{const u=shadowTeams.filter(x=>x.id!==t.id);setShadowTeams(u);saveShadowTeams(u);}}>
+                          <i className="bi bi-trash"/>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {/* Pitch */}
+          <div style={{flex:'1 1 400px',minWidth:320,maxWidth:pitchMaxW}}>
+            <div style={{borderRadius:18,overflow:'hidden',background:'linear-gradient(160deg,#03081e 0%,#060d28 40%,#030a1c 100%)',border:'1px solid rgba(124,58,237,0.2)',boxShadow:'0 0 60px rgba(80,20,200,0.15)',padding:'14px 12px 12px'}}>
+              <div style={{textAlign:'center',marginBottom:10}}>
+                <div style={{fontSize:'0.72rem',fontWeight:700,color:'rgba(124,58,237,0.8)',letterSpacing:3,textTransform:'uppercase'}}>SHADOW TEAM · {formation.name}</div>
+              </div>
+              <div id="shadowPitch" style={{position:'relative',width:'100%',paddingBottom:'165%'}}>
+                <div style={{position:'absolute',inset:0,borderRadius:10,overflow:'hidden',background:shadowGrass,boxShadow:'inset 0 0 50px rgba(0,0,0,0.35)'}}>
+                  <PitchLines/>
+                </div>
+                <div style={{position:'absolute',inset:0,overflow:'visible'}}>
+                  {formation.positions.map(pos=>{
+                    const cands=athletes.filter(a=>(shadowCandidates[pos.id]||[]).includes(a.PlayerID));
+                    return(
+                      <ShadowSlot key={pos.id} pos={pos} candidates={cands} allAthletes={athletes}
+                        show={show} onAdd={id=>addCandidate(pos.id,id)} onRemove={id=>removeCandidate(pos.id,id)}/>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{textAlign:'center',marginTop:10,fontSize:'0.65rem',fontWeight:700,color:'rgba(255,255,255,0.3)',letterSpacing:3,textTransform:'uppercase'}}>
+                {formation.name} · {mode==='11'?'11v11':'7v7'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── FC26 SCENE ── */}
-      <div id="lineupScene" style={{display:'flex',gap:14,alignItems:'flex-start',flexWrap:'wrap'}}>
+      {!shadowMode&&<div id="lineupScene" style={{display:'flex',gap:14,alignItems:'flex-start',flexWrap:'wrap'}}>
 
         {/* ── LEFT: Dark scene ── */}
         <div style={{flex:'1 1 600px',minWidth:380,maxWidth:820}}>
@@ -709,7 +947,8 @@ export default function LineupPage({ athletes, user }: Props) {
             </div>
           </div>
         )}
-      </div>
+      </div>}
+
     </div>
   );
 }
