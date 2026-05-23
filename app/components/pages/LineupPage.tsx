@@ -621,34 +621,25 @@ export default function LineupPage({ athletes, user }: Props) {
 
           /* ── Shadow Team print ── */
           #shadowScene {
-            display:flex!important;
-            flex-direction:row!important;
-            gap:10px!important;
-            align-items:flex-start!important;
+            display:block!important;
             width:100%!important;
-            page-break-inside:avoid!important;
           }
           /* Hide settings panel */
           #shadowScene > div:first-child { display:none!important; }
-          /* Pitch column: 52% */
-          #shadowScene > div:nth-child(3) {
-            flex:0 0 52%!important;
-            max-width:52%!important;
-            order:2!important;
-          }
-          /* Candidate list: fills remaining */
+          /* Hide interactive pitch (absolute-positioned cards break print) */
+          #shadowScene > div:last-child { display:none!important; }
+          /* Show candidate list full width */
           #shadowPrintList {
-            display:flex!important;
-            flex-direction:column!important;
-            flex:1!important;
-            min-width:0!important;
-            order:1!important;
-            align-self:flex-start!important;
+            display:block!important;
+            width:100%!important;
           }
-          /* Reduce pitch ratio to fit A4 landscape */
-          #shadowPitch { padding-bottom:120%!important; }
-          /* Hide shadow slot open buttons and remove (×) buttons on print */
-          #shadowScene button { display:none!important; }
+          /* 3-column grid for positions */
+          #shadowPrintList > div:nth-child(2) {
+            grid-template-columns:repeat(3,1fr)!important;
+            gap:10px!important;
+          }
+          /* Compact player rows in print */
+          #shadowPrintList button { display:none!important; }
         }
       `}</style>
 
@@ -780,11 +771,16 @@ export default function LineupPage({ athletes, user }: Props) {
           </div>
           {/* Print-only: candidate list by position */}
           <div id="shadowPrintList" style={{display:'none',flex:'0 0 42%',minWidth:0}}>
-            <div style={{fontWeight:900,fontSize:'0.9rem',letterSpacing:2,textTransform:'uppercase',
-              borderBottom:'2pt solid #0f172a',paddingBottom:5,marginBottom:10,color:'#0f172a'}}>
-              SHADOW TEAM
-              <span style={{marginLeft:8,fontSize:'0.6rem',fontWeight:600,color:'#64748b'}}>
-                {formation.name} · {mode==='11'?'11v11':'7v7'}
+            <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',
+              borderBottom:'2.5pt solid #0f172a',paddingBottom:6,marginBottom:12}}>
+              <div>
+                <span style={{fontWeight:900,fontSize:'1.1rem',letterSpacing:2,textTransform:'uppercase',color:'#0f172a'}}>SHADOW TEAM</span>
+                <span style={{marginLeft:10,fontSize:'0.7rem',fontWeight:700,color:'#7c3aed',letterSpacing:1}}>
+                  {formation.name} · {mode==='11'?'11v11':'7v7'}
+                </span>
+              </div>
+              <span style={{fontSize:'0.6rem',color:'#94a3b8',fontWeight:600}}>
+                {new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}
               </span>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
