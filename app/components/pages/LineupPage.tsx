@@ -638,37 +638,50 @@ export default function LineupPage({ athletes, user }: Props) {
             display:block!important;
             width:100%!important;
           }
-          /* Hide settings panel */
           #shadowScene > div:first-child { display:none!important; }
-          /* Hide interactive pitch (absolute-positioned cards break print) */
-          #shadowScene > div:last-child { display:none!important; }
-          /* Show candidate list full width */
+          #shadowScene > div:last-child  { display:none!important; }
+
+          /* Candidate list — full width, 3-column grid */
           #shadowPrintList {
             display:block!important;
             width:100%!important;
           }
-          /* 3-column grid for positions */
           #shadowPrintList > div:nth-child(2) {
             grid-template-columns:repeat(3,1fr)!important;
-            gap:10px!important;
+            gap:8px!important;
+            align-items:start!important;
           }
-          /* Compact player rows in print */
+          /* Keep each position card intact across page breaks */
+          #shadowPrintList > div:nth-child(2) > div {
+            break-inside:avoid!important;
+            page-break-inside:avoid!important;
+          }
           #shadowPrintList button { display:none!important; }
 
-          /* Page 2: formation pitch */
+          /* Formation page — always starts on a new page, never breaks mid-page */
           #shadowPrintPitch {
             display:block!important;
             page-break-before:always!important;
             break-before:page!important;
+            break-inside:avoid!important;
+            page-break-inside:avoid!important;
             width:100%!important;
           }
-          /* Contain candidate cards within pitch — prevents bleed to next page */
+          /*
+           * Use explicit height instead of padding-bottom trick.
+           * padding-bottom % causes the browser print engine to render
+           * the absolute children on a different page from the background.
+           * 170mm fills the page after the header (~12mm) and footer (~8mm)
+           * leaving ~8mm spare on A4 landscape (198mm usable height).
+           */
           #shadowPrintPitch > div:nth-child(2) {
-            padding-bottom: 74% !important;
-            overflow: hidden !important;
+            height:170mm!important;
+            padding-bottom:0!important;
+            overflow:hidden!important;
+            position:relative!important;
           }
           #shadowPrintPitch > div:nth-child(2) > div:last-child {
-            overflow: hidden !important;
+            overflow:hidden!important;
           }
         }
       `}</style>
