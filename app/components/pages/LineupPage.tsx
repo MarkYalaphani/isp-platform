@@ -359,6 +359,7 @@ function ShadowSlot({pos,candidates,allAthletes,show,grades,onAdd,onRemove,onGra
 }) {
   const [open,setOpen]=useState(false);
   const [search,setSearch]=useState('');
+  const [hovered,setHovered]=useState(false);
   const cIds=new Set(candidates.map(a=>a.PlayerID));
   const available=allAthletes.filter(a=>!cIds.has(a.PlayerID)&&
     (!search||(a.Name||'').toLowerCase().includes(search.toLowerCase())||(a.Nickname||'').toLowerCase().includes(search.toLowerCase()))
@@ -375,7 +376,8 @@ function ShadowSlot({pos,candidates,allAthletes,show,grades,onAdd,onRemove,onGra
     </div>
   );
   return (
-    <div style={{position:'absolute',left:`${pos.x}%`,top:`${pos.y}%`,transform:'translate(-50%,-50%)',zIndex:open?100:10}}>
+    <div style={{position:'absolute',left:`${pos.x}%`,top:`${pos.y}%`,transform:'translate(-50%,-50%)',zIndex:open?100:hovered?50:10}}
+      onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>!open&&setHovered(false)}>
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
         {isLower&&candidates.length>0&&<div style={{marginBottom:4}}>{cards}</div>}
         <div onClick={()=>setOpen(v=>!v)} style={{width:32,height:32,borderRadius:'50%',
@@ -659,6 +661,14 @@ export default function LineupPage({ athletes, user }: Props) {
             page-break-before:always!important;
             break-before:page!important;
             width:100%!important;
+          }
+          /* Contain candidate cards within pitch — prevents bleed to next page */
+          #shadowPrintPitch > div:nth-child(2) {
+            padding-bottom: 74% !important;
+            overflow: hidden !important;
+          }
+          #shadowPrintPitch > div:nth-child(2) > div:last-child {
+            overflow: hidden !important;
           }
         }
       `}</style>
