@@ -873,52 +873,45 @@ export default function LineupPage({ athletes, user }: Props) {
             {/* Pitch diagram */}
             <div style={{position:'relative',width:'100%',paddingBottom:'62%',
               background:'linear-gradient(180deg,#0e4020 0%,#145c2a 18%,#1a7835 50%,#145c2a 82%,#0e4020 100%)',
-              borderRadius:10,overflow:'hidden'}}>
-              <div style={{position:'absolute',inset:0}}><PitchLines/></div>
-              <div style={{position:'absolute',inset:0}}>
+              borderRadius:10,overflow:'visible'}}>
+              <div style={{position:'absolute',inset:0,borderRadius:10,overflow:'hidden'}}><PitchLines/></div>
+              <div style={{position:'absolute',inset:0,overflow:'visible'}}>
                 {formation.positions.map(pos=>{
                   const cands=athletes.filter(a=>(shadowCandidates[pos.id]||[]).includes(a.PlayerID));
                   const isLower=pos.y>55;
-                  return(
-                    <div key={pos.id} style={{position:'absolute',left:`${pos.x}%`,top:`${pos.y}%`,
-                      transform:'translate(-50%,-50%)',textAlign:'center',zIndex:5,minWidth:70}}>
-                      {/* Show names above dot for GK/DEF, below for MID/FWD */}
-                      {isLower&&cands.length>0&&(
-                        <div style={{marginBottom:4}}>
-                          {cands.map(a=>(
-                            <div key={a.PlayerID} style={{display:'flex',alignItems:'center',gap:3,
-                              background:'rgba(255,255,255,0.93)',borderRadius:4,padding:'2px 5px',
-                              marginBottom:2,maxWidth:100,justifyContent:'center'}}>
-                              {a.PhotoUrl&&<img src={a.PhotoUrl} style={{width:16,height:16,borderRadius:'50%',objectFit:'cover',objectPosition:'top',flexShrink:0}} alt=""/>}
-                              <span style={{fontSize:'0.5rem',fontWeight:700,color:'#0f172a',
-                                whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:76}}>
-                                {a.Nickname||a.Name?.split(' ').slice(-1)[0]||a.Name}
-                              </span>
-                            </div>
-                          ))}
+                  const miniCard=(a:Athlete)=>{
+                    const g=(shadowGrades[pos.id]||{})[a.PlayerID]||'';
+                    const gc=g?g.toUpperCase().startsWith('A')?'#15803d':g.toUpperCase().startsWith('B')?'#0369a1':g.toUpperCase().startsWith('C')?'#b45309':'#dc2626':'';
+                    return(
+                      <div key={a.PlayerID} style={{display:'flex',alignItems:'center',gap:3,
+                        background:'rgba(255,255,255,0.97)',borderRadius:5,padding:'2px 4px 2px 3px',
+                        marginBottom:2,boxShadow:'0 1px 4px rgba(0,0,0,0.25)',width:105}}>
+                        {a.PhotoUrl
+                          ?<img src={a.PhotoUrl} style={{width:20,height:24,borderRadius:3,objectFit:'cover',objectPosition:'top center',flexShrink:0}} alt=""/>
+                          :<div style={{width:20,height:24,borderRadius:3,background:'linear-gradient(160deg,#1a0033,#3b0070)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                            <span style={{fontSize:'0.38rem',fontWeight:900,color:'rgba(255,255,255,0.4)'}}>{ini(a.Name)}</span>
+                          </div>}
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:'0.48rem',fontWeight:800,color:'#0f172a',lineHeight:1.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Name}</div>
+                          {a.Nickname&&a.Nickname!==a.Name&&<div style={{fontSize:'0.42rem',fontWeight:700,color:'#7c3aed',lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Nickname}</div>}
+                          {a.DOB&&<div style={{fontSize:'0.4rem',color:'#64748b',lineHeight:1.2}}>{fmtDate(a.DOB)}</div>}
+                          {a.Club&&<div style={{fontSize:'0.38rem',color:'#475569',lineHeight:1.1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Club}</div>}
                         </div>
-                      )}
-                      {/* Position circle */}
-                      <div style={{width:26,height:26,borderRadius:'50%',
-                        background:'rgba(0,0,0,0.65)',border:'2px solid rgba(255,255,255,0.9)',
-                        display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto'}}>
-                        <span style={{fontSize:'0.42rem',fontWeight:900,color:'white',textTransform:'uppercase',lineHeight:1}}>{pos.label}</span>
+                        {g&&<div style={{flexShrink:0,fontSize:'0.46rem',fontWeight:900,color:gc,
+                          border:'1px solid '+gc,borderRadius:3,padding:'0 2px',lineHeight:1.4,background:'rgba(255,255,255,0.9)'}}>{g}</div>}
                       </div>
-                      {!isLower&&cands.length>0&&(
-                        <div style={{marginTop:4}}>
-                          {cands.map(a=>(
-                            <div key={a.PlayerID} style={{display:'flex',alignItems:'center',gap:3,
-                              background:'rgba(255,255,255,0.93)',borderRadius:4,padding:'2px 5px',
-                              marginBottom:2,maxWidth:100,justifyContent:'center'}}>
-                              {a.PhotoUrl&&<img src={a.PhotoUrl} style={{width:16,height:16,borderRadius:'50%',objectFit:'cover',objectPosition:'top',flexShrink:0}} alt=""/>}
-                              <span style={{fontSize:'0.5rem',fontWeight:700,color:'#0f172a',
-                                whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:76}}>
-                                {a.Nickname||a.Name?.split(' ').slice(-1)[0]||a.Name}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    );
+                  };
+                  return(
+                    <div key={pos.id} style={{position:'absolute',left:pos.x+'%',top:pos.y+'%',
+                      transform:'translate(-50%,-50%)',textAlign:'center',zIndex:5}}>
+                      {isLower&&cands.length>0&&<div style={{marginBottom:3}}>{cands.map(miniCard)}</div>}
+                      <div style={{width:24,height:24,borderRadius:'50%',background:'rgba(0,0,0,0.7)',
+                        border:'2px solid rgba(255,255,255,0.9)',display:'flex',alignItems:'center',
+                        justifyContent:'center',margin:'0 auto'}}>
+                        <span style={{fontSize:'0.4rem',fontWeight:900,color:'white',textTransform:'uppercase',lineHeight:1}}>{pos.label}</span>
+                      </div>
+                      {!isLower&&cands.length>0&&<div style={{marginTop:3}}>{cands.map(miniCard)}</div>}
                     </div>
                   );
                 })}
