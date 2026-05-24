@@ -170,8 +170,8 @@ function SingleTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: U
 }
 
 // ── Batch Tab ───────────────────────────────────────────────────────────────
-type Row = { name: string; nickname: string; dob: string; team: string; position: string; club: string; province: string; domFoot: string; domHand: string; height: string; weight: string; };
-const blankRow = (): Row => ({ name: '', nickname: '', dob: '', team: '', position: 'Forward', club: '', province: '', domFoot: 'Right', domHand: 'Right', height: '', weight: '' });
+type Row = { name: string; nickname: string; dob: string; team: string; position: string; club: string; province: string; domFoot: string; domHand: string; height: string; weight: string; photo: string; photoMime: string; };
+const blankRow = (): Row => ({ name: '', nickname: '', dob: '', team: '', position: 'Forward', club: '', province: '', domFoot: 'Right', domHand: 'Right', height: '', weight: '', photo: '', photoMime: '' });
 
 const BATCH_COLS: { key: keyof Row; label: string; width: number; type?: string; options?: string[] }[] = [
   { key: 'name',     label: 'ชื่อ-นามสกุล *', width: 160 },
@@ -191,12 +191,41 @@ function BatchTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: Us
   const [rows, setRows] = useState<Row[]>([blankRow(), blankRow(), blankRow()]);
   const [saving, setSaving] = useState(false);
   const [results, setResults] = useState<{ name: string; ok: boolean; msg: string }[]>([]);
+  const photoRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const setCell = (i: number, k: keyof Row, v: string) =>
     setRows(r => r.map((row, j) => j === i ? { ...row, [k]: v } : row));
 
+  const setRowPhoto = (i: number, base64: string, mime: string) =>
+    setRows(r => r.map((row, j) => j === i ? { ...row, photo: base64, photoMime: mime } : row));
+
   const addRow = () => setRows(r => [...r, blankRow()]);
-  const removeRow = (i: number) => setRows(r => r.filter((_, j) => j !== i));
+  const removeRow = (i: number) => { photoRefs.current.splice(i, 1); setRows(r => r.filter((_, j) => j !== i)); };
+
+  const handlePhotoFile = (e: React.ChangeEvent<HTMLInputElement>, i: number) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = ev => { const r = ev.target?.result as string; setRowPhoto(i, r, file.type); };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handlePhotoPaste = (e: React.ClipboardEvent, i: number) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let n = 0; n < items.length; n++) {
+      if (items[n].type.startsWith('image/')) {
+        const file = items[n].getAsFile();
+        if (!file) continue;
+        const reader = new FileReader();
+        reader.onload = ev => { const r = ev.target?.result as string; setRowPhoto(i, r, file.type); };
+        reader.readAsDataURL(file);
+        e.preventDefault();
+        break;
+      }
+    }
+  };
 
   const handleSave = async () => {
     const valid = rows.filter(r => r.name.trim());
@@ -213,7 +242,7 @@ function BatchTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: Us
           position: row.position, club: row.club, province: row.province,
           domFoot: row.domFoot, domHand: row.domHand,
           clubId: user.role !== 'admin' ? (user.clubId || '') : '',
-          photoBase64: '', photoMimeType: '',
+          photoBase64: row.photo || '', photoMimeType: row.photoMime || '',
         }) as { status: string; message: string; playerId?: string };
 
         if (r.status === 'success' && r.playerId && (row.height || row.weight)) {
@@ -261,6 +290,7 @@ function BatchTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: Us
           <thead>
             <tr style={{ background: 'var(--bg)' }}>
               <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>#</th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>รูป</th>
               {BATCH_COLS.map(c => (
                 <th key={c.key} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: c.key === 'height' || c.key === 'weight' ? '#0369a1' : 'var(--text-muted)', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
                   {c.label}
@@ -275,6 +305,27 @@ function BatchTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: Us
               return (
                 <tr key={i} style={{ borderBottom: '1px solid var(--border)', background: res ? (res.ok ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)') : 'transparent' }}>
                   <td style={{ padding: '8px 12px', color: 'var(--text-muted)', fontWeight: 700, width: 32 }}>{i + 1}</td>
+                  <td style={{ padding: '4px 6px' }}>
+                    <div
+                      tabIndex={0}
+                      title="คลิกเพื่อเลือกรูป หรือ Ctrl+V วางจากคลิปบอร์ด"
+                      onPaste={e => handlePhotoPaste(e, i)}
+                      onClick={() => photoRefs.current[i]?.click()}
+                      style={{ width: 44, height: 44, borderRadius: 6, border: '1.5px dashed var(--border)', cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', outline: 'none', flexShrink: 0 }}
+                      onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                      onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                    >
+                      {row.photo
+                        ? <img src={row.photo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                        : <i className="bi bi-camera" style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }} />}
+                    </div>
+                    <input
+                      ref={el => { photoRefs.current[i] = el; }}
+                      type="file" accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={e => handlePhotoFile(e, i)}
+                    />
+                  </td>
                   {BATCH_COLS.map(c => (
                     <td key={c.key} style={{ padding: '4px 6px' }}>
                       {c.options ? (
