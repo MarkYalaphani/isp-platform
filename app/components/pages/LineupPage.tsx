@@ -20,6 +20,14 @@ const FORMATIONS_11: Formation[] = [
     {id:'LCM',label:'CM',role:'MID',x:28,y:49},{id:'CM',label:'CM',role:'MID',x:50,y:45},{id:'RCM',label:'CM',role:'MID',x:72,y:49},
     {id:'LW',label:'LW',role:'FWD',x:18,y:20},{id:'ST',label:'ST',role:'FWD',x:50,y:12},{id:'RW',label:'RW',role:'FWD',x:82,y:20},
   ]},
+  { id:'4-3-3-cdm', name:'4-3-3 (CDM)', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:14,y:69},{id:'LCB',label:'CB',role:'DEF',x:32,y:72},{id:'RCB',label:'CB',role:'DEF',x:68,y:72},{id:'RB',label:'RB',role:'DEF',x:86,y:69},
+    {id:'CDM',label:'CDM',role:'MID',x:50,y:60},
+    {id:'CM',label:'CM',role:'MID',x:50,y:47},
+    {id:'CAM',label:'CAM',role:'MID',x:50,y:34},
+    {id:'LW',label:'LW',role:'FWD',x:16,y:17},{id:'ST',label:'ST',role:'FWD',x:50,y:10},{id:'RW',label:'RW',role:'FWD',x:84,y:17},
+  ]},
   { id:'4-4-2', name:'4-4-2', positions:[
     {id:'GK',label:'GK',role:'GK',x:50,y:91},
     {id:'LB',label:'LB',role:'DEF',x:14,y:69},{id:'LCB',label:'CB',role:'DEF',x:29,y:72},{id:'RCB',label:'CB',role:'DEF',x:71,y:72},{id:'RB',label:'RB',role:'DEF',x:86,y:69},
@@ -92,6 +100,54 @@ const FORMATIONS_11: Formation[] = [
     {id:'LWB',label:'WB',role:'DEF',x:13,y:66},{id:'LCB',label:'CB',role:'DEF',x:29,y:72},{id:'CB',label:'CB',role:'DEF',x:50,y:75},{id:'RCB',label:'CB',role:'DEF',x:71,y:72},{id:'RWB',label:'WB',role:'DEF',x:87,y:66},
     {id:'LCM',label:'CM',role:'MID',x:36,y:49},{id:'RCM',label:'CM',role:'MID',x:64,y:49},
     {id:'LW',label:'LW',role:'FWD',x:18,y:20},{id:'ST',label:'ST',role:'FWD',x:50,y:12},{id:'RW',label:'RW',role:'FWD',x:82,y:20},
+  ]},
+  /* CDM + 2 wide CMs + 3 forwards */
+  { id:'4-1-2-3', name:'4-1-2-3', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:14,y:69},{id:'LCB',label:'CB',role:'DEF',x:32,y:72},{id:'RCB',label:'CB',role:'DEF',x:68,y:72},{id:'RB',label:'RB',role:'DEF',x:86,y:69},
+    {id:'CDM',label:'CDM',role:'MID',x:50,y:61},
+    {id:'LCM',label:'CM',role:'MID',x:30,y:46},{id:'RCM',label:'CM',role:'MID',x:70,y:46},
+    {id:'LW',label:'LW',role:'FWD',x:16,y:17},{id:'ST',label:'ST',role:'FWD',x:50,y:10},{id:'RW',label:'RW',role:'FWD',x:84,y:17},
+  ]},
+  /* 3 deep CMs + 1 CAM + 2 strikers */
+  { id:'4-3-1-2', name:'4-3-1-2', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:14,y:69},{id:'LCB',label:'CB',role:'DEF',x:32,y:72},{id:'RCB',label:'CB',role:'DEF',x:68,y:72},{id:'RB',label:'RB',role:'DEF',x:86,y:69},
+    {id:'LCM',label:'CM',role:'MID',x:26,y:58},{id:'CM',label:'CM',role:'MID',x:50,y:61},{id:'RCM',label:'CM',role:'MID',x:74,y:58},
+    {id:'CAM',label:'CAM',role:'MID',x:50,y:41},
+    {id:'LS',label:'ST',role:'FWD',x:34,y:15},{id:'RS',label:'ST',role:'FWD',x:66,y:15},
+  ]},
+  /* Diamond midfield: CDM → CM (L/R) → CAM → 2 ST */
+  { id:'4-1-2-1-2', name:'4-4-2 ◆', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:14,y:69},{id:'LCB',label:'CB',role:'DEF',x:32,y:72},{id:'RCB',label:'CB',role:'DEF',x:68,y:72},{id:'RB',label:'RB',role:'DEF',x:86,y:69},
+    {id:'CDM',label:'CDM',role:'MID',x:50,y:60},
+    {id:'LCM',label:'CM',role:'MID',x:28,y:47},{id:'RCM',label:'CM',role:'MID',x:72,y:47},
+    {id:'CAM',label:'CAM',role:'MID',x:50,y:35},
+    {id:'LS',label:'ST',role:'FWD',x:35,y:15},{id:'RS',label:'ST',role:'FWD',x:65,y:15},
+  ]},
+  /* 2 DM + 1 CAM + 3 forwards */
+  { id:'4-2-1-3', name:'4-2-1-3', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:14,y:69},{id:'LCB',label:'CB',role:'DEF',x:32,y:72},{id:'RCB',label:'CB',role:'DEF',x:68,y:72},{id:'RB',label:'RB',role:'DEF',x:86,y:69},
+    {id:'LDM',label:'DM',role:'MID',x:35,y:60},{id:'RDM',label:'DM',role:'MID',x:65,y:60},
+    {id:'CAM',label:'CAM',role:'MID',x:50,y:43},
+    {id:'LW',label:'LW',role:'FWD',x:16,y:17},{id:'ST',label:'ST',role:'FWD',x:50,y:10},{id:'RW',label:'RW',role:'FWD',x:84,y:17},
+  ]},
+  /* 3 CB + WBs + 2 CMs + 1 CAM + 2 ST */
+  { id:'3-4-1-2', name:'3-4-1-2', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LCB',label:'CB',role:'DEF',x:22,y:72},{id:'CB',label:'CB',role:'DEF',x:50,y:75},{id:'RCB',label:'CB',role:'DEF',x:78,y:72},
+    {id:'LWB',label:'WB',role:'MID',x:12,y:55},{id:'LCM',label:'CM',role:'MID',x:36,y:52},{id:'RCM',label:'CM',role:'MID',x:64,y:52},{id:'RWB',label:'WB',role:'MID',x:88,y:55},
+    {id:'CAM',label:'CAM',role:'MID',x:50,y:37},
+    {id:'LS',label:'ST',role:'FWD',x:34,y:16},{id:'RS',label:'ST',role:'FWD',x:66,y:16},
+  ]},
+  /* Attacking: 4 def + 2 CM + 4 forwards */
+  { id:'4-2-4', name:'4-2-4', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:14,y:69},{id:'LCB',label:'CB',role:'DEF',x:32,y:72},{id:'RCB',label:'CB',role:'DEF',x:68,y:72},{id:'RB',label:'RB',role:'DEF',x:86,y:69},
+    {id:'LCM',label:'CM',role:'MID',x:35,y:52},{id:'RCM',label:'CM',role:'MID',x:65,y:52},
+    {id:'LW',label:'LW',role:'FWD',x:14,y:20},{id:'LS',label:'ST',role:'FWD',x:36,y:13},{id:'RS',label:'ST',role:'FWD',x:64,y:13},{id:'RW',label:'RW',role:'FWD',x:86,y:20},
   ]},
 ];
 const FORMATIONS_7: Formation[] = [
