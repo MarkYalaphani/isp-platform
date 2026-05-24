@@ -24,8 +24,8 @@ const FORMATIONS_11: Formation[] = [
     {id:'GK',label:'GK',role:'GK',x:50,y:91},
     {id:'LB',label:'LB',role:'DEF',x:14,y:69},{id:'LCB',label:'CB',role:'DEF',x:32,y:72},{id:'RCB',label:'CB',role:'DEF',x:68,y:72},{id:'RB',label:'RB',role:'DEF',x:86,y:69},
     {id:'CDM',label:'CDM',role:'MID',x:50,y:60},
-    {id:'CM',label:'CM',role:'MID',x:50,y:47},
-    {id:'CAM',label:'CAM',role:'MID',x:50,y:34},
+    {id:'CM',label:'CM',role:'MID',x:33,y:46},
+    {id:'CAM',label:'CAM',role:'MID',x:67,y:33},
     {id:'LW',label:'LW',role:'FWD',x:16,y:17},{id:'ST',label:'ST',role:'FWD',x:50,y:10},{id:'RW',label:'RW',role:'FWD',x:84,y:17},
   ]},
   { id:'4-4-2', name:'4-4-2', positions:[
@@ -141,6 +141,15 @@ const FORMATIONS_11: Formation[] = [
     {id:'LWB',label:'WB',role:'MID',x:12,y:55},{id:'LCM',label:'CM',role:'MID',x:36,y:52},{id:'RCM',label:'CM',role:'MID',x:64,y:52},{id:'RWB',label:'WB',role:'MID',x:88,y:55},
     {id:'CAM',label:'CAM',role:'MID',x:50,y:37},
     {id:'LS',label:'ST',role:'FWD',x:34,y:16},{id:'RS',label:'ST',role:'FWD',x:66,y:16},
+  ]},
+  /* CDM center + LCM/RCM + LCAM/RCAM + 1 ST (full CDM·CM·CAM split L/R) */
+  { id:'4-1-2-2-1', name:'4-5-1 (▼)', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:14,y:69},{id:'LCB',label:'CB',role:'DEF',x:32,y:72},{id:'RCB',label:'CB',role:'DEF',x:68,y:72},{id:'RB',label:'RB',role:'DEF',x:86,y:69},
+    {id:'CDM',label:'CDM',role:'MID',x:50,y:61},
+    {id:'LCM',label:'CM',role:'MID',x:30,y:47},{id:'RCM',label:'CM',role:'MID',x:70,y:47},
+    {id:'LCAM',label:'CAM',role:'MID',x:30,y:33},{id:'RCAM',label:'CAM',role:'MID',x:70,y:33},
+    {id:'ST',label:'ST',role:'FWD',x:50,y:10},
   ]},
   /* Attacking: 4 def + 2 CM + 4 forwards */
   { id:'4-2-4', name:'4-2-4', positions:[
