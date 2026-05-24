@@ -128,12 +128,13 @@ function loadLineups(): SavedLineup[] { try { return JSON.parse(localStorage.get
 function saveLineups(ls: SavedLineup[]) { localStorage.setItem('pj_lineups', JSON.stringify(ls)); }
 
 /* ── Shadow Team ── */
-interface ShadowTeamData { id:string; name:string; formation:string; mode:Mode; candidates:Record<string,string[]>; }
+interface ShadowTeamData { id:string; name:string; formation:string; mode:Mode; candidates:Record<string,string[]>; grades?:Record<string,Record<string,string>>; }
 interface ShowSettings { photo:boolean; age:boolean; club:boolean; rating:boolean; height:boolean; }
 function loadShadowTeams():ShadowTeamData[] { try{return JSON.parse(localStorage.getItem('pj_shadow_teams')||'[]');}catch{return[];} }
 function saveShadowTeams(ts:ShadowTeamData[]) { localStorage.setItem('pj_shadow_teams',JSON.stringify(ts)); }
 
 function ini(name: string) { return (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); }
+function fmtDate(dob: string): string { try { const d = new Date(dob); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB'); } catch (_e) { return ''; } }
 /* Convert 0-5 score to 0-99 with more granularity than ×18+9 */
 function toStat(score: number) { return score > 0 ? Math.min(99, Math.round(score * 19.8)) : 0; }
 function calcScores(a: Athlete) {
@@ -298,63 +299,63 @@ function FC26Card({ pos, athlete, isOver, teamLogo, onDragStart, onDragOver, onD
 }
 
 /* ── Shadow Card ── */
-function ShadowCard({athlete,show,onRemove}:{athlete:Athlete;show:ShowSettings;onRemove:()=>void}) {
-  const year=athlete.DOB?(()=>{try{const d=new Date(athlete.DOB);return isNaN(d.getTime())?null:d.getFullYear();}catch{return null;}})():null;
-  const age=year?new Date().getFullYear()-year:null;
-  const height=athlete.Latest?.Height?String(Math.round(Number(athlete.Latest.Height)||0)):'';
-  const rating=Math.round(Number(athlete.Latest?.Rating)||0);
+function ShadowCard({athlete,show,grade,onGradeChange,onRemove}:{
+  athlete:Athlete; show:ShowSettings;
+  grade:string; onGradeChange:(v:string)=>void; onRemove:()=>void;
+}) {
+  const dobFmt=fmtDate(athlete.DOB);
   const name=athlete.Name||'?';
   const nick=athlete.Nickname&&athlete.Nickname!==name?athlete.Nickname:null;
-  const hasStats=show.age||show.height||show.club||show.rating;
+  const gradeColor=grade
+    ?grade.toUpperCase().startsWith('A')?'#15803d'
+    :grade.toUpperCase().startsWith('B')?'#0369a1'
+    :grade.toUpperCase().startsWith('C')?'#b45309'
+    :'#dc2626'
+    :'#94a3b8';
   return (
     <div style={{display:'flex',alignItems:'center',gap:6,background:'white',borderRadius:8,
-      padding:'5px 24px 5px 5px',boxShadow:'0 2px 10px rgba(0,0,0,0.2)',width:175,
-      position:'relative',border:'1px solid rgba(0,0,0,0.07)',flexShrink:0}}>
-      {/* Remove button */}
-      <button onClick={e=>{e.stopPropagation();onRemove();}}
-        className="no-print"
-        style={{position:'absolute',top:3,right:5,background:'none',border:'none',cursor:'pointer',
-          color:'#94a3b8',fontSize:'1rem',lineHeight:1,padding:0,zIndex:1}}>×</button>
+      padding:'5px 6px',boxShadow:'0 2px 10px rgba(0,0,0,0.2)',width:240,
+      border:'1px solid rgba(0,0,0,0.07)',flexShrink:0}}>
       {/* Photo */}
       {show.photo&&(
-        <div style={{width:48,height:56,borderRadius:6,flexShrink:0,overflow:'hidden',
+        <div style={{width:44,height:54,borderRadius:6,flexShrink:0,overflow:'hidden',
           background:'linear-gradient(160deg,#1a0033,#3b0070)'}}>
           {athlete.PhotoUrl
             ?<img src={athlete.PhotoUrl} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top center'}} alt=""/>
             :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <span style={{fontSize:'0.9rem',fontWeight:900,color:'rgba(255,255,255,0.3)',fontFamily:'Arial Black,sans-serif'}}>{ini(name)}</span>
+              <span style={{fontSize:'0.9rem',fontWeight:900,color:'rgba(255,255,255,0.3)'}}>{ini(name)}</span>
             </div>}
         </div>
       )}
       {/* Info */}
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:'0.74rem',fontWeight:800,color:'#0f172a',lineHeight:1.3,
-          whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-          {name}
-        </div>
-        {nick&&(
-          <div style={{fontSize:'0.64rem',fontWeight:700,color:'#7c3aed',lineHeight:1.2,
-            whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-            {nick}
-          </div>
-        )}
-        {hasStats&&(
-          <div style={{display:'flex',gap:3,alignItems:'center',marginTop:3,flexWrap:'wrap'}}>
-            {show.age&&age&&<span style={{fontSize:'0.52rem',color:'#64748b',fontWeight:700,background:'#f1f5f9',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>{age} ปี</span>}
-            {show.height&&height&&<span style={{fontSize:'0.52rem',color:'#0369a1',fontWeight:700,background:'#e0f2fe',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>{height}cm</span>}
-            {show.club&&athlete.Team&&<span style={{fontSize:'0.5rem',color:'#64748b',fontWeight:600,background:'#f8fafc',borderRadius:3,padding:'1px 3px',maxWidth:60,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{athlete.Team}</span>}
-            {show.rating&&rating>0&&<span style={{fontSize:'0.52rem',fontWeight:800,color:'#92400e',background:'#fef3c7',borderRadius:3,padding:'1px 3px',whiteSpace:'nowrap'}}>{rating}</span>}
-          </div>
-        )}
+        <div style={{fontSize:'0.72rem',fontWeight:800,color:'#0f172a',lineHeight:1.3,
+          whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{name}</div>
+        {nick&&<div style={{fontSize:'0.62rem',fontWeight:700,color:'#7c3aed',lineHeight:1.2,
+          whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{nick}</div>}
+        {dobFmt&&<div style={{fontSize:'0.56rem',color:'#64748b',fontWeight:600,lineHeight:1.4}}>{dobFmt}</div>}
+        {athlete.Club&&<div style={{fontSize:'0.54rem',color:'#475569',fontWeight:600,lineHeight:1.3,
+          whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{athlete.Club}</div>}
+      </div>
+      {/* Grade + remove */}
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,flexShrink:0}}>
+        <input value={grade} onChange={e=>onGradeChange(e.target.value.slice(0,3))}
+          placeholder="—" onClick={e=>e.stopPropagation()}
+          style={{width:36,textAlign:'center',padding:'4px 2px',borderRadius:5,
+            border:`2px solid ${grade?gradeColor:'#e2e8f0'}`,fontSize:'0.75rem',fontWeight:900,
+            color:gradeColor,background:grade?'#f0fdf4':'#f8fafc',outline:'none',cursor:'text'}}/>
+        <button onClick={e=>{e.stopPropagation();onRemove();}} className="no-print"
+          style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',fontSize:'0.85rem',lineHeight:1,padding:0}}>×</button>
       </div>
     </div>
   );
 }
 
 /* ── Shadow Slot ── */
-function ShadowSlot({pos,candidates,allAthletes,show,onAdd,onRemove}:{
+function ShadowSlot({pos,candidates,allAthletes,show,grades,onAdd,onRemove,onGrade}:{
   pos:FPos; candidates:Athlete[]; allAthletes:Athlete[];
-  show:ShowSettings; onAdd:(id:string)=>void; onRemove:(id:string)=>void;
+  show:ShowSettings; grades:Record<string,string>;
+  onAdd:(id:string)=>void; onRemove:(id:string)=>void; onGrade:(id:string,g:string)=>void;
 }) {
   const [open,setOpen]=useState(false);
   const [search,setSearch]=useState('');
@@ -365,7 +366,12 @@ function ShadowSlot({pos,candidates,allAthletes,show,onAdd,onRemove}:{
   const isLower=pos.y>55;
   const cards=(
     <div style={{display:'flex',flexDirection:'column',gap:3}}>
-      {candidates.map(a=><ShadowCard key={a.PlayerID} athlete={a} show={show} onRemove={()=>onRemove(a.PlayerID)}/>)}
+      {candidates.map(a=>(
+        <ShadowCard key={a.PlayerID} athlete={a} show={show}
+          grade={grades[a.PlayerID]||''}
+          onGradeChange={g=>onGrade(a.PlayerID,g)}
+          onRemove={()=>onRemove(a.PlayerID)}/>
+      ))}
     </div>
   );
   return (
@@ -467,6 +473,7 @@ export default function LineupPage({ athletes, user }: Props) {
   /* Shadow Team state */
   const [shadowMode,setShadowMode]               = useState(false);
   const [shadowCandidates,setShadowCandidates]   = useState<Record<string,string[]>>({});
+  const [shadowGrades,setShadowGrades]           = useState<Record<string,Record<string,string>>>({});
   const [shadowTeams,setShadowTeams]             = useState<ShadowTeamData[]>(()=>loadShadowTeams());
   const [shadowFieldColor,setShadowFieldColor]   = useState<'green'|'blue'>('green');
   const [shadowZoom,setShadowZoom]               = useState(90);
@@ -520,15 +527,20 @@ export default function LineupPage({ athletes, user }: Props) {
 
   /* Shadow Team handlers */
   const addCandidate=(posId:string,athleteId:string)=>setShadowCandidates(prev=>({...prev,[posId]:[...(prev[posId]||[]),athleteId]}));
-  const removeCandidate=(posId:string,athleteId:string)=>setShadowCandidates(prev=>{const n={...prev};n[posId]=(n[posId]||[]).filter(id=>id!==athleteId);return n;});
+  const removeCandidate=(posId:string,athleteId:string)=>{
+    setShadowCandidates(prev=>{const n={...prev};n[posId]=(n[posId]||[]).filter(id=>id!==athleteId);return n;});
+    setShadowGrades(prev=>{const n={...prev};if(n[posId]){const g={...n[posId]};delete g[athleteId];n[posId]=g;}return n;});
+  };
+  const setGrade=(posId:string,athleteId:string,grade:string)=>
+    setShadowGrades(prev=>({...prev,[posId]:{...(prev[posId]||{}),[athleteId]:grade}}));
   const handleSaveShadow=()=>{
     const name=shadowName.trim()||`Shadow ${new Date().toLocaleDateString('th-TH')}`;
-    const t:ShadowTeamData={id:Date.now().toString(),name,formation:formId,mode,candidates:{...shadowCandidates}};
+    const t:ShadowTeamData={id:Date.now().toString(),name,formation:formId,mode,candidates:{...shadowCandidates},grades:{...shadowGrades}};
     const u=[t,...shadowTeams];setShadowTeams(u);saveShadowTeams(u);setShadowName('');notify(`บันทึก "${name}" สำเร็จ`);
   };
   const handleLoadShadow=(t:ShadowTeamData)=>{
     const m=t.mode??(FORMATIONS_7.some(f=>f.id===t.formation)?'7':'11');
-    setMode(m);setFormId(t.formation);setShadowCandidates(t.candidates);setShowShadowSaved(false);notify(`โหลด "${t.name}" สำเร็จ`);
+    setMode(m);setFormId(t.formation);setShadowCandidates(t.candidates);setShadowGrades(t.grades||{});setShowShadowSaved(false);notify(`โหลด "${t.name}" สำเร็จ`);
   };
 
   const shadowGrass=shadowFieldColor==='blue'
@@ -745,7 +757,7 @@ export default function LineupPage({ athletes, user }: Props) {
             </div>
             <div style={{height:1,background:'var(--border)'}}/>
             {/* Clear + Save */}
-            <button className="btn-outline btn-sm" onClick={()=>setShadowCandidates({})} style={{fontSize:'0.72rem'}}>
+            <button className="btn-outline btn-sm" onClick={()=>{setShadowCandidates({});setShadowGrades({});}} style={{fontSize:'0.72rem'}}>
               <i className="bi bi-x-circle me-1"/>ล้างทั้งหมด
             </button>
             <div style={{display:'flex',gap:6}}>
@@ -803,29 +815,34 @@ export default function LineupPage({ athletes, user }: Props) {
                     {cands.length===0
                       ?<div style={{fontSize:'0.58rem',color:'#94a3b8',fontStyle:'italic'}}>— ยังไม่มีผู้เล่น</div>
                       :cands.map((a,ci)=>{
-                        const ht=a.Latest?.Height?`${Math.round(Number(a.Latest.Height))}cm`:'';
-                        const ovr=Math.round(Number(a.Latest?.Rating)||0);
-                        const yr=a.DOB?(()=>{try{const d=new Date(a.DOB);return isNaN(d.getTime())?null:new Date().getFullYear()-d.getFullYear();}catch{return null;}})():null;
+                        const dobStr=fmtDate(a.DOB);
+                        const posGrade=(shadowGrades[pos.id]||{})[a.PlayerID]||'';
+                        const gradeCol=posGrade?posGrade.toUpperCase().startsWith('A')?'#15803d':posGrade.toUpperCase().startsWith('B')?'#0369a1':posGrade.toUpperCase().startsWith('C')?'#b45309':'#dc2626':'#94a3b8';
                         return(
                           <div key={a.PlayerID} style={{display:'flex',alignItems:'center',gap:5,
-                            padding:'3px 0',borderTop:ci>0?'1px solid #f1f5f9':'none'}}>
-                            <div style={{width:26,height:26,borderRadius:'50%',flexShrink:0,
-                              overflow:'hidden',background:'linear-gradient(135deg,#a06a00,#f0d050)'}}>
+                            padding:'4px 0',borderTop:ci>0?'1px solid #f1f5f9':'none'}}>
+                            <div style={{width:28,height:34,borderRadius:4,flexShrink:0,
+                              overflow:'hidden',background:'linear-gradient(160deg,#1a0033,#3b0070)'}}>
                               {a.PhotoUrl
-                                ?<img src={a.PhotoUrl} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top'}} alt=""/>
+                                ?<img src={a.PhotoUrl} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top center'}} alt=""/>
                                 :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                  <span style={{fontSize:'0.42rem',fontWeight:900,color:'rgba(0,0,0,0.45)'}}>{ini(a.Name)}</span>
+                                  <span style={{fontSize:'0.42rem',fontWeight:900,color:'rgba(255,255,255,0.3)'}}>{ini(a.Name)}</span>
                                 </div>}
                             </div>
                             <div style={{flex:1,minWidth:0}}>
                               <div style={{fontSize:'0.65rem',fontWeight:700,color:'#0f172a',
                                 whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Name}</div>
-                              {a.Nickname&&<div style={{fontSize:'0.55rem',color:'#7c3aed',fontWeight:600}}>{a.Nickname}</div>}
-                              <div style={{display:'flex',gap:3,marginTop:1}}>
-                                {yr&&<span style={{fontSize:'0.48rem',color:'#64748b',fontWeight:600,background:'#f1f5f9',borderRadius:2,padding:'0 2px'}}>{yr} ปี</span>}
-                                {ht&&<span style={{fontSize:'0.48rem',color:'#0369a1',fontWeight:700,background:'#e0f2fe',borderRadius:2,padding:'0 2px'}}>{ht}</span>}
-                                {ovr>0&&<span style={{fontSize:'0.48rem',color:'#92400e',fontWeight:800,background:'#fef3c7',borderRadius:2,padding:'0 2px'}}>{ovr}</span>}
-                              </div>
+                              {a.Nickname&&<div style={{fontSize:'0.56rem',color:'#7c3aed',fontWeight:700,lineHeight:1.2}}>{a.Nickname}</div>}
+                              {dobStr&&<div style={{fontSize:'0.52rem',color:'#64748b',lineHeight:1.3}}>{dobStr}</div>}
+                              {a.Club&&<div style={{fontSize:'0.5rem',color:'#475569',fontWeight:600,lineHeight:1.3,
+                                whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Club}</div>}
+                            </div>
+                            {/* Grade — far right */}
+                            <div style={{flexShrink:0,width:28,textAlign:'center',
+                              fontSize:'0.72rem',fontWeight:900,color:gradeCol,
+                              background:posGrade?'rgba(0,0,0,0.04)':'transparent',
+                              borderRadius:4,padding:'1px 3px',border:posGrade?`1.5px solid ${gradeCol}`:'none'}}>
+                              {posGrade||''}
                             </div>
                           </div>
                         );
@@ -926,7 +943,10 @@ export default function LineupPage({ athletes, user }: Props) {
                     const cands=athletes.filter(a=>(shadowCandidates[pos.id]||[]).includes(a.PlayerID));
                     return(
                       <ShadowSlot key={pos.id} pos={pos} candidates={cands} allAthletes={athletes}
-                        show={show} onAdd={id=>addCandidate(pos.id,id)} onRemove={id=>removeCandidate(pos.id,id)}/>
+                        show={show} grades={shadowGrades[pos.id]||{}}
+                        onAdd={id=>addCandidate(pos.id,id)}
+                        onRemove={id=>removeCandidate(pos.id,id)}
+                        onGrade={(id,g)=>setGrade(pos.id,id,g)}/>
                     );
                   })}
                 </div>
