@@ -119,9 +119,6 @@ export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpe
         {link('compare',    'bi-intersect',         t('Compare'))}
         {link('lineup',     'bi-diagram-3-fill',    t('Line Up'))}
 
-        <div className="nav-section">AI Tools</div>
-        {link('aichat', 'bi-robot', 'AI Scout Chat')}
-
         <div className="nav-section">Training & Media</div>
         {link('training', 'bi-play-btn-fill', t('Video Training'))}
 

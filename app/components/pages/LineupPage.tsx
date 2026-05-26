@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { Athlete, Page, User } from '@/lib/types';
 import { getScorePoint } from '@/lib/score';
-import { callAI } from '@/lib/aiClient';
 
 interface Props { athletes: Athlete[]; onNavigate: (page: Page) => void; user?: User; }
 type Role = 'GK' | 'DEF' | 'MID' | 'FWD';
@@ -549,12 +548,6 @@ export default function LineupPage({ athletes, user }: Props) {
   const [showShadowSaved,setShowShadowSaved]     = useState(false);
   const [shadowName,setShadowName]               = useState('');
 
-  /* AI Starting 11 state */
-  const [aiOpponent,  setAiOpponent]  = useState('');
-  const [aiNotes,     setAiNotes]     = useState('');
-  const [aiLoading,   setAiLoading]   = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(false);
-  const [aiResult,    setAiResult]    = useState<{starting11:{position:string;playerId:string;playerName:string;reason:string}[];bench:{playerId:string;playerName:string;role:string}[];tacticalNote:string;warning:string}|null>(null);
 
   const formations = ALL_FORMATIONS[mode];
   const formation  = formations.find(f=>f.id===formId) ?? formations[0];
@@ -608,36 +601,6 @@ export default function LineupPage({ athletes, user }: Props) {
   };
   const setGrade=(posId:string,athleteId:string,grade:string)=>
     setShadowGrades(prev=>({...prev,[posId]:{...(prev[posId]||{}),[athleteId]:grade}}));
-  const handleAiLineup = async () => {
-    setAiLoading(true);
-    setAiResult(null);
-    setShowAiPanel(true);
-    try {
-      const players = athletes.map(a => ({
-        playerId: a.PlayerID,
-        name: a.Name,
-        nickname: a.Nickname,
-        position: a.Position,
-        rating: Number(a.Latest?.Rating) || 0,
-        scores: calcScores(a),
-      }));
-      const res = await callAI('lineup', { players, formation: formId, opponent: aiOpponent, notes: aiNotes }) as { result?: typeof aiResult };
-      if (res.result) {
-        setAiResult(res.result);
-        // Auto-assign to pitch
-        const newAssign: Record<string,string> = {};
-        res.result.starting11.forEach(item => {
-          const pos = formation.positions.find(p => p.label === item.position || p.id === item.position);
-          if (pos && item.playerId) newAssign[pos.id] = item.playerId;
-        });
-        if (Object.keys(newAssign).length > 0) setAssign(newAssign);
-      }
-    } catch {
-      // keep panel open, show error via aiResult being null
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   const handleSaveShadow=()=>{
     const name=shadowName.trim()||`Shadow ${new Date().toLocaleDateString('th-TH')}`;
@@ -800,7 +763,6 @@ export default function LineupPage({ athletes, user }: Props) {
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
             <button className={`btn-sm ${shadowMode?'btn-primary':'btn-outline'}`} onClick={()=>setShadowMode(v=>!v)} style={{background:shadowMode?'#7c3aed':undefined,borderColor:shadowMode?'#7c3aed':undefined}}><i className="bi bi-people-fill me-1"/>Shadow Team</button>
             {!shadowMode&&<><button className="btn-outline btn-sm" onClick={()=>setShowPanel(v=>!v)}><i className={`bi bi-${showPanel?'chevron-right':'people-fill'} me-1`}/>{showPanel?'ซ่อน':'ผู้เล่น'}</button>
-            <button className="btn-outline btn-sm" onClick={()=>setShowAiPanel(v=>!v)} style={{background:'linear-gradient(135deg,rgba(56,189,248,0.12),rgba(129,140,248,0.12))',borderColor:'#818cf8',color:'#818cf8'}}><i className="bi bi-robot me-1"/>AI ทีม</button>
             <button className="btn-outline btn-sm" onClick={()=>{setAssign({});setSelAth(null);}}><i className="bi bi-x-circle me-1"/>ล้าง</button>
             <button className="btn-outline btn-sm" onClick={()=>setShowSaved(v=>!v)}><i className="bi bi-folder2-open me-1"/>บันทึก ({saved.length})</button>
             <button className="btn-outline btn-sm" onClick={()=>window.print()}><i className="bi bi-printer me-1"/>Print</button>
@@ -840,56 +802,6 @@ export default function LineupPage({ athletes, user }: Props) {
 
       {notif&&<div style={{position:'fixed',top:20,right:20,zIndex:9999,background:'#10b981',color:'white',borderRadius:10,padding:'10px 18px',fontWeight:700,fontSize:'0.85rem',boxShadow:'0 4px 20px rgba(0,0,0,0.3)'}}><i className="bi bi-check-circle me-2"/>{notif}</div>}
 
-      {/* ── AI LINEUP PANEL ── */}
-      {showAiPanel&&!shadowMode&&(
-        <div style={{marginBottom:12,padding:16,background:'linear-gradient(135deg,rgba(56,189,248,0.06),rgba(129,140,248,0.06))',border:'1.5px solid rgba(129,140,248,0.3)',borderRadius:14}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,#38bdf8,#818cf8)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.9rem',flexShrink:0}}>🤖</div>
-              <div>
-                <div style={{fontWeight:800,fontSize:'0.88rem'}}>AI แนะนำทีม</div>
-                <div style={{fontSize:'0.7rem',color:'#94a3b8'}}>Formation: {formation.name} · {athletes.length} นักกีฬา</div>
-              </div>
-            </div>
-            <button onClick={()=>setShowAiPanel(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',fontSize:'1.2rem',lineHeight:1,padding:0}}>×</button>
-          </div>
-          <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
-            <input value={aiOpponent} onChange={e=>setAiOpponent(e.target.value)} placeholder="คู่แข่ง (ไม่บังคับ)"
-              style={{flex:'1 1 160px',padding:'8px 12px',borderRadius:8,border:'1.5px solid rgba(129,140,248,0.3)',background:'var(--bg)',color:'var(--text-main)',fontSize:'0.82rem',outline:'none'}}/>
-            <input value={aiNotes} onChange={e=>setAiNotes(e.target.value)} placeholder="หมายเหตุเพิ่มเติม (เช่น เน้นรับ, กด high press)"
-              style={{flex:'2 1 240px',padding:'8px 12px',borderRadius:8,border:'1.5px solid rgba(129,140,248,0.3)',background:'var(--bg)',color:'var(--text-main)',fontSize:'0.82rem',outline:'none'}}/>
-            <button onClick={handleAiLineup} disabled={aiLoading}
-              style={{padding:'8px 20px',borderRadius:8,background:aiLoading?'#94a3b8':'linear-gradient(135deg,#38bdf8,#818cf8)',border:'none',color:'white',fontWeight:700,cursor:aiLoading?'not-allowed':'pointer',fontSize:'0.82rem',display:'flex',alignItems:'center',gap:6,flexShrink:0,transition:'all 0.2s'}}>
-              {aiLoading?<><span style={{width:14,height:14,border:'2px solid rgba(255,255,255,0.4)',borderTopColor:'white',borderRadius:'50%',display:'inline-block',animation:'spin 0.8s linear infinite'}}/>กำลังวิเคราะห์...</>:<><i className="bi bi-stars"/>แนะนำทีม</>}
-            </button>
-          </div>
-          {aiResult&&(
-            <div>
-              {aiResult.tacticalNote&&(
-                <div style={{marginBottom:10,padding:'10px 14px',background:'rgba(56,189,248,0.07)',borderRadius:8,fontSize:'0.8rem',color:'var(--text-main)',borderLeft:'3px solid #38bdf8'}}>
-                  <strong>ยุทธวิธี:</strong> {aiResult.tacticalNote}
-                </div>
-              )}
-              {aiResult.warning&&(
-                <div style={{marginBottom:10,padding:'10px 14px',background:'rgba(245,158,11,0.07)',borderRadius:8,fontSize:'0.8rem',color:'var(--text-main)',borderLeft:'3px solid #f59e0b'}}>
-                  <strong>⚠️ ข้อควรระวัง:</strong> {aiResult.warning}
-                </div>
-              )}
-              {aiResult.bench&&aiResult.bench.length>0&&(
-                <div style={{fontSize:'0.75rem',color:'#64748b'}}>
-                  <strong style={{color:'var(--text-main)'}}>ตัวสำรอง:</strong>{' '}
-                  {aiResult.bench.map(b=>`${b.playerName} (${b.role})`).join(' · ')}
-                </div>
-              )}
-              <div style={{marginTop:8,fontSize:'0.7rem',color:'#94a3b8',display:'flex',alignItems:'center',gap:4}}>
-                <i className="bi bi-check-circle-fill" style={{color:'#10b981'}}/>AI จัดทีมในสนามแล้ว — ลากเพื่อปรับได้
-              </div>
-            </div>
-          )}
-          {!aiResult&&!aiLoading&&<div style={{fontSize:'0.75rem',color:'#94a3b8'}}>กดแนะนำทีม เพื่อให้ AI วิเคราะห์และจัดนักกีฬาลงสนามอัตโนมัติ</div>}
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-        </div>
-      )}
 
       {/* ── SHADOW TEAM SCENE ── */}
       {shadowMode&&(
