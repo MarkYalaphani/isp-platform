@@ -5,6 +5,7 @@ import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler,
 import { Radar, Line } from 'react-chartjs-2';
 import { Athlete, TestRecord, Page } from '@/lib/types';
 import { getScorePoint, SCORE_COLORS } from '@/lib/score';
+import AthleteSearchSelect from '../AthleteSearchSelect';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale);
 
@@ -193,18 +194,12 @@ export default function ComparePage({ athletes, onNavigate }: Props) {
         <div style={{ display:'grid', gridTemplateColumns:'1fr 60px 1fr', gap:14, alignItems:'center' }}>
           <div>
             <label className="form-label" style={{ color:'#38bdf8', fontWeight:800 }}>Athlete A (Blue)</label>
-            <select className="form-select" style={{ borderColor:idA?'#38bdf8':undefined }} value={idA} onChange={e=>setIdA(e.target.value)}>
-              <option value="">— เลือกนักกีฬา A —</option>
-              {athletes.map(a=><option key={a.PlayerID} value={a.PlayerID}>{a.Name} {a.Team?`(${a.Team})`:''}</option>)}
-            </select>
+            <AthleteSearchSelect athletes={athletes} value={idA} onChange={setIdA} placeholder="— เลือกนักกีฬา A —" accentColor="#38bdf8" />
           </div>
           <div style={{ textAlign:'center', fontWeight:900, fontSize:'1.3rem', color:'var(--text-muted)' }}>VS</div>
           <div>
             <label className="form-label" style={{ color:'#f472b6', fontWeight:800 }}>Athlete B (Pink)</label>
-            <select className="form-select" style={{ borderColor:idB?'#f472b6':undefined }} value={idB} onChange={e=>setIdB(e.target.value)}>
-              <option value="">— เลือกนักกีฬา B —</option>
-              {athletes.map(a=><option key={a.PlayerID} value={a.PlayerID}>{a.Name} {a.Team?`(${a.Team})`:''}</option>)}
-            </select>
+            <AthleteSearchSelect athletes={athletes} value={idB} onChange={setIdB} placeholder="— เลือกนักกีฬา B —" accentColor="#f472b6" />
           </div>
         </div>
       </div>

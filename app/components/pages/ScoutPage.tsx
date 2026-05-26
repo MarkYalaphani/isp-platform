@@ -13,6 +13,7 @@ import { DEV_DATA, VIDEO_DB } from '@/lib/devData';
 import EditAthleteModal from '../EditAthleteModal';
 import ReportBanner, { PrintHeader } from '../ReportBanner';
 import ParentReport from '../ParentReport';
+import AthleteSearchSelect from '../AthleteSearchSelect';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale);
 
@@ -919,10 +920,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
 
       {/* Athlete Selector */}
       <div className="surface mb-4" style={{ padding: '14px 20px' }}>
-        <select className="form-select" style={{ fontSize: '1rem', fontWeight: 600 }} value={selectedId} onChange={e => setSelectedId(e.target.value)}>
-          <option value="">— เลือกนักกีฬา —</option>
-          {athletes.map(a => <option key={a.PlayerID} value={a.PlayerID}>{a.Name} ({a.Team || '—'})</option>)}
-        </select>
+        <AthleteSearchSelect athletes={athletes} value={selectedId} onChange={setSelectedId} />
       </div>
 
       {!athlete && (

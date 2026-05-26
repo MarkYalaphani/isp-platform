@@ -9,6 +9,7 @@ import {
 import { Athlete, User, WellnessRecord, RPERecord } from '@/lib/types';
 import { callGAS } from '@/lib/api';
 import { showToast } from '@/lib/toast';
+import AthleteSearchSelect from '../AthleteSearchSelect';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Tooltip, Legend, Filler);
 
@@ -645,10 +646,7 @@ export default function WellnessPage({ athletes, user }: Props) {
         <div>
           <div className="surface" style={{marginBottom:16,padding:'14px 18px'}}>
             <label className="form-label">เลือกนักกีฬา</label>
-            <select className="form-select" style={{fontWeight:600}} value={histId} onChange={e=>loadHistory(e.target.value)}>
-              <option value="">— เลือกนักกีฬา —</option>
-              {athletes.map(a=><option key={a.PlayerID} value={a.PlayerID}>{a.Name}{a.Nickname?` (${a.Nickname})`:''}{a.Team?` · ${a.Team}`:''}</option>)}
-            </select>
+            <AthleteSearchSelect athletes={athletes} value={histId} onChange={id => loadHistory(id)} />
           </div>
 
           {!histId && <div style={{textAlign:'center',padding:60,color:'var(--text-muted)'}}>

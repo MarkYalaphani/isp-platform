@@ -9,6 +9,7 @@ import {
 import { Athlete, SkillAssessment, User, Page } from '@/lib/types';
 import { callGAS } from '@/lib/api';
 import { showToast } from '@/lib/toast';
+import AthleteSearchSelect from '../AthleteSearchSelect';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -300,11 +301,7 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
       <div className="surface" style={{ marginBottom: 20, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <label className="form-label" style={{ marginBottom: 4 }}>เลือกนักกีฬา</label>
-          <select className="form-select" value={selectedId} onChange={e => setSelectedId(e.target.value)}>
-            {athletes.map(a => (
-              <option key={a.PlayerID} value={a.PlayerID}>{a.Name}{a.Nickname ? ` (${a.Nickname})` : ''}</option>
-            ))}
-          </select>
+          <AthleteSearchSelect athletes={athletes} value={selectedId} onChange={setSelectedId} />
         </div>
         <div style={{ minWidth: 160 }}>
           <label className="form-label" style={{ marginBottom: 4 }}>ผู้ประเมิน</label>

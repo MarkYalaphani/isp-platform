@@ -5,6 +5,7 @@ import { Athlete } from '@/lib/types';
 import { callGAS } from '@/lib/api';
 import { calcYoyoDist, calcVo2 } from '@/lib/devData';
 import { getScorePoint, SCORE_COLORS } from '@/lib/score';
+import AthleteSearchSelect from '../AthleteSearchSelect';
 
 interface Props { athletes: Athlete[]; onSuccess: () => void; }
 
@@ -152,10 +153,7 @@ export default function QuickTestPage({ athletes, onSuccess }: Props) {
         {step === 0 && (
           <div>
             <label className="form-label">เลือกนักกีฬา *</label>
-            <select className="form-select" style={{ fontSize: '1rem', fontWeight: 600 }} value={form.playerId} onChange={e => set('playerId', e.target.value)}>
-              <option value="">— เลือกนักกีฬา —</option>
-              {athletes.map(a => <option key={a.PlayerID} value={a.PlayerID}>{a.Name} ({a.Team||'—'})</option>)}
-            </select>
+            <AthleteSearchSelect athletes={athletes} value={form.playerId} onChange={id => set('playerId', id)} />
             {form.playerId && athlete && (
               <div style={{ marginTop: 16, padding: 16, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10 }}>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>{athlete.Name}</div>

@@ -11,6 +11,7 @@ import { Athlete, IRReport, User } from '@/lib/types';
 import { showToast } from '@/lib/toast';
 import { callGAS } from '@/lib/api';
 import ReportBanner, { PrintHeader } from '../ReportBanner';
+import AthleteSearchSelect from '../AthleteSearchSelect';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale);
 
@@ -356,10 +357,7 @@ export default function IRPage({ athletes, user }: Props) {
             <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:16}}>
               <div style={{flex:'2 1 220px'}}>
                 <label className="form-label">นักกีฬา *</label>
-                <select className="form-select" style={{fontWeight:600}} value={playerId} onChange={e=>setPlayerId(e.target.value)}>
-                  <option value="">— เลือกนักกีฬา —</option>
-                  {athleteOpts}
-                </select>
+                <AthleteSearchSelect athletes={athletes} value={playerId} onChange={setPlayerId} />
               </div>
               <div style={{flex:'1 1 160px'}}>
                 <label className="form-label">โค้ช / ผู้ประเมิน</label>
@@ -522,10 +520,7 @@ export default function IRPage({ athletes, user }: Props) {
         <div>
           <div className="surface" style={{marginBottom:16,padding:'14px 18px'}}>
             <label className="form-label">เลือกนักกีฬาเพื่อดูประวัติ IDP</label>
-            <select className="form-select" style={{fontWeight:600}} value={histId} onChange={e=>loadHistory(e.target.value)}>
-              <option value="">— เลือกนักกีฬา —</option>
-              {athleteOpts}
-            </select>
+            <AthleteSearchSelect athletes={athletes} value={histId} onChange={id => loadHistory(id)} />
           </div>
 
           {!histId && (
