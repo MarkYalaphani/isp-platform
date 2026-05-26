@@ -58,6 +58,8 @@ export default function AttendancePage({ athletes, user }: Props) {
   const [filterTeam, setFilterTeam]   = useState('ALL');
   const [filterPos,  setFilterPos]    = useState('ALL');
   const [search,     setSearch]       = useState('');
+  const [showQR, setShowQR]           = useState(false);
+  const [qrUrl, setQrUrl]             = useState('');
 
   const teams = useMemo(() => ['ALL', ...Array.from(new Set(athletes.map(a=>a.Team).filter(Boolean)))], [athletes]);
 
@@ -85,6 +87,15 @@ export default function AttendancePage({ athletes, user }: Props) {
     setHistRecords(Array.isArray(d) ? d : []);
     setSelectedSession(key);
   }, []);
+
+  const handleShowQR = () => {
+    if (!sessionDate || !sessionName) { showToast('กรุณากรอกวันที่และชื่อ session ก่อน', 'error'); return; }
+    const clubId = user.clubId || '';
+    const base = typeof window !== 'undefined' ? window.location.origin : '';
+    const link = `${base}/checkin?date=${encodeURIComponent(sessionDate)}&session=${encodeURIComponent(sessionName)}&type=${encodeURIComponent(sessionType)}&club=${encodeURIComponent(clubId)}`;
+    setQrUrl(link);
+    setShowQR(true);
+  };
 
   /* ── Mark all present ── */
   const markAll = (status: AttendanceStatus) => {
@@ -152,7 +163,12 @@ export default function AttendancePage({ athletes, user }: Props) {
           <h2 className="page-title">เช็คชื่อฝึกซ้อม</h2>
           <p className="page-subtitle">บันทึกการมาฝึกซ้อม · ติดตามสถิติ · Attendance Tracking</p>
         </div>
-        <div style={{ display:'flex', gap:8 }}>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          {view === 'check' && (
+            <button className="btn-outline" onClick={handleShowQR} style={{ borderColor:'#38bdf8', color:'#38bdf8' }}>
+              <i className="bi bi-qr-code me-1"/>QR Check-in
+            </button>
+          )}
           <button className="btn-primary" onClick={handleSave} disabled={saving || view !== 'check'}>
             {saving ? <><span className="spinner-ring" style={{ width:16,height:16,borderWidth:2,margin:0 }}/> บันทึก...</> : <><i className="bi bi-floppy me-1"/>บันทึก</>}
           </button>
@@ -452,6 +468,38 @@ export default function AttendancePage({ athletes, user }: Props) {
           ) : (
             <AttendanceStats athletes={athletes} sessions={sessions}/>
           )}
+        </div>
+      )}
+
+      {/* ── QR CHECK-IN MODAL ── */}
+      {showQR && (
+        <div onClick={() => setShowQR(false)} style={{ position:'fixed', inset:0, background:'rgba(10,18,40,0.82)', zIndex:4000, display:'flex', alignItems:'center', justifyContent:'center', padding:16, backdropFilter:'blur(8px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', borderRadius:20, width:'100%', maxWidth:400, padding:'28px 24px', textAlign:'center', boxShadow:'0 24px 60px rgba(0,0,0,0.5)', position:'relative' }}>
+            <button onClick={() => setShowQR(false)} style={{ position:'absolute', top:14, right:16, background:'none', border:'none', cursor:'pointer', fontSize:'1.3rem', color:'#94a3b8', lineHeight:1, padding:0 }}>×</button>
+            <div style={{ width:44, height:44, borderRadius:'50%', background:'linear-gradient(135deg,#38bdf8,#06b6d4)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem', margin:'0 auto 12px' }}>
+              <i className="bi bi-qr-code" style={{ color:'white', fontSize:'1.2rem' }}/>
+            </div>
+            <div style={{ fontWeight:800, fontSize:'1rem', marginBottom:4 }}>QR Check-in</div>
+            <div style={{ fontSize:'0.8rem', color:'#94a3b8', marginBottom:16 }}>
+              {sessionName} · {fmtDate(sessionDate)}
+            </div>
+            <div style={{ background:'white', borderRadius:12, padding:12, display:'inline-block', marginBottom:16 }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrUrl)}&color=0f172a&bgcolor=ffffff&margin=6`}
+                alt="QR Code"
+                style={{ width:220, height:220, display:'block' }}
+              />
+            </div>
+            <div style={{ fontSize:'0.72rem', color:'#94a3b8', marginBottom:16 }}>ให้นักกีฬาสแกน QR Code นี้เพื่อเช็คชื่อตัวเอง</div>
+            <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+              <button className="btn-outline btn-sm" onClick={() => navigator.clipboard?.writeText(qrUrl).then(() => showToast('คัดลอก link แล้ว','success'))}>
+                <i className="bi bi-clipboard me-1"/>คัดลอก Link
+              </button>
+              <a href={qrUrl} target="_blank" rel="noreferrer" className="btn-outline btn-sm" style={{ textDecoration:'none', display:'inline-flex', alignItems:'center', gap:4 }}>
+                <i className="bi bi-box-arrow-up-right me-1"/>เปิดหน้าเช็คอิน
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>

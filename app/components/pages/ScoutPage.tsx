@@ -8,6 +8,7 @@ import {
 import { Radar, Line } from 'react-chartjs-2';
 import { Athlete, TestRecord, IRReport, SkillAssessment, User, Page } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { callAI } from '@/lib/aiClient';
 import { getScorePoint, SCORE_COLORS } from '@/lib/score';
 import { DEV_DATA, VIDEO_DB } from '@/lib/devData';
 import EditAthleteModal from '../EditAthleteModal';
@@ -320,6 +321,9 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const [rpeRecs,        setRpeRecs]        = useState<import('@/lib/types').RPERecord[]>([]);
   const [matchPerf,      setMatchPerf]      = useState<PlayerMatchPerf[]>([]);
   const [dateRange, setDateRange] = useState<'all'|'1y'|'6m'|'3m'>('all');
+  const [aiReport, setAiReport]       = useState('');
+  const [aiReportLoading, setAiReportLoading] = useState(false);
+  const [showAiReport, setShowAiReport] = useState(false);
   const [goals, setGoals] = useState<Record<string,string>>({});
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showParentReport, setShowParentReport] = useState(false);
@@ -737,6 +741,38 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const handlePrint = () => window.print();
   const handlePDF = () => window.print();
 
+  const handleAiReport = async () => {
+    if (!athlete) return;
+    setAiReportLoading(true);
+    setShowAiReport(true);
+    setAiReport('');
+    try {
+      const playerData = {
+        name: athlete.Name, nickname: athlete.Nickname, team: athlete.Team,
+        position: athlete.Position, dob: athlete.DOB,
+        domFoot: athlete.DomFoot, domHand: athlete.DomHand,
+        latestTest: athlete.Latest,
+        testHistory: athlete.History?.slice(-5),
+        irHistory: irHistory.slice(0, 3),
+        latestSkill,
+        attendanceSummary: (() => {
+          const present = attendanceRecs.filter(r => r.status === 'present').length;
+          const total = attendanceRecs.length;
+          return { total, present, rate: total ? Math.round(present / total * 100) : null };
+        })(),
+        wellnessLast5: wellnessRecs.slice(0, 5),
+        rpeLast5: rpeRecs.slice(0, 5),
+        matchStats: matchPerf.slice(0, 10),
+      };
+      const res = await callAI('report', { playerData }) as { report?: string };
+      if (res.report) setAiReport(res.report);
+    } catch {
+      setAiReport('❌ ไม่สามารถสร้างรายงานได้ กรุณาลองใหม่');
+    } finally {
+      setAiReportLoading(false);
+    }
+  };
+
   const openEditTestModal = () => {
     const t = viewTest as Record<string, unknown>;
     setEditTestDraft({
@@ -937,6 +973,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
             <button className="btn-outline" onClick={handleShowQR}><i className="bi bi-qr-code me-1" />QR Card</button>
             <button className="btn-outline" onClick={handleDownloadCard}><i className="bi bi-download me-1" />ดาวน์โหลดการ์ด</button>
             <button className="btn-outline" onClick={() => setShowParentReport(true)}><i className="bi bi-file-earmark-person me-1" />รายงานผู้ปกครอง</button>
+            <button className="btn-outline" onClick={handleAiReport} style={{ background: 'linear-gradient(135deg,rgba(56,189,248,0.12),rgba(129,140,248,0.12))', borderColor: '#818cf8', color: '#818cf8' }} disabled={aiReportLoading}><i className="bi bi-robot me-1" />{aiReportLoading ? 'กำลังวิเคราะห์...' : 'AI Report'}</button>
             <button className="btn-primary" onClick={handlePDF}><i className="bi bi-printer me-1" />Print</button>
           </div>
         )}
@@ -2330,6 +2367,53 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
           onClose={() => setShowEditModal(false)}
           onSaved={() => { setShowEditModal(false); onRefresh(); }}
         />
+      )}
+
+      {/* ── AI SCOUTING REPORT MODAL ── */}
+      {showAiReport && (
+        <div onClick={() => setShowAiReport(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,18,40,0.82)', zIndex: 4000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(8px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 18, width: '100%', maxWidth: 680, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07)' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#38bdf8,#818cf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>🤖</div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>AI Scouting Report</div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{athlete?.Name}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {aiReport && !aiReportLoading && (
+                  <button className="btn-outline btn-sm" onClick={() => { const w = window.open('', '_blank'); if (w) { w.document.write(`<html><head><title>AI Report — ${athlete?.Name}</title><style>body{font-family:sans-serif;padding:32px;max-width:700px;margin:0 auto;line-height:1.7}</style></head><body>${aiReport.replace(/\n/g,'<br/>')}</body></html>`); w.print(); } }}><i className="bi bi-printer me-1"/>Print</button>
+                )}
+                <button onClick={() => setShowAiReport(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.4rem', color: '#94a3b8', lineHeight: 1, padding: 0 }}>×</button>
+              </div>
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+              {aiReportLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 16 }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {[0,1,2].map(i => <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: '#38bdf8', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }}/>)}
+                  </div>
+                  <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>AI กำลังวิเคราะห์ข้อมูลนักกีฬา...</div>
+                  <style>{`@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }`}</style>
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.87rem', lineHeight: 1.75, color: 'var(--text-main)' }}
+                  dangerouslySetInnerHTML={{ __html: aiReport
+                    .replace(/^## (.+)$/gm, '<div style="font-weight:800;font-size:1rem;color:#38bdf8;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid rgba(56,189,248,0.2)">$1</div>')
+                    .replace(/^### (.+)$/gm, '<div style="font-weight:700;font-size:0.9rem;margin:14px 0 6px">$1</div>')
+                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/^- (.+)$/gm, '<div style="padding-left:16px;margin:4px 0;display:flex;gap:6px"><span style="color:#38bdf8;flex-shrink:0">•</span><span>$1</span></div>')
+                    .replace(/\n\n/g, '<div style="margin:8px 0"/>')
+                    .replace(/\n/g, '<br/>')
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

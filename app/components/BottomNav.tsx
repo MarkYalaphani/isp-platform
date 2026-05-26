@@ -9,10 +9,10 @@ interface Props {
 }
 
 const tabs = [
-  { page: 'home' as Page,      icon: 'bi-house-fill',       label: 'Home' },
-  { page: 'roster' as Page,    icon: 'bi-people-fill',      label: 'Roster' },
-  { page: 'dashboard' as Page, icon: 'bi-grid-1x2-fill',    label: 'Dashboard' },
+  { page: 'home' as Page,      icon: 'bi-house-fill',        label: 'Home' },
+  { page: 'roster' as Page,    icon: 'bi-people-fill',       label: 'Roster' },
   { page: 'scout' as Page,     icon: 'bi-person-badge-fill', label: 'Scout' },
+  { page: 'aichat' as Page,    icon: 'bi-robot',             label: 'AI Chat' },
 ];
 
 export default function BottomNav({ currentPage, onNavigate, onOpenMenu }: Props) {

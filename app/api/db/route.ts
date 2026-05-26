@@ -6,7 +6,7 @@ import { calcYoyoDist, calcVo2 } from '@/lib/devData';
 import { signToken, verifyToken, SessionPayload } from '@/lib/session';
 
 // Actions that don't require a login token
-const PUBLIC_ACTIONS = new Set(['login', 'setup']);
+const PUBLIC_ACTIONS = new Set(['login', 'setup', 'getCheckInInfo', 'submitCheckIn']);
 // Actions that require admin role
 const ADMIN_ONLY_ACTIONS = new Set(['deleteAthlete', 'deleteUser', 'deleteIR', 'deleteTestRecord', 'deleteTrainingVideo']);
 
@@ -894,6 +894,34 @@ export async function POST(req: NextRequest) {
         const { error } = await sb.from('test_records').delete().eq('id', testId);
         if (error) throw error;
         return NextResponse.json({ status: 'success', message: 'ลบผลเทสสำเร็จ' });
+      }
+
+      // ── QR CHECK-IN (PUBLIC) ───────────────────────────────────────────────
+      case 'getCheckInInfo': {
+        const { clubId, sessionDate, sessionName } = params as { clubId:string; sessionDate:string; sessionName:string };
+        const [{ data: aths }, { data: recs }] = await Promise.all([
+          sb.from('athletes').select('player_id,name,nickname,team,photo_url').eq('club_id', clubId).order('name'),
+          sb.from('attendance').select('player_id,status').eq('session_date', sessionDate).eq('session_name', sessionName),
+        ]);
+        const checkedIn = new Set((recs || []).filter(r => r.status === 'present').map(r => r.player_id));
+        return NextResponse.json({
+          athletes: (aths || []).map(a => ({ playerId: a.player_id, name: a.name, nickname: a.nickname||'', team: a.team||'', photoUrl: a.photo_url||'' })),
+          checkedIn: Array.from(checkedIn),
+        });
+      }
+
+      case 'submitCheckIn': {
+        const { playerId, sessionDate, sessionName, sessionType, clubId } = params as { playerId:string; sessionDate:string; sessionName:string; sessionType:string; clubId:string };
+        // Verify athlete belongs to this club (basic guard)
+        const { data: ath } = await sb.from('athletes').select('player_id').eq('player_id', playerId).eq('club_id', clubId).maybeSingle();
+        if (!ath) return NextResponse.json({ status: 'error', message: 'ไม่พบนักกีฬา' });
+        const { error } = await sb.from('attendance').upsert({
+          session_date: sessionDate, session_name: sessionName,
+          session_type: sessionType || 'training', player_id: playerId,
+          status: 'present', notes: 'QR Check-in', created_by: 'QR',
+        }, { onConflict: 'session_date,session_name,player_id' });
+        if (error) throw error;
+        return NextResponse.json({ status: 'success' });
       }
 
       default:
