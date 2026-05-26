@@ -27,6 +27,26 @@ interface Props {
 
 type MetricDef = { key: string; field: keyof TestRecord; label: string; labelTH: string; unit: string; icon: string; color: string };
 
+interface PlayerMatchPerf {
+  id: string;
+  matchId: string;
+  playerId: string;
+  minutesPlayed: number;
+  goals: number;
+  assists: number;
+  yellowCards: number;
+  redCards: number;
+  rating: number;
+  notes: string;
+  matchDate: string;
+  opponent: string;
+  teamName: string;
+  matchType: string;
+  scoreFor: number;
+  scoreAgainst: number;
+  result: string;
+}
+
 const METRICS: MetricDef[] = [
   { key: 'speed30',  field: 'Speed30',     label: 'Speed 30m',   labelTH: 'ความเร็ว 30 ม.',      unit: 's',    icon: 'bi-lightning-charge-fill', color: '#f472b6' },
   { key: 'cmj',      field: 'CMJ',         label: 'CMJ',         labelTH: 'กระโดดแนวตั้ง',       unit: 'cm',   icon: 'bi-arrow-up-circle-fill',  color: '#818cf8' },
@@ -298,6 +318,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const [attendanceRecs, setAttendanceRecs] = useState<import('@/lib/types').AttendanceRecord[]>([]);
   const [wellnessRecs,   setWellnessRecs]   = useState<import('@/lib/types').WellnessRecord[]>([]);
   const [rpeRecs,        setRpeRecs]        = useState<import('@/lib/types').RPERecord[]>([]);
+  const [matchPerf,      setMatchPerf]      = useState<PlayerMatchPerf[]>([]);
   const [dateRange, setDateRange] = useState<'all'|'1y'|'6m'|'3m'>('all');
   const [goals, setGoals] = useState<Record<string,string>>({});
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -554,6 +575,10 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
     callGAS('getRPEByPlayer', { playerId: selectedId, limit: 30 })
       .then(d => setRpeRecs(Array.isArray(d) ? d as import('@/lib/types').RPERecord[] : []))
       .catch(() => setRpeRecs([]));
+    // Load match performance
+    callGAS('getMatchStatsByPlayer', { playerId: selectedId })
+      .then(d => setMatchPerf(Array.isArray(d) ? d as PlayerMatchPerf[] : []))
+      .catch(() => setMatchPerf([]));
   }, [selectedId]);
 
   useEffect(() => {
@@ -2079,6 +2104,92 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                             <td style={{ textAlign:'center', fontWeight:900, color:lz.color }}>{r.trainingLoad}</td>
                             <td style={{ textAlign:'center' }}>
                               <span style={{ background:lz.color+'18', color:lz.color, borderRadius:5, padding:'2px 7px', fontSize:'0.65rem', fontWeight:800 }}>{lz.label}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── MATCH PERFORMANCE ── */}
+          {matchPerf.length > 0 && (() => {
+            const apps    = matchPerf.length;
+            const goals   = matchPerf.reduce((s, r) => s + (r.goals || 0), 0);
+            const assists = matchPerf.reduce((s, r) => s + (r.assists || 0), 0);
+            const mins    = matchPerf.reduce((s, r) => s + (r.minutesPlayed || 0), 0);
+            const ycards  = matchPerf.reduce((s, r) => s + (r.yellowCards || 0), 0);
+            const rcards  = matchPerf.reduce((s, r) => s + (r.redCards || 0), 0);
+            const ratingArr = matchPerf.filter(r => r.rating > 0).map(r => r.rating);
+            const avgRating = ratingArr.length ? (ratingArr.reduce((s,v)=>s+v,0)/ratingArr.length).toFixed(1) : '—';
+            const ratingColor = (v: number) => v >= 8 ? '#10b981' : v >= 6 ? '#38bdf8' : v >= 4 ? '#f59e0b' : '#ef4444';
+            const resultColor: Record<string,string> = { W:'#10b981', D:'#f59e0b', L:'#ef4444' };
+            const fmtDate = (d: string) => { try { return new Date(d).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}); } catch { return d; } };
+            return (
+              <div id="scoutMatchSection" className="surface mb-4">
+                <div className="section-hd" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span><i className="bi bi-trophy-fill me-2" style={{ color:'#f59e0b' }}/>Match Performance <span style={{ fontSize:'0.7rem', fontWeight:400, color:'#94a3b8', marginLeft:4 }}>ผลงานในเกม</span></span>
+                  <span style={{ fontSize:'0.78rem', fontWeight:900, color:'#f59e0b' }}>{apps} นัด</span>
+                </div>
+                {/* KPI Summary */}
+                <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+                  {[
+                    { label:'นัดที่ลง',    val:apps,          icon:'bi-calendar-event-fill', color:'#38bdf8' },
+                    { label:'ประตู',       val:goals,         icon:'bi-bullseye',             color:'#10b981' },
+                    { label:'แอสซิสต์',   val:assists,       icon:'bi-send-fill',            color:'#818cf8' },
+                    { label:'นาที',        val:mins,          icon:'bi-stopwatch-fill',       color:'#f472b6' },
+                    { label:'ใบเหลือง',   val:ycards,        icon:'bi-square-fill',          color:'#fbbf24' },
+                    { label:'ใบแดง',      val:rcards,        icon:'bi-square-fill',          color:'#ef4444' },
+                    { label:'Rating เฉลี่ย', val:avgRating,   icon:'bi-star-fill',            color: ratingArr.length ? ratingColor(parseFloat(avgRating)) : '#94a3b8' },
+                  ].map(s => (
+                    <div key={s.label} style={{ flex:1, minWidth:70, background:'var(--bg)', borderRadius:10, padding:'10px 8px', textAlign:'center', border:`1px solid ${s.color}22` }}>
+                      <i className={`bi ${s.icon}`} style={{ color:s.color, fontSize:'0.9rem', display:'block', marginBottom:4 }}/>
+                      <div style={{ fontWeight:900, fontSize:'1.3rem', color:s.color, lineHeight:1 }}>{s.val}</div>
+                      <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, marginTop:2 }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Match history table */}
+                <div style={{ overflowX:'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ paddingLeft:14 }}>วันที่</th>
+                        <th>คู่แข่ง</th>
+                        <th style={{ textAlign:'center' }}>ผล</th>
+                        <th style={{ textAlign:'center' }}>นาที</th>
+                        <th style={{ textAlign:'center' }}>ประตู</th>
+                        <th style={{ textAlign:'center' }}>แอสซิสต์</th>
+                        <th style={{ textAlign:'center' }}>ใบ</th>
+                        <th style={{ textAlign:'center' }}>Rating</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {matchPerf.slice(0,15).map((r, i) => {
+                        const rc = resultColor[r.result] || '#94a3b8';
+                        const rt = parseFloat(String(r.rating));
+                        return (
+                          <tr key={i}>
+                            <td style={{ paddingLeft:14, fontSize:'0.78rem' }}>{fmtDate(r.matchDate)}</td>
+                            <td style={{ fontSize:'0.8rem', fontWeight:600 }}>{r.opponent || '—'}</td>
+                            <td style={{ textAlign:'center' }}>
+                              <span style={{ width:26, height:26, borderRadius:7, background:rc+'22', border:`1.5px solid ${rc}`, display:'inline-flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.75rem', color:rc }}>{r.result||'—'}</span>
+                            </td>
+                            <td style={{ textAlign:'center', fontSize:'0.8rem' }}>{r.minutesPlayed || 0}</td>
+                            <td style={{ textAlign:'center', fontWeight:700, color: r.goals > 0 ? '#10b981' : undefined }}>{r.goals || 0}</td>
+                            <td style={{ textAlign:'center', fontWeight:700, color: r.assists > 0 ? '#818cf8' : undefined }}>{r.assists || 0}</td>
+                            <td style={{ textAlign:'center' }}>
+                              {r.yellowCards > 0 && <span title="ใบเหลือง" style={{ display:'inline-block', width:10, height:14, background:'#fbbf24', borderRadius:2, marginRight:2 }}/>}
+                              {r.redCards > 0 && <span title="ใบแดง" style={{ display:'inline-block', width:10, height:14, background:'#ef4444', borderRadius:2 }}/>}
+                              {!r.yellowCards && !r.redCards && <span style={{ color:'#cbd5e1', fontSize:'0.7rem' }}>—</span>}
+                            </td>
+                            <td style={{ textAlign:'center' }}>
+                              {rt > 0 ? (
+                                <span style={{ width:30, height:30, borderRadius:8, background:ratingColor(rt)+'22', border:`1.5px solid ${ratingColor(rt)}`, display:'inline-flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.78rem', color:ratingColor(rt) }}>{rt.toFixed(1)}</span>
+                              ) : <span style={{ color:'#cbd5e1', fontSize:'0.7rem' }}>—</span>}
                             </td>
                           </tr>
                         );

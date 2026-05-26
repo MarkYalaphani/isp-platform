@@ -671,6 +671,24 @@ export async function POST(req: NextRequest) {
         if (error) throw error;
         return NextResponse.json((data||[]).map(r=>({ id:r.id, matchId:r.match_id, playerId:r.player_id, minutesPlayed:r.minutes_played, goals:r.goals, assists:r.assists, yellowCards:r.yellow_cards, redCards:r.red_cards, rating:r.rating, notes:r.notes||'' })));
       }
+      case 'getMatchStatsByPlayer': {
+        const { playerId } = params as { playerId: string };
+        const { data, error } = await sb.from('match_stats')
+          .select('*, matches(match_date,opponent,team_name,match_type,score_for,score_against,result)')
+          .eq('player_id', playerId)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return NextResponse.json((data||[]).map(r => {
+          const m = (r as Record<string,unknown>).matches as Record<string,unknown> | null || {};
+          return {
+            id: r.id, matchId: r.match_id, playerId: r.player_id,
+            minutesPlayed: r.minutes_played, goals: r.goals, assists: r.assists,
+            yellowCards: r.yellow_cards, redCards: r.red_cards, rating: r.rating, notes: r.notes||'',
+            matchDate: m.match_date||'', opponent: m.opponent||'', teamName: m.team_name||'',
+            matchType: m.match_type||'', scoreFor: m.score_for, scoreAgainst: m.score_against, result: m.result||'',
+          };
+        }));
+      }
 
       // ── CALENDAR ──────────────────────────────────────────────────────────
       case 'saveCalendarEvent': {
