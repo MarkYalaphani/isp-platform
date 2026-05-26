@@ -10,8 +10,12 @@ function getSession(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: 'ANTHROPIC_API_KEY ยังไม่ได้ตั้งค่าใน environment variables' }, { status: 503 });
+  }
+
   const session = getSession(req);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session) return NextResponse.json({ error: 'กรุณา login ใหม่ (token หมดอายุ)' }, { status: 401 });
 
   const { task, payload } = await req.json() as { task: string; payload: Record<string, unknown> };
 

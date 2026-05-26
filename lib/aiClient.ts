@@ -11,6 +11,9 @@ export async function callAI(task: string, payload: Record<string, unknown>): Pr
     },
     body: JSON.stringify({ task, payload }),
   });
-  if (!res.ok) throw new Error(`AI error: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? `AI error: ${res.status}`);
+  }
   return res.json();
 }

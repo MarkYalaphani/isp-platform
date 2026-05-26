@@ -93,8 +93,12 @@ export default function AIChatPage({ athletes, user }: Props) {
       if (res.answer) {
         setMessages(prev => [...prev, { role: 'assistant', content: res.answer!, ts: Date.now() }]);
       }
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '❌ ไม่สามารถเชื่อมต่อ AI ได้ กรุณาลองใหม่', ts: Date.now() }]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const friendly = msg.includes('401') ? '🔐 Session หมดอายุ กรุณา login ใหม่'
+        : msg.includes('503') ? '⚙️ ANTHROPIC_API_KEY ยังไม่ได้ตั้งค่า (ดู Settings → Environment Variables)'
+        : `❌ ไม่สามารถเชื่อมต่อ AI ได้: ${msg}`;
+      setMessages(prev => [...prev, { role: 'assistant', content: friendly, ts: Date.now() }]);
     } finally {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
