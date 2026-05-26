@@ -43,7 +43,7 @@ const ROLE_CONFIG: Record<string, { label: string; bg: string; color: string }> 
   club:     { label: 'Club',     bg: '#eff6ff', color: '#1d4ed8' },
 };
 
-type EditForm = { username: string; newPassword: string; role: string; displayName: string };
+type EditForm = { username: string; newPassword: string; role: string; displayName: string; logoBase64: string; logoMimeType: string; logoPreview: string };
 
 export default function AdminPage() {
   const [users, setUsers]               = useState<UserRecord[]>([]);
@@ -126,19 +126,40 @@ export default function AdminPage() {
   };
 
   const openEdit = (u: UserRecord) =>
-    setEditModal({ username:u.Username, newPassword:'', role:u.Role||'club', displayName:u.DisplayName||'' });
+    setEditModal({ username:u.Username, newPassword:'', role:u.Role||'club', displayName:u.DisplayName||'', logoBase64:'', logoMimeType:'', logoPreview: u.LogoUrl||'' });
 
   const handleEdit = async () => {
     if (!editModal) return;
     setEditSaving(true);
     try {
-      const res = await callGAS('updateUser', editModal) as { status:string; message:string };
+      const payload: Record<string,string> = {
+        username: editModal.username,
+        newPassword: editModal.newPassword,
+        role: editModal.role,
+        displayName: editModal.displayName,
+      };
+      if (editModal.logoBase64) {
+        payload.logoBase64  = editModal.logoBase64;
+        payload.logoMimeType = editModal.logoMimeType;
+      }
+      const res = await callGAS('updateUser', payload) as { status:string; message:string };
       if (res.status === 'success') {
         showToast('บันทึกเรียบร้อย', 'success');
         loadUsers();
         setTimeout(() => setEditModal(null), 700);
       } else showToast(res.message||'เกิดข้อผิดพลาด', 'error');
     } finally { setEditSaving(false); }
+  };
+
+  const handleLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const b64 = ev.target?.result as string;
+      setEditModal(m => m ? { ...m, logoBase64: b64, logoMimeType: file.type, logoPreview: b64 } : null);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleDelete = async (username: string) => {
@@ -276,6 +297,7 @@ export default function AdminPage() {
                   <thead>
                     <tr>
                       <th style={{ paddingLeft:20 }}>Username</th>
+                      <th>โลโก้</th>
                       <th>ชื่อที่แสดง</th>
                       <th>Role</th>
                       <th>Club ID</th>
@@ -292,6 +314,14 @@ export default function AdminPage() {
                       return (
                         <tr key={u.Username}>
                           <td style={{ paddingLeft:20, fontWeight:700 }}>{u.Username}</td>
+                          <td>
+                            {u.LogoUrl
+                              ? <img src={u.LogoUrl} alt="" style={{ width:32, height:32, borderRadius:8, objectFit:'cover', border:'1px solid var(--border)' }}/>
+                              : <div style={{ width:32, height:32, borderRadius:8, background:'var(--bg)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                  <i className="bi bi-image" style={{ color:'#cbd5e1', fontSize:'0.8rem' }}/>
+                                </div>
+                            }
+                          </td>
                           <td style={{ fontSize:'0.85rem' }}>{u.DisplayName||'—'}</td>
                           <td>
                             <span style={{ background:rc.bg, color:rc.color, padding:'3px 10px', borderRadius:6, fontSize:'0.72rem', fontWeight:800 }}>
@@ -404,6 +434,31 @@ export default function AdminPage() {
             <div className="mb-3">
               <label className="form-label">ชื่อที่แสดง</label>
               <input className="form-control" value={editModal.displayName} onChange={e=>setEditModal(m=>m?{...m,displayName:e.target.value}:null)} placeholder="ชื่อสโมสร หรือชื่อผู้ใช้"/>
+            </div>
+            <div className="mb-3">
+              <label className="form-label">โลโก้สโมสร</label>
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <div style={{ width:56, height:56, borderRadius:12, border:'1.5px solid var(--border)', background:'var(--bg)', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  {editModal.logoPreview
+                    ? <img src={editModal.logoPreview} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                    : <i className="bi bi-image" style={{ color:'#cbd5e1', fontSize:'1.4rem' }}/>
+                  }
+                </div>
+                <div style={{ flex:1 }}>
+                  <label style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 14px', background:'var(--bg)', border:'1.5px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:'0.82rem', fontWeight:600 }}>
+                    <i className="bi bi-upload" style={{ fontSize:'0.85rem' }}/>
+                    {editModal.logoBase64 ? 'เปลี่ยนรูป' : 'อัปโหลดโลโก้'}
+                    <input type="file" accept="image/*" style={{ display:'none' }} onChange={handleLogoFile}/>
+                  </label>
+                  <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', marginTop:4 }}>PNG, JPG · แนะนำ 200×200px ขึ้นไป</div>
+                </div>
+                {editModal.logoBase64 && (
+                  <button type="button" onClick={() => setEditModal(m=>m?{...m,logoBase64:'',logoMimeType:'',logoPreview:''}:null)}
+                    style={{ background:'none', border:'none', color:'#ef4444', cursor:'pointer', padding:4 }}>
+                    <i className="bi bi-x-circle-fill"/>
+                  </button>
+                )}
+              </div>
             </div>
             <div className="mb-3">
               <label className="form-label">

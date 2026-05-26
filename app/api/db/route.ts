@@ -376,12 +376,13 @@ export async function POST(req: NextRequest) {
       // ── USERS ──────────────────────────────────────────────────────────────
       case 'getUsers': {
         const { data, error } = await sb.from('users')
-          .select('username,role,display_name,club_id,created_at').order('created_at');
+          .select('username,role,display_name,club_id,created_at,logo_url').order('created_at');
         if (error) throw error;
         return NextResponse.json((data||[]).map(u => ({
           Username: u.username, Role: u.role,
           DisplayName: u.display_name, ClubID: u.club_id,
           CreatedAt: u.created_at, Password: '••••••••',
+          LogoUrl: u.logo_url || '',
         })));
       }
 
@@ -400,12 +401,16 @@ export async function POST(req: NextRequest) {
       }
 
       case 'updateUser': {
-        const { username, role, displayName, newPassword } = params;
+        const { username, role, displayName, newPassword, logoBase64, logoMimeType } = params;
         const upd: Record<string, unknown> = {
           role: role || 'club',
           display_name: displayName || username,
         };
         if (newPassword) upd.password_hash = await bcrypt.hash(newPassword, 10);
+        if (logoBase64) {
+          const logoUrl = await uploadLogo(username, logoBase64, logoMimeType || 'image/png');
+          if (logoUrl) upd.logo_url = logoUrl;
+        }
         const { error } = await sb.from('users').update(upd).eq('username', username);
         if (error) {
           // CHECK constraint violation → users table has old constraint without club_pro
