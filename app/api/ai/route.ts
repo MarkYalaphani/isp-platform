@@ -1,17 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { verifyToken } from '@/lib/session';
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 function getSession(req: NextRequest) {
   const auth = req.headers.get('Authorization') ?? '';
   return auth.startsWith('Bearer ') ? verifyToken(auth.slice(7)) : null;
 }
 
+function getClient() {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY ยังไม่ได้ตั้งค่าใน environment variables');
+  return new GoogleGenerativeAI(key);
+}
+
+async function generate(prompt: string, system: string): Promise<string> {
+  const model = getClient().getGenerativeModel({
+    model: 'gemini-2.0-flash',
+    systemInstruction: system,
+  });
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
+
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: 'ANTHROPIC_API_KEY ยังไม่ได้ตั้งค่าใน environment variables' }, { status: 503 });
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: 'GEMINI_API_KEY ยังไม่ได้ตั้งค่าใน environment variables' }, { status: 503 });
   }
 
   const session = getSession(req);
@@ -20,15 +33,15 @@ export async function POST(req: NextRequest) {
   const { task, payload } = await req.json() as { task: string; payload: Record<string, unknown> };
 
   try {
+    // ── AI Scout Chat ──────────────────────────────────────────────────────
     if (task === 'chat') {
-      // ── AI Scout Chat ──────────────────────────────────────────────────
       const { playerData, history, question } = payload as {
         playerData: Record<string, unknown>;
         history: { role: string; content: string }[];
         question: string;
       };
 
-      const systemPrompt = `คุณคือ AI Scout Assistant ผู้ช่วยโค้ชฟุตบอลมืออาชีพ พูดภาษาไทยเป็นหลัก ตอบกระชับ ชัดเจน และให้ insight ที่ actionable
+      const system = `คุณคือ AI Scout Assistant ผู้ช่วยโค้ชฟุตบอลมืออาชีพ พูดภาษาไทยเป็นหลัก ตอบกระชับ ชัดเจน และให้ insight ที่ actionable
 
 ข้อมูลนักกีฬาที่กำลังวิเคราะห์:
 ${JSON.stringify(playerData, null, 2)}
@@ -39,34 +52,21 @@ ${JSON.stringify(playerData, null, 2)}
 - ถ้าไม่มีข้อมูลบางด้าน ให้บอกตรงๆ ว่ายังไม่มีข้อมูลนั้น
 - ใช้ตัวเลขจริงจากข้อมูล ไม่คาดเดา`;
 
-      const messages = [
-        ...history.map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
-        { role: 'user' as const, content: question },
-      ];
+      // Build conversation history as context
+      const historyContext = history.length
+        ? '\n\nประวัติการสนทนา:\n' + history.map(h => `${h.role === 'user' ? 'โค้ช' : 'AI'}: ${h.content}`).join('\n')
+        : '';
 
-      const response = await client.messages.create({
-        model: 'claude-opus-4-7',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages,
-      });
-
-      return NextResponse.json({ answer: (response.content[0] as { text: string }).text });
+      const answer = await generate(`${historyContext}\n\nโค้ช: ${question}`, system);
+      return NextResponse.json({ answer });
     }
 
+    // ── AI Auto Scouting Report ────────────────────────────────────────────
     if (task === 'report') {
-      // ── AI Auto Scouting Report ────────────────────────────────────────
       const { playerData } = payload as { playerData: Record<string, unknown> };
 
-      const response = await client.messages.create({
-        model: 'claude-opus-4-7',
-        max_tokens: 2048,
-        messages: [{
-          role: 'user',
-          content: `คุณเป็น Head Scout มืออาชีพ เขียนรายงาน Scouting Report ภาษาไทยสำหรับนักกีฬาต่อไปนี้
-
-ข้อมูลนักกีฬา:
-${JSON.stringify(playerData, null, 2)}
+      const report = await generate(
+        `เขียน Scouting Report ภาษาไทยสำหรับนักกีฬาต่อไปนี้:\n${JSON.stringify(playerData, null, 2)}
 
 เขียนรายงานในรูปแบบนี้ (ใช้ Markdown):
 
@@ -86,14 +86,13 @@ ${JSON.stringify(playerData, null, 2)}
 (ประเมินศักยภาพ ระดับที่เหมาะสม อนาคตของนักกีฬา)
 
 เขียนให้ professional และ actionable ใช้ข้อมูลจริงทั้งหมดที่มี`,
-        }],
-      });
-
-      return NextResponse.json({ report: (response.content[0] as { text: string }).text });
+        'คุณเป็น Head Scout มืออาชีพ เขียนรายงานวิเคราะห์นักกีฬาฟุตบอล ภาษาไทย',
+      );
+      return NextResponse.json({ report });
     }
 
+    // ── AI Starting 11 ────────────────────────────────────────────────────
     if (task === 'lineup') {
-      // ── AI Starting 11 ────────────────────────────────────────────────
       const { players, formation, opponent, notes } = payload as {
         players: Record<string, unknown>[];
         formation: string;
@@ -101,36 +100,30 @@ ${JSON.stringify(playerData, null, 2)}
         notes: string;
       };
 
-      const response = await client.messages.create({
-        model: 'claude-opus-4-7',
-        max_tokens: 2048,
-        messages: [{
-          role: 'user',
-          content: `คุณเป็น Head Coach มืออาชีพ วิเคราะห์และเลือก Starting 11 จากนักกีฬาที่มีอยู่
+      const text = await generate(
+        `วิเคราะห์และเลือก Starting 11 จากนักกีฬาที่มีอยู่
 
-Formation ที่ต้องการ: ${formation}
+Formation: ${formation}
 คู่แข่ง: ${opponent || 'ไม่ระบุ'}
-หมายเหตุเพิ่มเติม: ${notes || 'ไม่มี'}
+หมายเหตุ: ${notes || 'ไม่มี'}
 
-นักกีฬาที่พร้อมลงสนาม:
+นักกีฬาที่พร้อม:
 ${JSON.stringify(players, null, 2)}
 
-ตอบในรูปแบบ JSON เท่านั้น (ไม่มีข้อความอื่น):
+ตอบในรูปแบบ JSON เท่านั้น (ไม่มีข้อความอื่น ไม่มี markdown code block):
 {
   "starting11": [
-    { "position": "GK", "playerId": "...", "playerName": "...", "reason": "เหตุผลสั้น" },
-    ...
+    { "position": "GK", "playerId": "...", "playerName": "...", "reason": "เหตุผลสั้น" }
   ],
   "bench": [
     { "playerId": "...", "playerName": "...", "role": "ตัวสำรองสำหรับ..." }
   ],
   "tacticalNote": "หมายเหตุยุทธวิธี 2-3 ประโยค",
-  "warning": "ข้อควรระวัง (ถ้ามี เช่น ฟิตน้อย wellness ต่ำ)"
+  "warning": "ข้อควรระวัง (ถ้ามี)"
 }`,
-        }],
-      });
+        'คุณเป็น Head Coach มืออาชีพ ตอบด้วย JSON เท่านั้น',
+      );
 
-      const text = (response.content[0] as { text: string }).text;
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return NextResponse.json({ error: 'AI ตอบไม่ถูกรูปแบบ' }, { status: 500 });
       return NextResponse.json({ result: JSON.parse(jsonMatch[0]) });
@@ -140,6 +133,6 @@ ${JSON.stringify(players, null, 2)}
 
   } catch (err) {
     console.error('[AI]', err);
-    return NextResponse.json({ error: 'AI error: ' + String(err) }, { status: 500 });
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

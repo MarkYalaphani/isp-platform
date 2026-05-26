@@ -96,7 +96,7 @@ export default function AIChatPage({ athletes, user }: Props) {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       const friendly = msg.includes('401') ? '🔐 Session หมดอายุ กรุณา login ใหม่'
-        : msg.includes('503') ? '⚙️ ANTHROPIC_API_KEY ยังไม่ได้ตั้งค่า (ดู Settings → Environment Variables)'
+        : msg.includes('503') ? '⚙️ GEMINI_API_KEY ยังไม่ได้ตั้งค่า (ดู Vercel → Settings → Environment Variables)'
         : `❌ ไม่สามารถเชื่อมต่อ AI ได้: ${msg}`;
       setMessages(prev => [...prev, { role: 'assistant', content: friendly, ts: Date.now() }]);
     } finally {
