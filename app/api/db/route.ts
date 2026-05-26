@@ -681,7 +681,13 @@ export async function POST(req: NextRequest) {
       }
       case 'getCalendarEvents': {
         const { yearMonth, clubId } = params as { yearMonth:string; clubId?:string };
-        let q = sb.from('calendar_events').select('*').like('event_date', `${yearMonth}%`).order('event_date');
+        const [ym_y, ym_m] = yearMonth.split('-').map(Number);
+        const startDate = `${yearMonth}-01`;
+        const nextY = ym_m === 12 ? ym_y + 1 : ym_y;
+        const nextM = ym_m === 12 ? 1 : ym_m + 1;
+        const endDate = `${nextY}-${String(nextM).padStart(2,'0')}-01`;
+        let q = sb.from('calendar_events').select('*')
+          .gte('event_date', startDate).lt('event_date', endDate).order('event_date');
         if (clubId) q = q.eq('club_id', clubId);
         const { data, error } = await q;
         if (error) throw error;
@@ -692,6 +698,31 @@ export async function POST(req: NextRequest) {
         const { error } = await sb.from('calendar_events').delete().eq('id', id);
         if (error) throw error;
         return NextResponse.json({ status:'success' });
+      }
+
+      // ── SAVE TRAINING PROGRAM → CALENDAR ──────────────────────────────────
+      case 'saveTrainingProgram': {
+        const { weekPlan, clubId, teamName, createdBy } = params as {
+          weekPlan: Array<{ date: string; sessions: Array<{ focus: string; intensity: string; duration: number; notes: string }> }>;
+          clubId: string; teamName: string; createdBy: string;
+        };
+        if (!weekPlan?.length) return NextResponse.json({ status:'success', message:'0 session' });
+        const rows = weekPlan.flatMap(day =>
+          day.sessions.filter(s => s.intensity !== 'rest').map(s => ({
+            club_id: clubId || '',
+            event_date: day.date,
+            title: s.focus,
+            event_type: 'training',
+            team_name: teamName || '',
+            venue: '',
+            notes: [s.intensity === 'light' ? 'เบา' : s.intensity === 'moderate' ? 'ปานกลาง' : 'หนัก', s.duration ? `${s.duration} นาที` : '', s.notes].filter(Boolean).join(' · '),
+            created_by: createdBy || '',
+          }))
+        );
+        if (!rows.length) return NextResponse.json({ status:'success', message:'ไม่มี session ที่บันทึก (วันพัก)' });
+        const { error } = await sb.from('calendar_events').insert(rows);
+        if (error) throw error;
+        return NextResponse.json({ status:'success', message:`บันทึก ${rows.length} session ลงปฏิทินสำเร็จ` });
       }
 
       // ── TRAINING VIDEOS (Admin CRUD) ───────────────────────────────────────
