@@ -7,6 +7,7 @@ export interface User {
 }
 
 export interface TestRecord {
+  id?: string;
   Timestamp: string;
   PlayerID: string;
   Height: string;

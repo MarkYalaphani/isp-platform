@@ -7,6 +7,7 @@ import { calcYoyoDist, calcVo2 } from '@/lib/devData';
 // ─── Transformers ─────────────────────────────────────────────────────────────
 function toTestRecord(r: Record<string, unknown>) {
   return {
+    id:           String(r.id           || ''),
     Timestamp:    String(r.timestamp    || ''),
     PlayerID:     String(r.player_id    || ''),
     Height:       String(r.height       || ''),
@@ -745,6 +746,49 @@ export async function POST(req: NextRequest) {
         const { error } = await sb.from('users').update({ password_hash: hash }).eq('username', username);
         if (error) throw error;
         return NextResponse.json({ status: 'success', message: 'เปลี่ยนรหัสผ่านสำเร็จ' });
+      }
+
+      // ── UPDATE TEST RECORD ─────────────────────────────────────────────────
+      case 'updateTestRecord': {
+        const f = params as Record<string, string>;
+        if (!f.testId) return NextResponse.json({ status: 'error', message: 'ไม่พบ testId' });
+        const { data: ath } = await sb.from('athletes').select('dob').eq('player_id', f.playerId).single();
+        const dob = ath?.dob || '';
+        const bmi = f.height && f.weight
+          ? (parseFloat(f.weight) / Math.pow(parseFloat(f.height) / 100, 2)).toFixed(2) : '';
+        const peakPower = f.cmj && f.weight
+          ? String(Math.max(0, Math.round(60.7 * parseFloat(f.cmj) + 45.3 * parseFloat(f.weight) - 2055))) : '';
+        const agility = f.agiL && f.agiR
+          ? (parseFloat(f.agiL) + parseFloat(f.agiR)).toFixed(2) : f.agility || '';
+        const rawYoyo = f.yoyo || (f.yoyoLevel && f.yoyoShuttle ? String(calcYoyoDist(f.yoyoLevel, f.yoyoShuttle)) : '');
+        const vo2max = f.vo2max || (rawYoyo ? String(calcVo2(parseFloat(rawYoyo))) : '');
+        const vals: Record<string, string> = {
+          speed30: f.speed30||'', cmj: f.cmj||'', agility,
+          situp: f.situp||'', longjump: f.longJump||'',
+          yoyo: rawYoyo, pushup: f.pushup||'', sitreach: f.sitReach||'',
+        };
+        const scores: Record<string, number> = {};
+        Object.keys(vals).forEach(k => { scores[k] = getScorePoint(k, vals[k], dob); });
+        const rating = calcRating(scores);
+        const { error } = await sb.from('test_records').update({
+          height: f.height||'', weight: f.weight||'', muscle: f.muscle||'', fat: f.fat||'',
+          cmj: f.cmj||'', peak_power: peakPower, bmi, rating,
+          speed30: f.speed30||'', agility, yoyo: rawYoyo,
+          situp: f.situp||'', long_jump: f.longJump||'', pushup: f.pushup||'',
+          sit_and_reach: f.sitReach||'', agi_l: f.agiL||'', agi_r: f.agiR||'',
+          yoyo_level: f.yoyoLevel||'', yoyo_shuttle: f.yoyoShuttle||'', vo2max,
+        }).eq('id', f.testId);
+        if (error) throw error;
+        return NextResponse.json({ status: 'success', message: 'อัปเดตผลเทสสำเร็จ' });
+      }
+
+      // ── DELETE TEST RECORD ─────────────────────────────────────────────────
+      case 'deleteTestRecord': {
+        const { testId } = params as { testId: string };
+        if (!testId) return NextResponse.json({ status: 'error', message: 'ไม่พบ testId' });
+        const { error } = await sb.from('test_records').delete().eq('id', testId);
+        if (error) throw error;
+        return NextResponse.json({ status: 'success', message: 'ลบผลเทสสำเร็จ' });
       }
 
       default:

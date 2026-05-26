@@ -305,6 +305,12 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [viewTestIdx, setViewTestIdx] = useState<number>(-1);
+  const [showEditTestModal, setShowEditTestModal] = useState(false);
+  const [editTestDraft, setEditTestDraft] = useState<Record<string,string>>({});
+  const [editTestSaving, setEditTestSaving] = useState(false);
+  const [deleteTestConfirm, setDeleteTestConfirm] = useState(false);
+  const [deletingTest, setDeletingTest] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoError, setPhotoError] = useState('');
   const [localPhotoUrl, setLocalPhotoUrl] = useState('');
@@ -552,6 +558,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   useEffect(() => {
     if (selectedId) setGoals(loadGoals(selectedId));
     setLocalPhotoUrl('');
+    setViewTestIdx(-1);
   }, [selectedId]);
 
   const athlete  = athletes.find(a => a.PlayerID === selectedId);
@@ -559,8 +566,16 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const latest   = athlete?.Latest  || {};
   const dob      = athlete?.DOB     || '';
 
+  const effectiveIdx = viewTestIdx >= 0 && viewTestIdx < HIST.length ? viewTestIdx : HIST.length - 1;
+  const viewTest: Partial<typeof latest> = effectiveIdx >= 0 ? HIST[effectiveIdx] : latest;
+
   const scores = METRICS.reduce<Record<string, number>>((acc, m) => {
     acc[m.key] = getScorePoint(m.key, String(latest[m.field] ?? ''), dob);
+    return acc;
+  }, {});
+
+  const viewScores = METRICS.reduce<Record<string, number>>((acc, m) => {
+    acc[m.key] = getScorePoint(m.key, String(viewTest[m.field] ?? ''), dob);
     return acc;
   }, {});
 
@@ -684,7 +699,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
     labels: METRICS.map(m => m.label),
     datasets: [{
       label: athlete?.Name || '',
-      data: METRICS.map(m => scores[m.key] || 0),
+      data: METRICS.map(m => viewScores[m.key] || 0),
       backgroundColor: 'rgba(56,189,248,0.12)',
       borderColor: '#38bdf8',
       borderWidth: 2.5,
@@ -695,6 +710,48 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
 
   const handlePrint = () => window.print();
   const handlePDF = () => window.print();
+
+  const openEditTestModal = () => {
+    const t = viewTest as Record<string, unknown>;
+    setEditTestDraft({
+      height: String(t.Height || ''), weight: String(t.Weight || ''),
+      muscle: String(t.Muscle || ''), fat: String(t.Fat || ''),
+      speed30: String(t.Speed30 || ''), cmj: String(t.CMJ || ''),
+      agiL: String(t.AgiL || ''), agiR: String(t.AgiR || ''),
+      situp: String(t.Situp || ''), longJump: String(t.LongJump || ''),
+      yoyo: String(t.YoYo || ''), pushup: String(t.Pushup || ''),
+      sitReach: String(t.SitAndReach || ''),
+      yoyoLevel: String(t.YoYoLevel || ''), yoyoShuttle: String(t.YoYoShuttle || ''),
+    });
+    setShowEditTestModal(true);
+  };
+
+  const handleSaveTestEdit = async () => {
+    const t = viewTest as Record<string, unknown>;
+    if (!t.id || !athlete) return;
+    setEditTestSaving(true);
+    try {
+      await callGAS('updateTestRecord', { testId: t.id, playerId: athlete.PlayerID, ...editTestDraft });
+      setShowEditTestModal(false);
+      onRefresh();
+    } finally {
+      setEditTestSaving(false);
+    }
+  };
+
+  const handleDeleteTest = async () => {
+    const t = viewTest as Record<string, unknown>;
+    if (!t.id) return;
+    setDeletingTest(true);
+    try {
+      await callGAS('deleteTestRecord', { testId: t.id });
+      setDeleteTestConfirm(false);
+      setViewTestIdx(-1);
+      onRefresh();
+    } finally {
+      setDeletingTest(false);
+    }
+  };
 
   const infoValues: Record<string, string> = {
     height:   latest.Height  ? `${latest.Height}`  : '—',
@@ -873,6 +930,91 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
           <i className="bi bi-person-badge" style={{ fontSize: '5rem', color: '#e2e8f0', display: 'block', marginBottom: 16 }} />
           <h4 style={{ color: '#94a3b8' }}>กรุณาเลือกนักกีฬา</h4>
           <p style={{ fontSize: '0.875rem', marginTop: 6 }}>เลือกชื่อจาก dropdown ด้านบน</p>
+        </div>
+      )}
+
+      {/* ── EDIT TEST MODAL ── */}
+      {showEditTestModal && (
+        <div className="modal-overlay" onClick={() => setShowEditTestModal(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
+                <i className="bi bi-pencil-square me-2" style={{ color: '#38bdf8' }} />
+                แก้ไขผลเทส — {fmtDateFull((viewTest as Record<string,unknown>).Timestamp as string || '')}
+              </h3>
+              <button onClick={() => setShowEditTestModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.3rem', color: '#94a3b8' }}>×</button>
+            </div>
+            {(['height','weight','muscle','fat'] as const).length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>ร่างกาย</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+                  {[
+                    { key: 'height',  label: 'ส่วนสูง (cm)' },
+                    { key: 'weight',  label: 'น้ำหนัก (kg)' },
+                    { key: 'muscle',  label: 'กล้ามเนื้อ (%)' },
+                    { key: 'fat',     label: 'ไขมัน (%)' },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label style={{ fontSize: '0.65rem', color: '#64748b', display: 'block', marginBottom: 3 }}>{f.label}</label>
+                      <input type="number" step="0.1" className="form-control" style={{ fontSize: '0.85rem', padding: '5px 8px' }}
+                        value={editTestDraft[f.key] || ''} onChange={e => setEditTestDraft(d => ({...d, [f.key]: e.target.value}))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>สมรรถภาพ</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                {[
+                  { key: 'speed30',  label: 'Speed 30m (s)' },
+                  { key: 'cmj',      label: 'CMJ (cm)' },
+                  { key: 'agiL',     label: 'Agility L (s)' },
+                  { key: 'agiR',     label: 'Agility R (s)' },
+                  { key: 'situp',    label: 'Sit-up (reps)' },
+                  { key: 'longJump', label: 'Long Jump (cm)' },
+                  { key: 'yoyo',     label: 'Yo-Yo (m)' },
+                  { key: 'pushup',   label: 'Push-up (reps)' },
+                  { key: 'sitReach', label: 'Sit & Reach (cm)' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label style={{ fontSize: '0.65rem', color: '#64748b', display: 'block', marginBottom: 3 }}>{f.label}</label>
+                    <input type="number" step="0.1" className="form-control" style={{ fontSize: '0.85rem', padding: '5px 8px' }}
+                      value={editTestDraft[f.key] || ''} onChange={e => setEditTestDraft(d => ({...d, [f.key]: e.target.value}))} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+              <button className="btn-outline" onClick={() => setShowEditTestModal(false)} disabled={editTestSaving}>ยกเลิก</button>
+              <button className="btn-primary" onClick={handleSaveTestEdit} disabled={editTestSaving}>
+                {editTestSaving ? <span className="spinner-ring" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <><i className="bi bi-check-lg me-1" />บันทึก</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DELETE TEST CONFIRM ── */}
+      {deleteTestConfirm && (
+        <div className="modal-overlay" onClick={() => setDeleteTestConfirm(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+            <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
+              <div style={{ width: 52, height: 52, background: '#fef2f2', border: '2px solid #fca5a5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <i className="bi bi-trash-fill" style={{ color: '#dc2626', fontSize: '1.3rem' }} />
+              </div>
+              <h4 style={{ margin: '0 0 6px', fontSize: '1rem', fontWeight: 700 }}>ลบผลเทสครั้งนี้?</h4>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b' }}>
+                {fmtDateFull((viewTest as Record<string,unknown>).Timestamp as string || '')} — ไม่สามารถกู้คืนได้
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', paddingTop: 8 }}>
+              <button className="btn-outline" onClick={() => setDeleteTestConfirm(false)} disabled={deletingTest}>ยกเลิก</button>
+              <button onClick={handleDeleteTest} disabled={deletingTest} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: '#dc2626', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+                {deletingTest ? <span className="spinner-ring" style={{ width: 14, height: 14, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: 'white' }} /> : <><i className="bi bi-trash me-1" />ลบ</>}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1095,11 +1237,37 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
           {/* ── PERFORMANCE METRICS + RADAR ── */}
           <div id="scoutPerfSection" className="perf-split mb-4">
             <div className="surface">
-              <div className="section-hd" style={{ justifyContent: 'space-between' }}>
+              <div className="section-hd" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
                 <span><i className="bi bi-bar-chart-fill" style={{ color: '#38bdf8' }} /> Performance Metrics <span style={{ fontSize: '0.7rem', fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>ผลสมรรถภาพร่างกาย</span></span>
-                <button className="btn-outline btn-sm" onClick={() => { setGoalDraft({...goals}); setShowGoalModal(true); }} style={{ fontSize: '0.72rem', padding: '4px 10px' }}>
-                  <i className="bi bi-flag me-1" />Set Goals
-                </button>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {HIST.length > 0 && (
+                    <select
+                      className="form-select"
+                      value={effectiveIdx}
+                      onChange={e => setViewTestIdx(Number(e.target.value))}
+                      style={{ fontSize: '0.72rem', padding: '3px 8px', height: 28, minWidth: 130 }}
+                    >
+                      {HIST.map((r, i) => (
+                        <option key={i} value={i}>
+                          {i === HIST.length - 1 ? '★ ' : ''}{fmtDateFull(r.Timestamp)} {i === HIST.length - 1 ? '(ล่าสุด)' : `#${i + 1}`}
+                        </option>
+                      )).reverse()}
+                    </select>
+                  )}
+                  {HIST.length > 0 && !!(viewTest as Record<string,unknown>).id && (
+                    <>
+                      <button className="btn-outline btn-sm" onClick={openEditTestModal} style={{ fontSize: '0.72rem', padding: '3px 9px' }}>
+                        <i className="bi bi-pencil me-1" />แก้ไข
+                      </button>
+                      <button onClick={() => setDeleteTestConfirm(true)} style={{ fontSize: '0.72rem', padding: '3px 9px', borderRadius: 6, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', cursor: 'pointer' }}>
+                        <i className="bi bi-trash me-1" />ลบ
+                      </button>
+                    </>
+                  )}
+                  <button className="btn-outline btn-sm" onClick={() => { setGoalDraft({...goals}); setShowGoalModal(true); }} style={{ fontSize: '0.72rem', padding: '3px 9px' }}>
+                    <i className="bi bi-flag me-1" />Set Goals
+                  </button>
+                </div>
               </div>
               <table className="table-perf">
                 <thead>
@@ -1112,10 +1280,10 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                 </thead>
                 <tbody>
                   {METRICS.map(m => {
-                    const rawVal = latest[m.field];
+                    const rawVal = viewTest[m.field];
                     const strVal = rawVal !== undefined && rawVal !== '' ? String(rawVal) : '';
                     const display = strVal ? `${strVal} ${m.unit}` : '—';
-                    const sc  = scores[m.key];
+                    const sc  = viewScores[m.key];
                     const col = sc > 0 ? SCORE_COLORS[sc] : null;
                     const rowBg = sc >= 4 ? 'rgba(16,185,129,0.04)' : sc > 0 && sc <= 2 ? 'rgba(239,68,68,0.04)' : 'transparent';
                     return (
@@ -1166,7 +1334,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
               <div style={{ width: '100%', marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
                 {METRICS.map(m => (
                   <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', color: '#64748b' }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 2, background: scores[m.key] >= 4 ? '#10b981' : scores[m.key] > 0 && scores[m.key] <= 2 ? '#ef4444' : '#94a3b8' }} />
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: viewScores[m.key] >= 4 ? '#10b981' : viewScores[m.key] > 0 && viewScores[m.key] <= 2 ? '#ef4444' : '#94a3b8' }} />
                     {m.label}
                   </div>
                 ))}
