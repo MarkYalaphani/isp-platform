@@ -84,8 +84,22 @@ const CATEGORIES = [
   },
 ] as const;
 
+type FormData = Omit<SkillAssessment, 'id' | 'playerId' | 'assessedAt'> & {
+  notesBallControl: string;
+  notesPassing: string;
+  notesDribbling: string;
+  notesShooting: string;
+  notesTactical: string;
+};
 type SkillKey = keyof FormData;
-type FormData = Omit<SkillAssessment, 'id' | 'playerId' | 'assessedAt'>;
+
+const CAT_NOTE_KEYS: Record<string, keyof FormData> = {
+  ballControl: 'notesBallControl',
+  passing:     'notesPassing',
+  dribbling:   'notesDribbling',
+  shooting:    'notesShooting',
+  tactical:    'notesTactical',
+};
 
 const SCORE_LABELS: Record<number, { label: string; color: string; bg: string }> = {
   0: { label: '—',      color: '#94a3b8', bg: '#f1f5f9' },
@@ -126,12 +140,29 @@ function makeBlankForm(): FormData {
     skPositioning: 0, skScanning: 0, skDecision: 0, skOffBall: 0, skSpatial: 0, skTransition: 0,
     scoreBallControl: 0, scorePassing: 0, scoreDribbling: 0, scoreShooting: 0, scoreTactical: 0, scoreTotal: 0,
     notes: '',
+    notesBallControl: '', notesPassing: '', notesDribbling: '', notesShooting: '', notesTactical: '',
   };
 }
 
 function formFromAssessment(a: SkillAssessment): FormData {
-  const { id: _id, playerId: _pid, assessedAt: _at, ...rest } = a;
-  return rest;
+  const { id: _id, playerId: _pid, assessedAt: _at, notes, ...rest } = a;
+  let general = notes || '';
+  let bc = '', pa = '', dr = '', sh = '', tq = '';
+  try {
+    const p = JSON.parse(notes || '');
+    if (p && typeof p === 'object') {
+      general = String(p.general || '');
+      bc = String(p.bc || ''); pa = String(p.pa || '');
+      dr = String(p.dr || ''); sh = String(p.sh || '');
+      tq = String(p.tq || '');
+    }
+  } catch { /* plain text — general note only */ }
+  return {
+    ...rest,
+    notes: general,
+    notesBallControl: bc, notesPassing: pa, notesDribbling: dr,
+    notesShooting: sh, notesTactical: tq,
+  };
 }
 
 export default function SkillPage({ athletes, user, onNavigate }: Props) {
@@ -207,9 +238,14 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
     if (!selectedId) { showToast('กรุณาเลือกนักกีฬา', 'error'); return; }
     setSaving(true);
     try {
+      const hasCatNotes = [form.notesBallControl, form.notesPassing, form.notesDribbling, form.notesShooting, form.notesTactical].some(n => n.trim());
+      const serializedNotes = hasCatNotes
+        ? JSON.stringify({ general: form.notes, bc: form.notesBallControl, pa: form.notesPassing, dr: form.notesDribbling, sh: form.notesShooting, tq: form.notesTactical })
+        : form.notes;
       const payload = {
         ...(editId ? { id: editId } : {}),
         ...form,
+        notes: serializedNotes,
         playerId: selectedId,
         assessedAt: new Date().toISOString(),
         assessedBy: form.assessedBy || user.displayName || user.username,
@@ -420,6 +456,22 @@ export default function SkillPage({ athletes, user, onNavigate }: Props) {
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Category comment */}
+                <div style={{ padding: '0 18px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                    <i className="bi bi-chat-left-text" style={{ color: cat.color, fontSize: '0.72rem' }}/>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>ความคิดเห็น {cat.labelTH}</span>
+                  </div>
+                  <textarea
+                    className="form-control"
+                    rows={2}
+                    placeholder={`ข้อสังเกต / คำแนะนำ ${cat.labelTH}...`}
+                    value={form[CAT_NOTE_KEYS[cat.id]] as string || ''}
+                    onChange={e => setForm(f => ({ ...f, [CAT_NOTE_KEYS[cat.id]]: e.target.value }))}
+                    style={{ fontSize: '0.8rem', resize: 'vertical', borderColor: form[CAT_NOTE_KEYS[cat.id]] ? cat.color + '66' : undefined }}
+                  />
                 </div>
               </div>
             );
