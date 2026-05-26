@@ -163,6 +163,11 @@ export default function ScoutApp() {
             <button onClick={toggleDark} title={darkMode?'Light Mode':'Dark Mode'} style={{ background:'none', border:'1px solid var(--border)', borderRadius:8, padding:'5px 8px', cursor:'pointer', color:'var(--text-muted)', fontSize:'1rem' }}>
               <i className={`bi bi-${darkMode?'sun-fill':'moon-fill'}`}/>
             </button>
+            {user && currentPage !== 'home' && currentPage !== 'help' && (
+              <button className="no-print" onClick={() => window.print()} title="Save PDF" style={{ background:'#dc2626', border:'none', borderRadius:8, padding:'5px 10px', cursor:'pointer', color:'white', fontSize:'0.75rem', fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
+                <i className="bi bi-file-pdf-fill"/>PDF
+              </button>
+            )}
             <button className="btn-menu" onClick={() => setSidebarOpen(true)}><i className="bi bi-list" style={{ fontSize: '1.1rem' }} /></button>
           </div>
         </div>
@@ -198,6 +203,39 @@ export default function ScoutApp() {
           </>
         )}
         <BottomNav currentPage={currentPage} onNavigate={navigate} onOpenMenu={() => setSidebarOpen(true)} />
+
+        {/* ── Floating PDF button — shows on all data pages, hidden when printing ── */}
+        {user && currentPage !== 'home' && currentPage !== 'help' && (
+          <button
+            className="no-print"
+            onClick={() => window.print()}
+            title="บันทึก PDF"
+            style={{
+              position: 'fixed',
+              bottom: 'calc(66px + env(safe-area-inset-bottom, 0px) + 14px)',
+              right: 20,
+              background: '#dc2626',
+              color: 'white',
+              border: 'none',
+              borderRadius: 50,
+              padding: '10px 16px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              zIndex: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: '0.82rem',
+              boxShadow: '0 4px 16px rgba(220,38,38,0.4)',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 22px rgba(220,38,38,0.5)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(220,38,38,0.4)'; }}
+          >
+            <i className="bi bi-file-pdf-fill" style={{ fontSize: '1rem' }} />
+            Save PDF
+          </button>
+        )}
       </main>
       {showProfile && user && (
         <UserProfileModal

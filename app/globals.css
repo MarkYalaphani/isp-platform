@@ -477,6 +477,49 @@ html, body { max-width: 100vw; overflow-x: hidden; }
   canvas { max-height: 130px !important; }
 }
 
+/* ═══════════════════════════════════════════════════
+   PRINT / PDF EXPORT
+   ═══════════════════════════════════════════════════ */
+@media print {
+  /* Preserve colors when printing */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  /* Hide all navigation chrome and interactive controls */
+  .sidebar,
+  .sidebar-overlay,
+  .bottom-nav,
+  .top-bar,
+  .no-print,
+  .modal-overlay { display: none !important; }
+
+  /* Full-width layout */
+  .main { margin-left: 0 !important; padding: 24px !important; }
+
+  /* Clean backgrounds */
+  body { background: #ffffff !important; }
+
+  /* Flatten surface cards for print */
+  .surface { box-shadow: none !important; border: 1px solid #e2e8f0 !important; margin-bottom: 14px !important; }
+
+  /* Hide action buttons in page header, keep title */
+  .page-header button,
+  .page-header .btn-primary,
+  .page-header .btn-outline,
+  .page-header select { display: none !important; }
+
+  /* Let charts render at full size */
+  canvas { max-height: none !important; }
+
+  /* Avoid splitting tables and cards across pages */
+  table, .surface, .kpi-card { page-break-inside: avoid; }
+
+  /* Scout hero dark background — keep it */
+  .scout-hero, .aurora-header, .home-hero { print-color-adjust: exact; }
+
+  /* PDF page title */
+  @page { margin: 16mm 14mm; }
+}
+
 /* ── Home live grid ── */
 .hp-live-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
 
