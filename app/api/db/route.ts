@@ -673,13 +673,22 @@ export async function POST(req: NextRequest) {
       }
       case 'getMatchStatsByPlayer': {
         const { playerId } = params as { playerId: string };
-        const { data, error } = await sb.from('match_stats')
-          .select('*, matches(match_date,opponent,team_name,match_type,score_for,score_against,result)')
-          .eq('player_id', playerId)
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        return NextResponse.json((data||[]).map(r => {
-          const m = (r as Record<string,unknown>).matches as Record<string,unknown> | null || {};
+        // Step 1: fetch stats for this player
+        const { data: statsData, error: statsErr } = await sb.from('match_stats')
+          .select('*')
+          .eq('player_id', playerId);
+        if (statsErr) throw statsErr;
+        if (!statsData || statsData.length === 0) return NextResponse.json([]);
+        // Step 2: fetch match details for those match IDs
+        const matchIds = [...new Set(statsData.map(r => r.match_id).filter(Boolean))];
+        const { data: matchesData } = await sb.from('matches')
+          .select('id,match_date,opponent,team_name,match_type,score_for,score_against,result')
+          .in('id', matchIds);
+        const matchMap: Record<string, Record<string,unknown>> = {};
+        for (const m of matchesData || []) matchMap[m.id] = m;
+        // Step 3: join and sort by match_date desc
+        const rows = statsData.map(r => {
+          const m = matchMap[r.match_id] || {};
           return {
             id: r.id, matchId: r.match_id, playerId: r.player_id,
             minutesPlayed: r.minutes_played, goals: r.goals, assists: r.assists,
@@ -687,7 +696,9 @@ export async function POST(req: NextRequest) {
             matchDate: m.match_date||'', opponent: m.opponent||'', teamName: m.team_name||'',
             matchType: m.match_type||'', scoreFor: m.score_for, scoreAgainst: m.score_against, result: m.result||'',
           };
-        }));
+        });
+        rows.sort((a, b) => String(b.matchDate).localeCompare(String(a.matchDate)));
+        return NextResponse.json(rows);
       }
 
       // ── CALENDAR ──────────────────────────────────────────────────────────

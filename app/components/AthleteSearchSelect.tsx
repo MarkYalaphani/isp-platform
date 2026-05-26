@@ -69,7 +69,7 @@ export default function AthleteSearchSelect({
     const spaceAbove = r.top;
     const flipUp = spaceBelow < 320 && spaceAbove > spaceBelow;
     setDropPos({
-      top:   flipUp ? r.top + window.scrollY - 4 : r.bottom + window.scrollY + 4,
+      top:   flipUp ? r.top + window.scrollY : r.bottom + window.scrollY + 4,
       left:  r.left + window.scrollX,
       width: r.width,
       flipUp,
@@ -114,8 +114,8 @@ export default function AthleteSearchSelect({
       ref={dropRef}
       style={{
         position: 'absolute',
-        top:   dropPos.flipUp ? undefined : dropPos.top,
-        bottom: dropPos.flipUp ? window.innerHeight - dropPos.top + window.scrollY : undefined,
+        top:       dropPos.top,
+        transform: dropPos.flipUp ? 'translateY(-100%) translateY(-4px)' : undefined,
         left:  dropPos.left,
         width: dropPos.width,
         zIndex: 99999,
