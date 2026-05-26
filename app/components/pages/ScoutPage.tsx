@@ -2235,7 +2235,15 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
       {/* ── PARENT REPORT ── */}
       {showParentReport && athlete && (
         <div style={{ position:'fixed', inset:0, zIndex:4000, background:'var(--bg)', overflowY:'auto' }}>
-          <ParentReport athlete={athlete} user={user} onClose={() => setShowParentReport(false)} />
+          <ParentReport
+            athlete={athlete} user={user} onClose={() => setShowParentReport(false)}
+            irHistory={irHistory}
+            latestSkill={latestSkill}
+            attendanceRecs={attendanceRecs}
+            wellnessRecs={wellnessRecs}
+            rpeRecs={rpeRecs}
+            matchPerf={matchPerf}
+          />
         </div>
       )}
 
