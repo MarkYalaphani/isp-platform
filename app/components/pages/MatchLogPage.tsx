@@ -34,29 +34,91 @@ interface MatchStat {
 
 const MATCH_TYPES = ['ลีก','ถ้วย','กระชับมิตร','ทัวร์นาเมนต์','อื่นๆ'];
 const TEAMS = ['U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U18','Senior'];
+const POSITIONS = ['Goalkeeper','Defender','Midfielder','Forward'];
+const TEAM_COLORS: Record<string,string> = { U8:'#6366f1',U9:'#38bdf8',U10:'#10b981',U11:'#f59e0b',U12:'#ef4444',U13:'#8b5cf6',U14:'#06b6d4',U15:'#f97316',U16:'#ec4899',U17:'#14b8a6',U18:'#84cc16',Senior:'#1d4ed8' };
 
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(d: string) {
   try { return new Date(d).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}); }
   catch { return d; }
 }
+function initials(name: string) {
+  return name.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase() || '?';
+}
 
 export default function MatchLogPage({ athletes, user }: Props) {
   const [tab, setTab] = useState<'list'|'add'|'detail'>('list');
+  const [addStep, setAddStep] = useState<1|2|3>(1);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match|null>(null);
   const [matchStats, setMatchStats] = useState<MatchStat[]>([]);
 
-  // Add match form
-  const [form, setForm] = useState({ matchDate: todayStr(), opponent: '', venue: '', matchType: 'ลีก', teamName: '', scoreFor: '0', scoreAgainst: '0', notes: '' });
-  // Per-player stats in add mode
+  // Match form
+  const blankForm = () => ({ matchDate: todayStr(), opponent: '', venue: '', matchType: 'ลีก', teamName: '', scoreFor: '0', scoreAgainst: '0', notes: '' });
+  const [form, setForm] = useState(blankForm);
+
+  // Step 2 – player selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchQ, setSearchQ] = useState('');
+  const [filterPos, setFilterPos] = useState('');
+
+  // Step 3 – per-player stats
   const [statVals, setStatVals] = useState<Record<string, Partial<MatchStat>>>({});
 
   const [filterTeam, setFilterTeam] = useState('ALL');
   const teamOptions = useMemo(() => ['ALL', ...TEAMS], []);
-  const filteredAthletes = useMemo(() => athletes.filter(a => form.teamName === '' || a.Team === form.teamName), [athletes, form.teamName]);
+
+  // Athletes available for selection: filtered by match team if set
+  const poolAthletes = useMemo(() =>
+    athletes.filter(a => !form.teamName || a.Team === form.teamName),
+    [athletes, form.teamName]);
+
+  // Displayed in step 2 with search + position filter
+  const displayAthletes = useMemo(() => {
+    let list = poolAthletes;
+    if (filterPos) list = list.filter(a => a.Position === filterPos);
+    if (searchQ.trim()) {
+      const q = searchQ.trim().toLowerCase();
+      list = list.filter(a =>
+        a.Name.toLowerCase().includes(q) ||
+        (a.Nickname||'').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [poolAthletes, filterPos, searchQ]);
+
+  const allDisplaySelected = displayAthletes.length > 0 && displayAthletes.every(a => selectedIds.has(a.PlayerID));
+
+  const toggleSelectAll = () => {
+    if (allDisplaySelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        displayAthletes.forEach(a => next.delete(a.PlayerID));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        displayAthletes.forEach(a => next.add(a.PlayerID));
+        return next;
+      });
+    }
+  };
+
+  const togglePlayer = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // Athletes in step 3 (only selected)
+  const selectedAthletes = useMemo(() =>
+    athletes.filter(a => selectedIds.has(a.PlayerID)),
+    [athletes, selectedIds]);
 
   const loadMatches = useCallback(async () => {
     setLoading(true);
@@ -84,10 +146,10 @@ export default function MatchLogPage({ athletes, user }: Props) {
     try {
       const sf = Number(form.scoreFor)||0, sa = Number(form.scoreAgainst)||0;
       const result: Match['result'] = sf > sa ? 'W' : sf < sa ? 'L' : 'D';
-      const stats = filteredAthletes.map(a => {
+      const stats = selectedAthletes.map(a => {
         const s = statVals[a.PlayerID] || {};
         return { playerId: a.PlayerID, minutesPlayed: s.minutesPlayed||0, goals: s.goals||0, assists: s.assists||0, yellowCards: s.yellowCards||0, redCards: s.redCards||0, rating: s.rating||0, notes: s.notes||'' };
-      }).filter(s => s.minutesPlayed > 0 || s.goals > 0 || s.assists > 0);
+      }).filter(s => s.minutesPlayed > 0 || s.goals > 0 || s.assists > 0 || s.rating > 0);
 
       const res = await callGAS('saveMatch', {
         ...form, scoreFor: sf, scoreAgainst: sa, result,
@@ -96,8 +158,10 @@ export default function MatchLogPage({ athletes, user }: Props) {
       }) as { status: string; message: string };
       if (res.status === 'success') {
         showToast('บันทึกผลแข่งขันสำเร็จ', 'success');
-        setForm({ matchDate: todayStr(), opponent: '', venue: '', matchType: 'ลีก', teamName: '', scoreFor: '0', scoreAgainst: '0', notes: '' });
+        setForm(blankForm());
         setStatVals({});
+        setSelectedIds(new Set());
+        setAddStep(1);
         setTab('list');
         loadMatches();
       } else showToast(res.message, 'error');
@@ -111,7 +175,6 @@ export default function MatchLogPage({ athletes, user }: Props) {
     return <span style={{ background:c.bg, color:c.color, borderRadius:6, padding:'2px 8px', fontSize:'0.7rem', fontWeight:800, border:`1px solid ${c.color}40` }}>{c.label}</span>;
   };
 
-  // Stats summary
   const summary = useMemo(() => {
     const w = matches.filter(m=>m.result==='W').length;
     const d = matches.filter(m=>m.result==='D').length;
@@ -120,6 +183,36 @@ export default function MatchLogPage({ athletes, user }: Props) {
     const ga = matches.reduce((s,m)=>s+m.scoreAgainst,0);
     return { w, d, l, gf, ga, total: matches.length };
   }, [matches]);
+
+  const startAdd = () => {
+    setForm(blankForm());
+    setStatVals({});
+    setSelectedIds(new Set());
+    setSearchQ('');
+    setFilterPos('');
+    setAddStep(1);
+    setTab('add');
+  };
+
+  // ── Step indicator ──
+  const StepBar = () => (
+    <div style={{ display:'flex', alignItems:'center', gap:0, marginBottom:20, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'10px 16px', overflow:'hidden' }}>
+      {[{n:1,label:'ข้อมูลแมทช์'},{n:2,label:'เลือกผู้เล่น'},{n:3,label:'กรอกสถิติ'}].map((s,i)=>(
+        <div key={s.n} style={{ display:'flex', alignItems:'center', flex:1 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <div style={{
+              width:26, height:26, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
+              fontWeight:800, fontSize:'0.75rem',
+              background: addStep >= s.n ? '#38bdf8' : 'var(--border)',
+              color: addStep >= s.n ? 'white' : 'var(--text-muted)',
+            }}>{s.n}</div>
+            <span style={{ fontSize:'0.75rem', fontWeight:600, color: addStep === s.n ? '#38bdf8' : addStep > s.n ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace:'nowrap' }}>{s.label}</span>
+          </div>
+          {i < 2 && <div style={{ flex:1, height:2, background: addStep > s.n ? '#38bdf8' : 'var(--border)', margin:'0 8px', minWidth:12 }}/>}
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <div>
@@ -132,14 +225,14 @@ export default function MatchLogPage({ athletes, user }: Props) {
           <select className="form-select" style={{ width:'auto' }} value={filterTeam} onChange={e=>setFilterTeam(e.target.value)}>
             {teamOptions.map(t=><option key={t} value={t}>{t==='ALL'?'ทุกรุ่น':t}</option>)}
           </select>
-          <button className="btn-primary" onClick={()=>{setTab('add');setStatVals({});}}>
+          <button className="btn-primary" onClick={startAdd}>
             <i className="bi bi-plus-circle me-1"/>บันทึกผลแข่ง
           </button>
         </div>
       </div>
 
       {/* Summary */}
-      {summary.total > 0 && (
+      {summary.total > 0 && tab === 'list' && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:10, marginBottom:18 }}>
           {[
             { l:'แมทช์', v:summary.total, c:'#38bdf8' },
@@ -157,6 +250,7 @@ export default function MatchLogPage({ athletes, user }: Props) {
         </div>
       )}
 
+      {/* ── LIST TAB ── */}
       {tab === 'list' && (
         <>
           {loading && <div style={{textAlign:'center',padding:40}}><div className="spinner-ring"/></div>}
@@ -164,7 +258,7 @@ export default function MatchLogPage({ athletes, user }: Props) {
             <div style={{textAlign:'center',padding:60,color:'var(--text-muted)'}}>
               <i className="bi bi-shield-check" style={{fontSize:'3rem',display:'block',marginBottom:10,color:'#cbd5e1'}}/>
               <p>ยังไม่มีข้อมูลการแข่งขัน</p>
-              <button className="btn-primary" style={{marginTop:12}} onClick={()=>setTab('add')}><i className="bi bi-plus-circle me-1"/>บันทึกผลแข่งแรก</button>
+              <button className="btn-primary" style={{marginTop:12}} onClick={startAdd}><i className="bi bi-plus-circle me-1"/>บันทึกผลแข่งแรก</button>
             </div>
           )}
           {!loading && matches.map(m => (
@@ -188,93 +282,270 @@ export default function MatchLogPage({ athletes, user }: Props) {
         </>
       )}
 
+      {/* ── ADD TAB ── */}
       {tab === 'add' && (
         <div>
-          <button className="btn-outline btn-sm" onClick={()=>setTab('list')} style={{marginBottom:16}}><i className="bi bi-arrow-left me-1"/>กลับ</button>
-          <div className="surface" style={{marginBottom:16,padding:'16px 20px'}}>
-            <div className="section-hd" style={{marginBottom:14}}><i className="bi bi-shield-check me-2" style={{color:'#38bdf8'}}/>ข้อมูลการแข่งขัน</div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:12}}>
-              <div style={{flex:'1 1 140px'}}>
-                <label className="form-label">วันที่</label>
-                <input type="date" className="form-control" value={form.matchDate} onChange={e=>setForm(f=>({...f,matchDate:e.target.value}))}/>
-              </div>
-              <div style={{flex:'2 1 200px'}}>
-                <label className="form-label">ทีมคู่แข่ง *</label>
-                <input className="form-control" value={form.opponent} placeholder="ชื่อทีมคู่แข่ง" onChange={e=>setForm(f=>({...f,opponent:e.target.value}))}/>
-              </div>
-              <div style={{flex:'1 1 120px'}}>
-                <label className="form-label">รุ่นทีม</label>
-                <select className="form-select" value={form.teamName} onChange={e=>setForm(f=>({...f,teamName:e.target.value}))}>
-                  <option value="">ทั้งหมด</option>
-                  {TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div style={{flex:'1 1 120px'}}>
-                <label className="form-label">ประเภท</label>
-                <select className="form-select" value={form.matchType} onChange={e=>setForm(f=>({...f,matchType:e.target.value}))}>
-                  {MATCH_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div style={{flex:'1 1 80px'}}>
-                <label className="form-label">ประตูที่ยิงได้</label>
-                <input type="number" min={0} className="form-control" value={form.scoreFor} onChange={e=>setForm(f=>({...f,scoreFor:e.target.value}))}/>
-              </div>
-              <div style={{flex:'1 1 80px'}}>
-                <label className="form-label">ประตูที่เสีย</label>
-                <input type="number" min={0} className="form-control" value={form.scoreAgainst} onChange={e=>setForm(f=>({...f,scoreAgainst:e.target.value}))}/>
-              </div>
-              <div style={{flex:'2 1 200px'}}>
-                <label className="form-label">สนาม</label>
-                <input className="form-control" value={form.venue} placeholder="สนามแข่งขัน" onChange={e=>setForm(f=>({...f,venue:e.target.value}))}/>
-              </div>
-            </div>
-          </div>
-
-          {/* Player stats */}
-          <div className="surface" style={{padding:0,overflow:'hidden',marginBottom:16}}>
-            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:'0.85rem'}}>
-              <i className="bi bi-people-fill me-2" style={{color:'#38bdf8'}}/>สถิตินักกีฬา ({filteredAthletes.length} คน)
-            </div>
-            <div style={{overflowX:'auto'}}>
-              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.78rem'}}>
-                <thead><tr style={{background:'var(--bg)'}}>
-                  {['นักกีฬา','นาทีที่เล่น','ประตู','Assist','ใบเหลือง','ใบแดง','Rating (1-10)'].map(h=>(
-                    <th key={h} style={{padding:'8px 10px',fontWeight:700,color:'var(--text-muted)',borderBottom:'1px solid var(--border)',textAlign:'center',whiteSpace:'nowrap'}}>{h}</th>
-                  ))}
-                </tr></thead>
-                <tbody>
-                  {filteredAthletes.map(a => {
-                    const s = statVals[a.PlayerID] || {};
-                    const inp = (k: keyof MatchStat, max: number, col?: string) => (
-                      <input type="number" min={0} max={max} style={{width:54,textAlign:'center',border:'1px solid var(--border)',borderRadius:6,padding:'4px',background:'var(--bg)',color:col||'var(--text-main)',fontWeight:700}}
-                        value={s[k]||''} placeholder="—" onChange={e=>setStat(a.PlayerID, k, Number(e.target.value))}/>
-                    );
-                    return (
-                      <tr key={a.PlayerID} style={{borderBottom:'1px solid var(--border)'}}>
-                        <td style={{padding:'8px 12px'}}>
-                          <div style={{fontWeight:700}}>{a.Name}</div>
-                          <div style={{fontSize:'0.65rem',color:'var(--text-muted)'}}>{a.Nickname&&`"${a.Nickname}" · `}{a.Position||'—'}</div>
-                        </td>
-                        <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('minutesPlayed',200)}</td>
-                        <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('goals',20,'#10b981')}</td>
-                        <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('assists',20,'#38bdf8')}</td>
-                        <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('yellowCards',2,'#f59e0b')}</td>
-                        <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('redCards',1,'#ef4444')}</td>
-                        <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('rating',10,'#6366f1')}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <button className="btn-primary w-100" style={{justifyContent:'center',padding:14}} onClick={handleSave} disabled={saving}>
-            {saving ? <><span className="spinner-ring" style={{width:18,height:18,borderWidth:2,margin:0}}/> บันทึก...</> : <><i className="bi bi-floppy me-1"/>บันทึกผลการแข่งขัน</>}
+          <button className="btn-outline btn-sm" onClick={()=>{setTab('list');setAddStep(1);}} style={{marginBottom:16}}>
+            <i className="bi bi-arrow-left me-1"/>กลับ
           </button>
+
+          <StepBar />
+
+          {/* ── STEP 1: Match Info ── */}
+          {addStep === 1 && (
+            <div>
+              <div className="surface" style={{padding:'16px 20px',marginBottom:16}}>
+                <div className="section-hd" style={{marginBottom:14}}><i className="bi bi-shield-check me-2" style={{color:'#38bdf8'}}/>ข้อมูลการแข่งขัน</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:12}}>
+                  <div style={{flex:'1 1 140px'}}>
+                    <label className="form-label">วันที่</label>
+                    <input type="date" className="form-control" value={form.matchDate} onChange={e=>setForm(f=>({...f,matchDate:e.target.value}))}/>
+                  </div>
+                  <div style={{flex:'2 1 200px'}}>
+                    <label className="form-label">ทีมคู่แข่ง *</label>
+                    <input className="form-control" value={form.opponent} placeholder="ชื่อทีมคู่แข่ง" onChange={e=>setForm(f=>({...f,opponent:e.target.value}))}/>
+                  </div>
+                  <div style={{flex:'1 1 120px'}}>
+                    <label className="form-label">รุ่นทีม</label>
+                    <select className="form-select" value={form.teamName} onChange={e=>setForm(f=>({...f,teamName:e.target.value}))}>
+                      <option value="">— ทั้งหมด —</option>
+                      {TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div style={{flex:'1 1 120px'}}>
+                    <label className="form-label">ประเภท</label>
+                    <select className="form-select" value={form.matchType} onChange={e=>setForm(f=>({...f,matchType:e.target.value}))}>
+                      {MATCH_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div style={{flex:'1 1 80px'}}>
+                    <label className="form-label">ประตูได้</label>
+                    <input type="number" min={0} className="form-control" value={form.scoreFor} onChange={e=>setForm(f=>({...f,scoreFor:e.target.value}))}/>
+                  </div>
+                  <div style={{flex:'1 1 80px'}}>
+                    <label className="form-label">ประตูเสีย</label>
+                    <input type="number" min={0} className="form-control" value={form.scoreAgainst} onChange={e=>setForm(f=>({...f,scoreAgainst:e.target.value}))}/>
+                  </div>
+                  <div style={{flex:'2 1 200px'}}>
+                    <label className="form-label">สนาม</label>
+                    <input className="form-control" value={form.venue} placeholder="สนามแข่งขัน" onChange={e=>setForm(f=>({...f,venue:e.target.value}))}/>
+                  </div>
+                  <div style={{flex:'100% 1 100%'}}>
+                    <label className="form-label">หมายเหตุ</label>
+                    <input className="form-control" value={form.notes} placeholder="บันทึกเพิ่มเติม..." onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+                  </div>
+                </div>
+              </div>
+              <button className="btn-primary w-100" style={{justifyContent:'center',padding:14}} onClick={()=>{
+                if (!form.opponent.trim()) { showToast('กรุณากรอกชื่อทีมคู่แข่ง','error'); return; }
+                setAddStep(2);
+              }}>
+                ถัดไป: เลือกผู้เล่น <i className="bi bi-arrow-right ms-1"/>
+              </button>
+            </div>
+          )}
+
+          {/* ── STEP 2: Player Selection ── */}
+          {addStep === 2 && (
+            <div>
+              {/* Header */}
+              <div className="surface" style={{padding:'14px 16px',marginBottom:12}}>
+                <div style={{fontWeight:700,fontSize:'0.9rem',marginBottom:10}}>
+                  <i className="bi bi-people-fill me-2" style={{color:'#38bdf8'}}/>
+                  เลือกนักกีฬาที่ลงเล่น
+                </div>
+                {/* Filters */}
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <select className="form-select" style={{flex:'1 1 120px'}} value={form.teamName} onChange={e=>setForm(f=>({...f,teamName:e.target.value}))}>
+                    <option value="">— รุ่นทั้งหมด —</option>
+                    {TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <select className="form-select" style={{flex:'1 1 140px'}} value={filterPos} onChange={e=>setFilterPos(e.target.value)}>
+                    <option value="">— ตำแหน่งทั้งหมด —</option>
+                    {POSITIONS.map(p=><option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <div style={{flex:'2 1 200px',position:'relative'}}>
+                    <i className="bi bi-search" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text-muted)',fontSize:'0.8rem'}}/>
+                    <input className="form-control" style={{paddingLeft:30}} placeholder="ค้นชื่อ..." value={searchQ} onChange={e=>setSearchQ(e.target.value)}/>
+                  </div>
+                </div>
+              </div>
+
+              {/* Select all row */}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 16px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,marginBottom:8}}>
+                <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',fontWeight:600,fontSize:'0.82rem'}}>
+                  <input type="checkbox" checked={allDisplaySelected} onChange={toggleSelectAll}
+                    style={{width:16,height:16,accentColor:'#38bdf8',cursor:'pointer'}}/>
+                  เลือกทั้งหมด ({displayAthletes.length} คน)
+                </label>
+                <span style={{fontSize:'0.75rem',color:'var(--text-muted)'}}>แสดง {displayAthletes.length} คน</span>
+              </div>
+
+              {/* Athlete list */}
+              <div style={{marginBottom:80}}>
+                {displayAthletes.length === 0 && (
+                  <div style={{textAlign:'center',padding:40,color:'var(--text-muted)',fontSize:'0.85rem'}}>
+                    <i className="bi bi-search" style={{display:'block',fontSize:'2rem',marginBottom:8,color:'#cbd5e1'}}/>
+                    ไม่พบนักกีฬา
+                  </div>
+                )}
+                {displayAthletes.map(a => {
+                  const checked = selectedIds.has(a.PlayerID);
+                  const teamColor = TEAM_COLORS[a.Team] || '#6366f1';
+                  return (
+                    <div key={a.PlayerID}
+                      onClick={()=>togglePlayer(a.PlayerID)}
+                      style={{
+                        display:'flex', alignItems:'center', gap:12,
+                        padding:'10px 16px', cursor:'pointer',
+                        borderBottom:'1px solid var(--border)',
+                        background: checked ? 'rgba(56,189,248,0.06)' : 'var(--surface)',
+                        transition:'background 0.15s',
+                      }}>
+                      <input type="checkbox" checked={checked} onChange={()=>togglePlayer(a.PlayerID)}
+                        onClick={e=>e.stopPropagation()}
+                        style={{width:16,height:16,accentColor:'#38bdf8',cursor:'pointer',flexShrink:0}}/>
+                      {/* Avatar */}
+                      <div style={{
+                        width:40,height:40,borderRadius:'50%',flexShrink:0,overflow:'hidden',
+                        background: a.PhotoUrl ? 'transparent' : teamColor,
+                        display:'flex',alignItems:'center',justifyContent:'center',
+                        fontSize:'0.75rem',fontWeight:800,color:'white',
+                        border: checked ? `2px solid #38bdf8` : '2px solid transparent',
+                      }}>
+                        {a.PhotoUrl
+                          ? <img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                          : initials(a.Name)
+                        }
+                      </div>
+                      {/* Name */}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:700,fontSize:'0.85rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Name}</div>
+                        {a.Nickname && <div style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>{a.Nickname}</div>}
+                      </div>
+                      {/* Team badge */}
+                      {a.Team && (
+                        <span style={{
+                          background:`${teamColor}20`,color:teamColor,
+                          borderRadius:6,padding:'2px 8px',fontSize:'0.7rem',fontWeight:800,
+                          border:`1px solid ${teamColor}40`,flexShrink:0,
+                        }}>{a.Team}</span>
+                      )}
+                      {/* Position */}
+                      {a.Position && (
+                        <span style={{fontSize:'0.72rem',color:'var(--text-muted)',flexShrink:0,minWidth:60,textAlign:'right'}}>{a.Position}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Sticky bottom bar */}
+              <div style={{
+                position:'sticky',bottom:0,left:0,right:0,
+                background:'var(--bg)',borderTop:'1px solid var(--border)',
+                padding:'12px 16px',display:'flex',gap:10,alignItems:'center',
+                backdropFilter:'blur(8px)',
+              }}>
+                <button className="btn-outline" style={{flexShrink:0}} onClick={()=>setAddStep(1)}>
+                  <i className="bi bi-arrow-left me-1"/>ก่อนหน้า
+                </button>
+                <div style={{flex:1,fontSize:'0.82rem',color:'var(--text-muted)'}}>
+                  เลือกแล้ว <strong style={{color:'#38bdf8'}}>{selectedIds.size} คน</strong>
+                </div>
+                <button className="btn-primary" style={{flexShrink:0}} onClick={()=>{
+                  if (selectedIds.size === 0) { showToast('กรุณาเลือกผู้เล่นอย่างน้อย 1 คน','error'); return; }
+                  setAddStep(3);
+                }}>
+                  <i className="bi bi-people-fill me-1"/>เพิ่มเข้าตาราง ({selectedIds.size} คน)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 3: Stats ── */}
+          {addStep === 3 && (
+            <div>
+              {/* Match summary */}
+              <div style={{background:'linear-gradient(135deg,#0f172a,#1e293b)',borderRadius:12,padding:'14px 18px',marginBottom:16,color:'white',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+                <div>
+                  <div style={{fontWeight:900,fontSize:'1.6rem',letterSpacing:2}}>{form.scoreFor} <span style={{color:'#7dd3fc',fontSize:'0.9rem'}}>vs</span> {form.scoreAgainst}</div>
+                  <div style={{fontSize:'0.78rem',color:'#7dd3fc'}}>vs {form.opponent}</div>
+                </div>
+                <div style={{flex:1,fontSize:'0.75rem',color:'#94a3b8'}}>
+                  <div>{fmtDate(form.matchDate)} · {form.matchType} {form.teamName && `· ${form.teamName}`}</div>
+                  {form.venue && <div><i className="bi bi-geo-alt me-1"/>{form.venue}</div>}
+                </div>
+                <button style={{background:'transparent',border:'1px solid #334155',borderRadius:8,color:'#94a3b8',padding:'4px 12px',fontSize:'0.75rem',cursor:'pointer'}} onClick={()=>setAddStep(2)}>
+                  <i className="bi bi-people-fill me-1"/>{selectedIds.size} คน
+                </button>
+              </div>
+
+              <div className="surface" style={{padding:0,overflow:'hidden',marginBottom:16}}>
+                <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:'0.85rem'}}>
+                  <i className="bi bi-table me-2" style={{color:'#38bdf8'}}/>สถิตินักกีฬา ({selectedAthletes.length} คน)
+                </div>
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.78rem'}}>
+                    <thead><tr style={{background:'var(--bg)'}}>
+                      {['นักกีฬา','นาทีที่เล่น','ประตู','Assist','ใบเหลือง','ใบแดง','Rating'].map(h=>(
+                        <th key={h} style={{padding:'8px 10px',fontWeight:700,color:'var(--text-muted)',borderBottom:'1px solid var(--border)',textAlign:'center',whiteSpace:'nowrap'}}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {selectedAthletes.map(a => {
+                        const s = statVals[a.PlayerID] || {};
+                        const inp = (k: keyof MatchStat, max: number, col?: string) => (
+                          <input type="number" min={0} max={max}
+                            style={{width:54,textAlign:'center',border:'1px solid var(--border)',borderRadius:6,padding:'4px',background:'var(--bg)',color:col||'var(--text-main)',fontWeight:700}}
+                            value={s[k]||''} placeholder="—"
+                            onChange={e=>setStat(a.PlayerID, k, Number(e.target.value))}/>
+                        );
+                        return (
+                          <tr key={a.PlayerID} style={{borderBottom:'1px solid var(--border)'}}>
+                            <td style={{padding:'8px 12px'}}>
+                              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                <div style={{
+                                  width:28,height:28,borderRadius:'50%',overflow:'hidden',flexShrink:0,
+                                  background:TEAM_COLORS[a.Team]||'#6366f1',display:'flex',alignItems:'center',justifyContent:'center',
+                                  fontSize:'0.65rem',fontWeight:800,color:'white',
+                                }}>
+                                  {a.PhotoUrl ? <img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : initials(a.Name)}
+                                </div>
+                                <div>
+                                  <div style={{fontWeight:700}}>{a.Name}</div>
+                                  <div style={{fontSize:'0.65rem',color:'var(--text-muted)'}}>{a.Nickname&&`"${a.Nickname}" · `}{a.Position||'—'}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('minutesPlayed',200)}</td>
+                            <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('goals',20,'#10b981')}</td>
+                            <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('assists',20,'#38bdf8')}</td>
+                            <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('yellowCards',2,'#f59e0b')}</td>
+                            <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('redCards',1,'#ef4444')}</td>
+                            <td style={{textAlign:'center',padding:'4px 6px'}}>{inp('rating',10,'#6366f1')}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div style={{display:'flex',gap:10}}>
+                <button className="btn-outline" onClick={()=>setAddStep(2)}>
+                  <i className="bi bi-arrow-left me-1"/>ก่อนหน้า
+                </button>
+                <button className="btn-primary" style={{flex:1,justifyContent:'center',padding:14}} onClick={handleSave} disabled={saving}>
+                  {saving ? <><span className="spinner-ring" style={{width:18,height:18,borderWidth:2,margin:0}}/> บันทึก...</> : <><i className="bi bi-floppy me-1"/>บันทึกผลการแข่งขัน</>}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
+      {/* ── DETAIL TAB ── */}
       {tab === 'detail' && selectedMatch && (
         <div>
           <button className="btn-outline btn-sm" onClick={()=>setTab('list')} style={{marginBottom:16}}><i className="bi bi-arrow-left me-1"/>กลับ</button>
@@ -307,8 +578,21 @@ export default function MatchLogPage({ athletes, user }: Props) {
                       const a = athletes.find(x=>x.PlayerID===s.playerId);
                       return (
                         <tr key={s.id} style={{borderBottom:'1px solid var(--border)'}}>
-                          <td style={{padding:'8px 12px',fontWeight:700}}>{a?.Name||s.playerId}</td>
-                          <td style={{textAlign:'center'}}>{s.minutesPlayed}'</td>
+                          <td style={{padding:'8px 12px'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8}}>
+                              {a && (
+                                <div style={{
+                                  width:28,height:28,borderRadius:'50%',overflow:'hidden',flexShrink:0,
+                                  background:TEAM_COLORS[a.Team]||'#6366f1',display:'flex',alignItems:'center',justifyContent:'center',
+                                  fontSize:'0.65rem',fontWeight:800,color:'white',
+                                }}>
+                                  {a.PhotoUrl ? <img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : initials(a.Name)}
+                                </div>
+                              )}
+                              <span style={{fontWeight:700}}>{a?.Name||s.playerId}</span>
+                            </div>
+                          </td>
+                          <td style={{textAlign:'center'}}>{s.minutesPlayed}&apos;</td>
                           <td style={{textAlign:'center',color:'#10b981',fontWeight:700}}>{s.goals||'—'}</td>
                           <td style={{textAlign:'center',color:'#38bdf8',fontWeight:700}}>{s.assists||'—'}</td>
                           <td style={{textAlign:'center'}}>{s.yellowCards>0?<span style={{color:'#f59e0b',fontWeight:900}}>{'🟨'.repeat(s.yellowCards)}</span>:'—'}</td>
@@ -320,6 +604,12 @@ export default function MatchLogPage({ athletes, user }: Props) {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+          {matchStats.length === 0 && (
+            <div style={{textAlign:'center',padding:40,color:'var(--text-muted)',fontSize:'0.85rem'}}>
+              <i className="bi bi-bar-chart" style={{display:'block',fontSize:'2rem',marginBottom:8,color:'#cbd5e1'}}/>
+              ไม่มีสถิตินักกีฬาในแมทช์นี้
             </div>
           )}
         </div>
