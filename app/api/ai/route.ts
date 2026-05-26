@@ -15,7 +15,7 @@ function getClient() {
 
 async function generate(prompt: string, system: string): Promise<string> {
   const model = getClient().getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-1.5-flash-latest',
     systemInstruction: system,
   });
   const result = await model.generateContent(prompt);
