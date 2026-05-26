@@ -3,6 +3,17 @@ import { supabase as sb } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
 import { getScorePoint } from '@/lib/score';
 import { calcYoyoDist, calcVo2 } from '@/lib/devData';
+import { signToken, verifyToken, SessionPayload } from '@/lib/session';
+
+// Actions that don't require a login token
+const PUBLIC_ACTIONS = new Set(['login', 'setup']);
+// Actions that require admin role
+const ADMIN_ONLY_ACTIONS = new Set(['deleteAthlete', 'deleteUser', 'deleteIR', 'deleteTestRecord', 'deleteTrainingVideo']);
+
+function getSession(req: NextRequest): SessionPayload | null {
+  const auth = req.headers.get('Authorization') ?? '';
+  return auth.startsWith('Bearer ') ? verifyToken(auth.slice(7)) : null;
+}
 
 // ─── Transformers ─────────────────────────────────────────────────────────────
 function toTestRecord(r: Record<string, unknown>) {
@@ -144,7 +155,23 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { action, params = {} } = await req.json();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body = await req.json() as any;
+  const action: string = body.action ?? '';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const params: any = body.params ?? {};
+
+  // ── Auth gate ────────────────────────────────────────────────────────────
+  let session: SessionPayload | null = null;
+  if (!PUBLIC_ACTIONS.has(action)) {
+    session = getSession(req);
+    if (!session) {
+      return NextResponse.json({ status: 'error', message: 'Unauthorized' }, { status: 401 });
+    }
+    if (ADMIN_ONLY_ACTIONS.has(action) && session.role !== 'admin') {
+      return NextResponse.json({ status: 'error', message: 'Forbidden' }, { status: 403 });
+    }
+  }
 
   try {
     switch (action) {
@@ -175,15 +202,18 @@ export async function POST(req: NextRequest) {
 
         if (!valid) return NextResponse.json({ status: 'error', message: 'รหัสผ่านไม่ถูกต้อง' });
 
+        const token = signToken({ username: user.username, role: user.role, clubId: user.club_id || '', iat: Date.now() });
         return NextResponse.json({
           status: 'success',
+          token,
           user: { username: user.username, role: user.role, displayName: user.display_name, clubId: user.club_id, logoUrl: user.logo_url || '' },
         });
       }
 
       // ── GET ATHLETES ───────────────────────────────────────────────────────
       case 'getAthleteData': {
-        const { clubId, role } = params;
+        // Use verified session — never trust role/clubId from client
+        const { role, clubId } = session!;
         let q = sb.from('athletes').select('*, test_records(*)').order('name');
         if (role !== 'admin' && clubId) q = q.eq('club_id', clubId);
 
@@ -801,8 +831,18 @@ export async function POST(req: NextRequest) {
 
       case 'changePassword':
       case 'updatePassword': {
-        const { username, newPassword } = params;
-        const hash = await bcrypt.hash(newPassword, 10);
+        const { username, newPassword, currentPassword } = params as { username: string; newPassword: string; currentPassword?: string };
+        // Non-admin can only change their own password and must provide current password
+        if (session!.role !== 'admin') {
+          if (session!.username !== username)
+            return NextResponse.json({ status: 'error', message: 'ไม่มีสิทธิ์เปลี่ยนรหัสผ่านของผู้ใช้อื่น' }, { status: 403 });
+          if (!currentPassword)
+            return NextResponse.json({ status: 'error', message: 'กรุณากรอกรหัสผ่านปัจจุบัน' });
+          const { data: u } = await sb.from('users').select('password_hash').eq('username', username).single();
+          if (!u || !await bcrypt.compare(currentPassword, u.password_hash))
+            return NextResponse.json({ status: 'error', message: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' });
+        }
+        const hash = await bcrypt.hash(String(newPassword), 10);
         const { error } = await sb.from('users').update({ password_hash: hash }).eq('username', username);
         if (error) throw error;
         return NextResponse.json({ status: 'success', message: 'เปลี่ยนรหัสผ่านสำเร็จ' });

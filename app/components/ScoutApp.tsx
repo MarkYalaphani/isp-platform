@@ -122,6 +122,8 @@ export default function ScoutApp() {
     setAthletes([]);
     sessionStorage.removeItem('scoutUser');
     localStorage.removeItem('scoutUser');
+    sessionStorage.removeItem('scoutToken');
+    localStorage.removeItem('scoutToken');
     setCurrentPage('home');
   };
 

@@ -41,8 +41,12 @@ export default function LoginModal({ onLogin }: Props) {
     setLoading(true);
     setError('');
     try {
-      const res = await callGAS('login', { username, password }) as { status: string; message?: string; user?: User };
+      const res = await callGAS('login', { username, password }) as { status: string; message?: string; user?: User; token?: string };
       if (res.status === 'success' && res.user) {
+        if (res.token) {
+          sessionStorage.setItem('scoutToken', res.token);
+          localStorage.setItem('scoutToken', res.token);
+        }
         onLogin(res.user);
       } else {
         setError(res.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
