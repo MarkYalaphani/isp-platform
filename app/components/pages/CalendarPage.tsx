@@ -6,7 +6,7 @@ import { showToast } from '@/lib/toast';
 
 interface Props { athletes: Athlete[]; user: User; onNavigate: (p: Page) => void; }
 
-interface Event {
+interface CalEvent {
   id: string;
   eventDate: string;
   title: string;
@@ -23,35 +23,47 @@ const TYPE_CFG = {
   test:     { label:'ทดสอบ',    color:'#10b981', icon:'bi-clipboard-check' },
   other:    { label:'อื่นๆ',    color:'#94a3b8', icon:'bi-calendar-event' },
 } as const;
+
 const TEAMS = ['','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U18','Senior'];
+const MONTH_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const DOW = ['อา','จ','อ','พ','พฤ','ศ','ส'];
 
 function daysInMonth(y: number, m: number) { return new Date(y, m + 1, 0).getDate(); }
 function firstDayOfMonth(y: number, m: number) { return new Date(y, m, 1).getDay(); }
+function fmtDateTH(dateStr: string) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('th-TH', { weekday:'long', day:'numeric', month:'long', year:'2-digit' });
+}
+
+const blankForm = () => ({ title:'', eventType:'training' as CalEvent['eventType'], teamName:'', venue:'', notes:'', eventDate:'' });
 
 export default function CalendarPage({ athletes, user, onNavigate }: Props) {
   const today = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<number|null>(null);
-  const [form, setForm] = useState({ title:'', eventType:'training' as Event['eventType'], teamName:'', venue:'', notes:'', eventDate:'' });
+
+  // Day panel state
+  const [dayPanelDate, setDayPanelDate]   = useState<string|null>(null);
+  const [showAddForm,  setShowAddForm]    = useState(false);
+  const [form, setForm]  = useState(blankForm());
   const [saving, setSaving] = useState(false);
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
     const ym = `${year}-${String(month+1).padStart(2,'0')}`;
     try {
-      const d = await callGAS('getCalendarEvents', { yearMonth: ym, clubId: user.clubId||'' }) as Event[];
+      const d = await callGAS('getCalendarEvents', { yearMonth: ym, clubId: user.clubId||'' }) as CalEvent[];
       setEvents(Array.isArray(d) ? d : []);
-    } catch { /* silent */ } finally { setLoading(false); }
+    } catch { /* silent */ }
+    finally { setLoading(false); }
   }, [year, month, user.clubId]);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
   const byDay = useMemo(() => {
-    const map: Record<string, Event[]> = {};
+    const map: Record<string, CalEvent[]> = {};
     events.forEach(e => {
       const d = e.eventDate?.split('T')[0]?.split('-')[2];
       if (d) { if (!map[d]) map[d] = []; map[d].push(e); }
@@ -61,27 +73,37 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
 
   const days = daysInMonth(year, month);
   const firstDay = firstDayOfMonth(year, month);
-  const MONTH_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
-  const DOW = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
-  const openAdd = (day: number) => {
-    setSelectedDay(day);
+  /* ── open day panel ── */
+  const openDay = (day: number) => {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    setForm(f => ({ ...f, eventDate: dateStr, title:'', notes:'', venue:'', teamName:'' }));
-    setShowForm(true);
+    setDayPanelDate(dateStr);
+    setShowAddForm(false);
+    setForm({ ...blankForm(), eventDate: dateStr });
   };
 
+  const closePanel = () => { setDayPanelDate(null); setShowAddForm(false); };
+
+  /* ── save new event ── */
   const handleSave = async () => {
-    if (!form.title.trim()) { showToast('กรุณากรอกชื่อกิจกรรม', 'error'); return; }
+    if (!form.title.trim()) { showToast('กรุณากรอกชื่อกิจกรรม','error'); return; }
     setSaving(true);
     try {
-      const res = await callGAS('saveCalendarEvent', { ...form, clubId: user.clubId||'', createdBy: user.displayName||user.username }) as { status:string; message:string };
-      if (res.status === 'success') { showToast('บันทึกสำเร็จ', 'success'); setShowForm(false); loadEvents(); }
-      else showToast(res.message, 'error');
+      const res = await callGAS('saveCalendarEvent', {
+        ...form, clubId: user.clubId||'', createdBy: user.displayName||user.username,
+      }) as { status:string; message:string };
+      if (res.status === 'success') {
+        showToast('บันทึกสำเร็จ','success');
+        setShowAddForm(false);
+        setForm({ ...blankForm(), eventDate: dayPanelDate||'' });
+        await loadEvents();
+      } else showToast(res.message,'error');
     } catch { showToast('Connection error','error'); }
     finally { setSaving(false); }
   };
 
+  /* ── delete event ── */
   const handleDelete = async (id: string) => {
     if (!confirm('ลบกิจกรรมนี้?')) return;
     try {
@@ -91,10 +113,15 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
     } catch { showToast('Error','error'); }
   };
 
-  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y=>y-1); } else setMonth(m=>m-1); };
-  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y=>y+1); } else setMonth(m=>m+1); };
+  const prevMonth = () => { if (month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); };
+  const nextMonth = () => { if (month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1); };
 
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  /* ── events for the open day panel ── */
+  const dayEvents = useMemo(() => {
+    if (!dayPanelDate) return [];
+    const key = dayPanelDate.split('-')[2];
+    return byDay[key] || [];
+  }, [dayPanelDate, byDay]);
 
   return (
     <div>
@@ -103,7 +130,7 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
           <h2 className="page-title">ตารางซ้อม / แข่งขัน</h2>
           <p className="page-subtitle">วางแผนกิจกรรมทีม · ฝึกซ้อม · แข่งขัน · ทดสอบ</p>
         </div>
-        <button className="btn-primary" onClick={() => { setSelectedDay(today.getDate()); openAdd(today.getDate()); }}>
+        <button className="btn-primary" onClick={() => openDay(today.getDate())}>
           <i className="bi bi-plus-circle me-1"/>เพิ่มกิจกรรม
         </button>
       </div>
@@ -111,74 +138,80 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
       {/* Month nav */}
       <div className="surface" style={{ marginBottom:16, padding:'12px 20px', display:'flex', alignItems:'center', gap:12 }}>
         <button className="btn-outline" style={{ padding:'6px 10px' }} onClick={prevMonth}><i className="bi bi-chevron-left"/></button>
-        <div style={{ flex:1, textAlign:'center', fontWeight:800, fontSize:'1.2rem' }}>{MONTH_TH[month]} {year + 543}</div>
+        <div style={{ flex:1, textAlign:'center', fontWeight:800, fontSize:'1.2rem' }}>{MONTH_TH[month]} {year+543}</div>
         <button className="btn-outline" style={{ padding:'6px 10px' }} onClick={nextMonth}><i className="bi bi-chevron-right"/></button>
-        <button className="btn-outline btn-sm" onClick={()=>{ setYear(today.getFullYear()); setMonth(today.getMonth()); }}>วันนี้</button>
+        <button className="btn-outline btn-sm" onClick={()=>{setYear(today.getFullYear());setMonth(today.getMonth());}}>วันนี้</button>
       </div>
 
       {/* Calendar grid */}
       <div className="surface" style={{ padding:12, marginBottom:16 }}>
+        {/* DOW headers */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2, marginBottom:4 }}>
-          {DOW.map((d,i) => (
-            <div key={d} style={{ textAlign:'center', fontSize:'0.7rem', fontWeight:700, color: i===0||i===6 ? '#ef4444' : 'var(--text-muted)', padding:'4px 0' }}>{d}</div>
+          {DOW.map((d,i)=>(
+            <div key={d} style={{ textAlign:'center', fontSize:'0.7rem', fontWeight:700, color:i===0||i===6?'#ef4444':'var(--text-muted)', padding:'4px 0' }}>{d}</div>
           ))}
         </div>
+        {/* Day cells */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2 }}>
-          {Array.from({length: firstDay}).map((_,i) => <div key={`e${i}`}/>)}
-          {Array.from({length: days}).map((_,i) => {
-            const day = i + 1;
+          {Array.from({length:firstDay}).map((_,i)=><div key={`e${i}`}/>)}
+          {Array.from({length:days}).map((_,i)=>{
+            const day = i+1;
             const key = String(day).padStart(2,'0');
-            const dayEvents = byDay[key] || [];
-            const isToday = `${year}-${String(month+1).padStart(2,'0')}-${key}` === todayKey;
+            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${key}`;
+            const dayEvs = byDay[key]||[];
+            const isToday = dateStr === todayKey;
+            const isSelected = dateStr === dayPanelDate;
             return (
-              <div key={day} onClick={() => openAdd(day)} style={{
-                minHeight:70, padding:4, borderRadius:8, border: isToday ? '2px solid #38bdf8' : '1px solid var(--border)',
-                background: isToday ? 'rgba(56,189,248,0.06)' : 'var(--bg)', cursor:'pointer',
-                transition:'background 0.1s',
+              <div key={day} onClick={()=>openDay(day)} style={{
+                minHeight:72, padding:4, borderRadius:8,
+                border: isSelected ? '2px solid #38bdf8' : isToday ? '2px solid #38bdf880' : '1px solid var(--border)',
+                background: isSelected ? 'rgba(56,189,248,0.10)' : isToday ? 'rgba(56,189,248,0.04)' : 'var(--bg)',
+                cursor:'pointer', transition:'all 0.12s',
               }}
                 onMouseEnter={e=>(e.currentTarget.style.background='rgba(56,189,248,0.08)')}
-                onMouseLeave={e=>(e.currentTarget.style.background=isToday?'rgba(56,189,248,0.06)':'var(--bg)')}>
-                <div style={{ fontWeight: isToday ? 900 : 600, fontSize:'0.8rem', color: isToday ? '#38bdf8' : 'var(--text-main)', marginBottom:3 }}>{day}</div>
-                {dayEvents.slice(0,3).map((ev,j) => {
+                onMouseLeave={e=>(e.currentTarget.style.background=isSelected?'rgba(56,189,248,0.10)':isToday?'rgba(56,189,248,0.04)':'var(--bg)')}>
+                <div style={{ fontWeight:isToday?900:600, fontSize:'0.8rem', color:isToday?'#38bdf8':'var(--text-main)', marginBottom:3 }}>{day}</div>
+                {dayEvs.slice(0,3).map((ev,j)=>{
                   const tc = TYPE_CFG[ev.eventType]||TYPE_CFG.other;
                   return (
-                    <div key={j} style={{ background: tc.color+'22', color: tc.color, borderRadius:4, padding:'1px 5px', fontSize:'0.6rem', fontWeight:700, marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}
-                      onClick={e=>{ e.stopPropagation(); }}>
+                    <div key={j} style={{ background:tc.color+'22', color:tc.color, borderRadius:4, padding:'1px 5px', fontSize:'0.6rem', fontWeight:700, marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {ev.title}
                     </div>
                   );
                 })}
-                {dayEvents.length > 3 && <div style={{ fontSize:'0.58rem', color:'var(--text-muted)' }}>+{dayEvents.length-3}</div>}
+                {dayEvs.length>3&&<div style={{ fontSize:'0.58rem', color:'var(--text-muted)' }}>+{dayEvs.length-3}</div>}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Upcoming events list */}
+      {/* Month event list */}
       <div className="surface" style={{ padding:0, overflow:'hidden' }}>
         <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', fontWeight:700, fontSize:'0.85rem' }}>
           <i className="bi bi-calendar-check me-2" style={{ color:'#38bdf8' }}/>กิจกรรมในเดือนนี้ ({events.length})
         </div>
         {loading && <div style={{textAlign:'center',padding:24}}><div className="spinner-ring"/></div>}
-        {!loading && events.length === 0 && <div style={{textAlign:'center',padding:32,color:'var(--text-muted)',fontSize:'0.85rem'}}>ยังไม่มีกิจกรรม — คลิกวันในปฏิทินเพื่อเพิ่ม</div>}
-        {events.sort((a,b)=>a.eventDate.localeCompare(b.eventDate)).map(ev => {
+        {!loading && events.length===0 && (
+          <div style={{textAlign:'center',padding:32,color:'var(--text-muted)',fontSize:'0.85rem'}}>ยังไม่มีกิจกรรม — คลิกวันในปฏิทินเพื่อเพิ่ม</div>
+        )}
+        {[...events].sort((a,b)=>a.eventDate.localeCompare(b.eventDate)).map(ev=>{
           const tc = TYPE_CFG[ev.eventType]||TYPE_CFG.other;
           return (
-            <div key={ev.id} style={{ display:'flex', gap:12, alignItems:'center', padding:'10px 16px', borderBottom:'1px solid var(--border)' }}>
-              <div style={{ width:36, height:36, borderRadius:10, background: tc.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <i className={`bi ${tc.icon}`} style={{ color: tc.color }}/>
+            <div key={ev.id} style={{ display:'flex', gap:12, alignItems:'center', padding:'10px 16px', borderBottom:'1px solid var(--border)', cursor:'pointer' }}
+              onClick={()=>openDay(parseInt(ev.eventDate.split('-')[2]))}>
+              <div style={{ width:36, height:36, borderRadius:10, background:tc.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <i className={`bi ${tc.icon}`} style={{ color:tc.color }}/>
               </div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontWeight:700, fontSize:'0.85rem' }}>{ev.title}</div>
                 <div style={{ fontSize:'0.65rem', color:'var(--text-muted)' }}>
-                  {new Date(ev.eventDate).toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'})}
-                  {ev.teamName && ` · ${ev.teamName}`}
-                  {ev.venue && ` · ${ev.venue}`}
+                  {new Date(ev.eventDate+'T12:00:00').toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'})}
+                  {ev.teamName&&` · ${ev.teamName}`}{ev.venue&&` · ${ev.venue}`}
                 </div>
               </div>
-              <span style={{ background: tc.color+'18', color: tc.color, borderRadius:6, padding:'2px 8px', fontSize:'0.68rem', fontWeight:700 }}>{tc.label}</span>
-              <button onClick={() => handleDelete(ev.id)} style={{ padding:'4px 8px', border:'1px solid #fecaca', background:'#fef2f2', color:'#dc2626', borderRadius:6, cursor:'pointer', fontSize:'0.75rem', flexShrink:0 }}>
+              <span style={{ background:tc.color+'18', color:tc.color, borderRadius:6, padding:'2px 8px', fontSize:'0.68rem', fontWeight:700 }}>{tc.label}</span>
+              <button onClick={e=>{e.stopPropagation();handleDelete(ev.id);}} style={{ padding:'4px 8px', border:'1px solid #fecaca', background:'#fef2f2', color:'#dc2626', borderRadius:6, cursor:'pointer', fontSize:'0.75rem', flexShrink:0 }}>
                 <i className="bi bi-trash"/>
               </button>
             </div>
@@ -186,47 +219,115 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
         })}
       </div>
 
-      {/* Add event modal */}
-      {showForm && (
-        <div className="modal-overlay" onClick={()=>setShowForm(false)}>
-          <div className="modal-content" onClick={e=>e.stopPropagation()} style={{ maxWidth:480 }}>
-            <div style={{ fontWeight:800, fontSize:'1rem', marginBottom:16 }}>
-              <i className="bi bi-calendar-plus me-2" style={{ color:'#38bdf8' }}/>เพิ่มกิจกรรม — {form.eventDate}
-            </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              <div>
-                <label className="form-label">ชื่อกิจกรรม *</label>
-                <input className="form-control" value={form.title} placeholder="เช่น ซ้อมเช้า, แข่งขันลีก..." onChange={e=>setForm(f=>({...f,title:e.target.value}))}/>
+      {/* ── DAY PANEL MODAL ── */}
+      {dayPanelDate && (
+        <div className="modal-overlay" onClick={closePanel}>
+          <div className="modal-box" onClick={e=>e.stopPropagation()} style={{ maxWidth:520, maxHeight:'85vh', display:'flex', flexDirection:'column' }}>
+
+            {/* Panel header */}
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, flexShrink:0 }}>
+              <div style={{ width:40, height:40, borderRadius:12, background:'rgba(56,189,248,0.12)', border:'1.5px solid rgba(56,189,248,0.3)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <i className="bi bi-calendar3" style={{ color:'#38bdf8', fontSize:'1.1rem' }}/>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                <div>
-                  <label className="form-label">ประเภท</label>
-                  <select className="form-select" value={form.eventType} onChange={e=>setForm(f=>({...f,eventType:e.target.value as Event['eventType']}))}>
-                    {Object.entries(TYPE_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-                  </select>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:800, fontSize:'1rem', color:'var(--text-main)' }}>{fmtDateTH(dayPanelDate)}</div>
+                <div style={{ fontSize:'0.7rem', color:'var(--text-muted)' }}>{dayEvents.length} กิจกรรม</div>
+              </div>
+              <button onClick={closePanel} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'1.4rem', color:'#94a3b8', lineHeight:1 }}>×</button>
+            </div>
+
+            {/* Event list */}
+            <div style={{ flex:1, overflowY:'auto', marginBottom:16 }}>
+              {dayEvents.length === 0 && !showAddForm && (
+                <div style={{ textAlign:'center', padding:'32px 16px', color:'var(--text-muted)' }}>
+                  <i className="bi bi-calendar-x" style={{ fontSize:'2.5rem', display:'block', marginBottom:10, color:'#e2e8f0' }}/>
+                  <p style={{ margin:0, fontSize:'0.875rem' }}>ยังไม่มีกิจกรรมในวันนี้</p>
                 </div>
-                <div>
-                  <label className="form-label">รุ่น</label>
-                  <select className="form-select" value={form.teamName} onChange={e=>setForm(f=>({...f,teamName:e.target.value}))}>
-                    {TEAMS.map(t=><option key={t} value={t}>{t||'ทุกรุ่น'}</option>)}
-                  </select>
+              )}
+              {dayEvents.map(ev => {
+                const tc = TYPE_CFG[ev.eventType]||TYPE_CFG.other;
+                return (
+                  <div key={ev.id} style={{ display:'flex', gap:12, padding:'12px 14px', marginBottom:8, background:'var(--bg)', borderRadius:12, border:`1.5px solid ${tc.color}30` }}>
+                    <div style={{ width:38, height:38, borderRadius:10, background:tc.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <i className={`bi ${tc.icon}`} style={{ color:tc.color, fontSize:'1rem' }}/>
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontWeight:700, fontSize:'0.875rem', marginBottom:2 }}>{ev.title}</div>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:ev.notes?4:0 }}>
+                        <span style={{ background:tc.color+'18', color:tc.color, borderRadius:5, padding:'1px 7px', fontSize:'0.65rem', fontWeight:700 }}>{tc.label}</span>
+                        {ev.teamName && <span style={{ fontSize:'0.65rem', color:'var(--text-muted)', background:'var(--border)', borderRadius:5, padding:'1px 7px' }}>{ev.teamName}</span>}
+                        {ev.venue    && <span style={{ fontSize:'0.65rem', color:'var(--text-muted)' }}><i className="bi bi-geo-alt me-1"/>{ev.venue}</span>}
+                        {ev.createdBy&& <span style={{ fontSize:'0.65rem', color:'var(--text-muted)' }}><i className="bi bi-person me-1"/>{ev.createdBy}</span>}
+                      </div>
+                      {ev.notes && <div style={{ fontSize:'0.75rem', color:'var(--text-muted)', borderLeft:'3px solid '+tc.color+'55', paddingLeft:8, fontStyle:'italic' }}>{ev.notes}</div>}
+                    </div>
+                    <button onClick={()=>handleDelete(ev.id)} style={{ alignSelf:'flex-start', padding:'4px 8px', border:'1px solid #fecaca', background:'#fef2f2', color:'#dc2626', borderRadius:7, cursor:'pointer', fontSize:'0.72rem', flexShrink:0 }}>
+                      <i className="bi bi-trash"/>
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Inline add form */}
+              {showAddForm && (
+                <div style={{ background:'var(--bg)', borderRadius:12, border:'1.5px solid rgba(56,189,248,0.3)', padding:'14px 16px', marginTop:8 }}>
+                  <div style={{ fontWeight:700, fontSize:'0.875rem', color:'#38bdf8', marginBottom:12 }}>
+                    <i className="bi bi-plus-circle me-1"/>เพิ่มกิจกรรมใหม่
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div>
+                      <label className="form-label">ชื่อกิจกรรม *</label>
+                      <input className="form-control" value={form.title} placeholder="เช่น ซ้อมเช้า, แข่งขันลีก..."
+                        onChange={e=>setForm(f=>({...f,title:e.target.value}))}
+                        onKeyDown={e=>e.key==='Enter'&&handleSave()}
+                        autoFocus/>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                      <div>
+                        <label className="form-label">ประเภท</label>
+                        <select className="form-select" value={form.eventType} onChange={e=>setForm(f=>({...f,eventType:e.target.value as CalEvent['eventType']}))}>
+                          {Object.entries(TYPE_CFG).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="form-label">รุ่น</label>
+                        <select className="form-select" value={form.teamName} onChange={e=>setForm(f=>({...f,teamName:e.target.value}))}>
+                          {TEAMS.map(t=><option key={t} value={t}>{t||'ทุกรุ่น'}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="form-label">สถานที่</label>
+                      <input className="form-control" value={form.venue} placeholder="สนาม / สถานที่"
+                        onChange={e=>setForm(f=>({...f,venue:e.target.value}))}/>
+                    </div>
+                    <div>
+                      <label className="form-label">หมายเหตุ</label>
+                      <textarea className="form-control" rows={2} value={form.notes}
+                        onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
+                    </div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      <button className="btn-outline" style={{ flex:1 }} onClick={()=>setShowAddForm(false)}>ยกเลิก</button>
+                      <button className="btn-primary" style={{ flex:1, justifyContent:'center' }} onClick={handleSave} disabled={saving}>
+                        {saving
+                          ? <span className="spinner-ring" style={{width:16,height:16,borderWidth:2,margin:0}}/>
+                          : <><i className="bi bi-floppy me-1"/>บันทึก</>}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="form-label">สถานที่</label>
-                <input className="form-control" value={form.venue} placeholder="สนาม / สถานที่" onChange={e=>setForm(f=>({...f,venue:e.target.value}))}/>
-              </div>
-              <div>
-                <label className="form-label">หมายเหตุ</label>
-                <textarea className="form-control" rows={2} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
-              </div>
+              )}
             </div>
-            <div style={{ display:'flex', gap:10, marginTop:16 }}>
-              <button className="btn-outline" style={{ flex:1 }} onClick={()=>setShowForm(false)}>ยกเลิก</button>
-              <button className="btn-primary" style={{ flex:1, justifyContent:'center' }} onClick={handleSave} disabled={saving}>
-                {saving ? <span className="spinner-ring" style={{width:16,height:16,borderWidth:2,margin:0}}/> : <><i className="bi bi-floppy me-1"/>บันทึก</>}
-              </button>
-            </div>
+
+            {/* Panel footer */}
+            {!showAddForm && (
+              <div style={{ flexShrink:0, paddingTop:12, borderTop:'1px solid var(--border)' }}>
+                <button className="btn-primary" style={{ width:'100%', justifyContent:'center' }}
+                  onClick={()=>{ setForm({...blankForm(), eventDate:dayPanelDate||''}); setShowAddForm(true); }}>
+                  <i className="bi bi-plus-circle me-2"/>เพิ่มกิจกรรมในวันนี้
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
