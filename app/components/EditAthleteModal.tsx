@@ -34,6 +34,7 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
   });
   const [photo, setPhoto]           = useState<{ base64: string; mime: string } | null>(null);
   const [photoPreview, setPreview]  = useState(athlete.PhotoUrl || '');
+  const [photoCleared, setPhotoCleared] = useState(false);
   const [saving, setSaving]         = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +48,7 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
       const result = ev.target?.result as string;
       setPreview(result);
       setPhoto({ base64: result, mime: file.type });
+      setPhotoCleared(false);
     };
     reader.readAsDataURL(file);
   };
@@ -62,6 +64,7 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
         team: form.team, domHand: form.domHand, domFoot: form.domFoot,
         position: form.position, club: form.club, province: form.province,
         photoBase64: photo?.base64 || '', photoMimeType: photo?.mime || '',
+        clearPhoto: photoCleared && !photo,
       }) as { status: string; message?: string };
       if (res.status === 'success') {
         showToast('บันทึกสำเร็จ', 'success');
@@ -104,7 +107,7 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
                   <i className="bi bi-upload me-1" />เปลี่ยนรูป
                 </button>
                 {photoPreview && (
-                  <button type="button" className="btn-outline btn-sm" onClick={() => { setPhoto(null); setPreview(''); }}>
+                  <button type="button" className="btn-outline btn-sm" onClick={() => { setPhoto(null); setPreview(''); setPhotoCleared(true); }}>
                     <i className="bi bi-x me-1" />ลบรูป
                   </button>
                 )}

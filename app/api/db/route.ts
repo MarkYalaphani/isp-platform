@@ -8,7 +8,7 @@ import { signToken, verifyToken, SessionPayload } from '@/lib/session';
 // Actions that don't require a login token
 const PUBLIC_ACTIONS = new Set(['login', 'setup', 'getCheckInInfo', 'submitCheckIn']);
 // Actions that require admin role
-const ADMIN_ONLY_ACTIONS = new Set(['deleteAthlete', 'deleteUser', 'deleteIR', 'deleteTestRecord', 'deleteTrainingVideo']);
+const ADMIN_ONLY_ACTIONS = new Set(['deleteUser', 'deleteIR', 'deleteTestRecord', 'deleteTrainingVideo']);
 
 function getSession(req: NextRequest): SessionPayload | null {
   const auth = req.headers.get('Authorization') ?? '';
@@ -261,7 +261,7 @@ export async function POST(req: NextRequest) {
 
       // ── UPDATE ATHLETE ─────────────────────────────────────────────────────
       case 'updateAthlete': {
-        const { playerId, name, nickname, dob, team, domHand, domFoot, position, club, province, photoBase64, photoMimeType } = params;
+        const { playerId, name, nickname, dob, team, domHand, domFoot, position, club, province, photoBase64, photoMimeType, clearPhoto } = params;
         const upd: Record<string, unknown> = {
           name, nickname: nickname || '', dob: dob || '', team: team || '',
           dom_hand: domHand || 'Right', dom_foot: domFoot || 'Right',
@@ -270,6 +270,8 @@ export async function POST(req: NextRequest) {
         if (photoBase64) {
           const url = await uploadPhoto(playerId, photoBase64, photoMimeType || 'image/jpeg');
           if (url) upd.photo_url = url;
+        } else if (clearPhoto) {
+          upd.photo_url = '';
         }
         const { error } = await sb.from('athletes').update(upd).eq('player_id', playerId);
         if (error) throw error;
@@ -279,6 +281,13 @@ export async function POST(req: NextRequest) {
       // ── DELETE ATHLETE ─────────────────────────────────────────────────────
       case 'deleteAthlete': {
         const { playerId } = params;
+        // Non-admin can only delete athletes belonging to their own club
+        if (session!.role !== 'admin') {
+          const { data: ath } = await sb.from('athletes').select('club_id').eq('player_id', playerId).maybeSingle();
+          if (!ath || ath.club_id !== session!.clubId) {
+            return NextResponse.json({ status: 'error', message: 'ไม่มีสิทธิ์ลบนักกีฬาคนนี้' }, { status: 403 });
+          }
+        }
         const { error } = await sb.from('athletes').delete().eq('player_id', playerId);
         if (error) throw error;
         return NextResponse.json({ status: 'success', message: 'ลบสำเร็จ' });
