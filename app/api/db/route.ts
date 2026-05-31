@@ -321,7 +321,7 @@ export async function POST(req: NextRequest) {
         Object.keys(vals).forEach(k => { scores[k] = getScorePoint(k, vals[k], dob, position); });
         const rating = calcRating(scores);
 
-        const { error } = await sb.from('test_records').insert({
+        const insertData: Record<string, unknown> = {
           player_id: f.playerId,
           height: f.height||'', weight: f.weight||'', muscle: f.muscle||'', fat: f.fat||'',
           cmj: f.cmj||'', peak_power: peakPower, bmi, rating,
@@ -329,7 +329,9 @@ export async function POST(req: NextRequest) {
           situp: f.situp||'', long_jump: f.longJump||'', pushup: f.pushup||'',
           sit_and_reach: f.sitReach||'', agi_l: f.agiL||'', agi_r: f.agiR||'',
           yoyo_level: f.yoyoLevel||'', yoyo_shuttle: f.yoyoShuttle||'', vo2max,
-        });
+        };
+        if (f.testDate) insertData.timestamp = new Date(f.testDate).toISOString();
+        const { error } = await sb.from('test_records').insert(insertData);
         if (error) throw error;
         return NextResponse.json({ status: 'success', message: 'บันทึกผลการทดสอบสำเร็จ' });
       }
@@ -886,14 +888,16 @@ export async function POST(req: NextRequest) {
         const scores: Record<string, number> = {};
         Object.keys(vals).forEach(k => { scores[k] = getScorePoint(k, vals[k], dob, position); });
         const rating = calcRating(scores);
-        const { error } = await sb.from('test_records').update({
+        const updateData: Record<string, unknown> = {
           height: f.height||'', weight: f.weight||'', muscle: f.muscle||'', fat: f.fat||'',
           cmj: f.cmj||'', peak_power: peakPower, bmi, rating,
           speed30: f.speed30||'', agility, yoyo: rawYoyo,
           situp: f.situp||'', long_jump: f.longJump||'', pushup: f.pushup||'',
           sit_and_reach: f.sitReach||'', agi_l: f.agiL||'', agi_r: f.agiR||'',
           yoyo_level: f.yoyoLevel||'', yoyo_shuttle: f.yoyoShuttle||'', vo2max,
-        }).eq('id', f.testId);
+        };
+        if (f.testDate) updateData.timestamp = new Date(f.testDate).toISOString();
+        const { error } = await sb.from('test_records').update(updateData).eq('id', f.testId);
         if (error) throw error;
         return NextResponse.json({ status: 'success', message: 'อัปเดตผลเทสสำเร็จ' });
       }

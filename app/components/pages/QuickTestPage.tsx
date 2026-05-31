@@ -23,7 +23,8 @@ const STEPS = [
 
 export default function QuickTestPage({ athletes, onSuccess }: Props) {
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<FormData>({ playerId: '', height: '', weight: '', fat: '', muscle: '', speed30: '', cmj: '', agiL: '', agiR: '', yoyoLevel: '', yoyoShuttle: '', situp: '', longJump: '', pushup: '', sitReach: '' });
+  const today = new Date().toISOString().split('T')[0];
+  const [form, setForm] = useState<FormData>({ playerId: '', testDate: today, height: '', weight: '', fat: '', muscle: '', speed30: '', cmj: '', agiL: '', agiR: '', yoyoLevel: '', yoyoShuttle: '', situp: '', longJump: '', pushup: '', sitReach: '' });
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -71,9 +72,10 @@ export default function QuickTestPage({ athletes, onSuccess }: Props) {
         yoyo, vo2max: vo2,
         situp: form.situp, longJump: form.longJump,
         pushup: form.pushup, sitReach: form.sitReach,
+        testDate: form.testDate || today,
       });
       setDone(true);
-      setTimeout(() => { onSuccess(); setDone(false); setStep(0); setForm(f => ({ ...f, playerId: '' })); }, 1500);
+      setTimeout(() => { onSuccess(); setDone(false); setStep(0); setForm(f => ({ ...f, playerId: '', testDate: new Date().toISOString().split('T')[0] })); }, 1500);
     } catch { /* show nothing */ }
     finally { setSaving(false); }
   };
@@ -155,6 +157,10 @@ export default function QuickTestPage({ athletes, onSuccess }: Props) {
           <div>
             <label className="form-label">เลือกนักกีฬา *</label>
             <AthleteSearchSelect athletes={athletes} value={form.playerId} onChange={id => set('playerId', id)} />
+            <div style={{ marginTop: 16 }}>
+              <label className="form-label">วันที่ทดสอบ</label>
+              <input type="date" className="form-input" value={form.testDate} onChange={e => set('testDate', e.target.value)} max={today} />
+            </div>
             {form.playerId && athlete && (
               <div style={{ marginTop: 16, padding: 16, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10 }}>
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>{athlete.Name}</div>

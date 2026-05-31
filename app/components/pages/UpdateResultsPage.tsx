@@ -29,8 +29,9 @@ const METRIC_LABELS: Record<string, string> = {
 
 // ─── Single Update ────────────────────────────────────────────────────────────
 function SingleTab({ athletes, onSuccess }: Props) {
+  const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({
-    playerId: '', height: '', weight: '', fat: '', muscle: '',
+    playerId: '', testDate: today, height: '', weight: '', fat: '', muscle: '',
     cmj: '', speed30: '', agiL: '', agiR: '',
     yoyoLevel: '', yoyoShuttle: '', situp: '', longJump: '', pushup: '', sitReach: '',
   });
@@ -98,13 +99,15 @@ function SingleTab({ athletes, onSuccess }: Props) {
         yoyoLevel: form.yoyoLevel, yoyoShuttle: form.yoyoShuttle,
         yoyo, vo2max: vo2,
         situp: form.situp, longJump: form.longJump, pushup: form.pushup, sitReach: form.sitReach,
+        testDate: form.testDate || today,
       }) as { status: string; message: string };
       if (res.status === 'success') {
         showToast(res.message, 'success');
         const pid = form.playerId;
+        const newToday = new Date().toISOString().split('T')[0];
         setTimeout(() => {
           onSuccess();
-          setForm({ playerId: pid, height: '', weight: '', fat: '', muscle: '', cmj: '', speed30: '', agiL: '', agiR: '', yoyoLevel: '', yoyoShuttle: '', situp: '', longJump: '', pushup: '', sitReach: '' });
+          setForm({ playerId: pid, testDate: newToday, height: '', weight: '', fat: '', muscle: '', cmj: '', speed30: '', agiL: '', agiR: '', yoyoLevel: '', yoyoShuttle: '', situp: '', longJump: '', pushup: '', sitReach: '' });
         }, 1200);
       } else {
         showToast(res.message, 'error');
@@ -120,6 +123,8 @@ function SingleTab({ athletes, onSuccess }: Props) {
     <form onSubmit={handleSubmit}>
       <div className="surface mb-4">
         <div className="section-hd"><i className="bi bi-person" /> Select Athlete</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
+          <div style={{ flex: '2 1 200px' }}>
         <select className="form-select" value={form.playerId} onChange={e => {
             const pid = e.target.value;
             const a = athletes.find(x => x.PlayerID === pid);
@@ -135,6 +140,12 @@ function SingleTab({ athletes, onSuccess }: Props) {
           <option value="">— เลือกนักกีฬา —</option>
           {athletes.map(a => <option key={a.PlayerID} value={a.PlayerID}>{a.Name} ({a.Team || '—'})</option>)}
         </select>
+          </div>
+          <div style={{ flex: '1 1 160px' }}>
+            <label className="form-label">วันที่ทดสอบ</label>
+            <input type="date" className="form-control" value={form.testDate} onChange={e => set('testDate', e.target.value)} max={today} />
+          </div>
+        </div>
       </div>
 
       <div className="grid-form-side">
