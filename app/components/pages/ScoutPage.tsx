@@ -232,7 +232,7 @@ function FC26CardLarge({ athlete, teamLogo, cardRef }: {
 }) {
   const W = 220; const H = 330; const PANEL = 121; const photoH = H - PANEL;
   const rating = Math.round(Number(athlete?.Latest?.Rating) || 0);
-  const d = athlete.DOB || ''; const l = athlete.Latest || ''; const p = athlete.Position || '';
+  const d = athlete.DOB || ''; const l = athlete.Latest || {}; const p = athlete.Position || '';
   function toStat(s: number) { return s > 0 ? Math.min(99, Math.round(s * 19.8)) : 0; }
   const sc = {
     spd: toStat(getScorePoint('speed30',  String((l as Record<string,unknown>).Speed30    ||''), d, p)),

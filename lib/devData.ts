@@ -111,16 +111,29 @@ export const DEV_DATA: Record<string, DevMetric> = {
   },
 };
 
+// Yo-Yo IR Level 1 — standard Bangsbo protocol
+// YOYO_BASE: cumulative distance (m) at START of each level (before any shuttle at that level)
 export const YOYO_BASE: Record<number, number> = {
-  5:0, 9:40, 11:80, 12:160, 13:280, 14:440, 15:760,
-  16:1080, 17:1400, 18:1720, 19:2040, 20:2360, 21:2680, 22:3000, 23:3320,
+  5:0,    6:120,  7:240,  8:360,  9:480,
+  10:600, 11:720, 12:840, 13:960, 14:1080,
+  15:1280, 16:1480, 17:1680, 18:2000, 19:2320,
+  20:2640, 21:2960, 22:3280, 23:3600,
+};
+
+// Max shuttles per level (varies: 3 for lv5–13, 5 for lv14–16, 8 for lv17–23)
+export const YOYO_MAX_SHUTTLE: Record<number, number> = {
+  5:3,  6:3,  7:3,  8:3,  9:3,  10:3,
+  11:3, 12:3, 13:3,
+  14:5, 15:5, 16:5,
+  17:8, 18:8, 19:8, 20:8, 21:8, 22:8, 23:8,
 };
 
 export function calcYoyoDist(level: string | number, shuttle: string | number): number {
   const lvl = parseInt(String(level));
   const shut = parseInt(String(shuttle));
   if (!lvl || !shut || YOYO_BASE[lvl] === undefined) return 0;
-  return YOYO_BASE[lvl] + shut * 40;
+  const maxShut = YOYO_MAX_SHUTTLE[lvl] ?? 8;
+  return YOYO_BASE[lvl] + Math.min(shut, maxShut) * 40;
 }
 
 export function calcVo2(dist: number): string {

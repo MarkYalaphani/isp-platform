@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Athlete } from '@/lib/types';
 import { callGAS } from '@/lib/api';
-import { calcYoyoDist, calcVo2 } from '@/lib/devData';
+import { calcYoyoDist, calcVo2, YOYO_MAX_SHUTTLE } from '@/lib/devData';
 import { getScorePoint, SCORE_COLORS } from '@/lib/score';
 import AthleteSearchSelect from '../AthleteSearchSelect';
 
@@ -194,16 +194,16 @@ export default function QuickTestPage({ athletes, onSuccess }: Props) {
         {step === 4 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
           <div style={{ flex: '1 1 140px' }}>
             <label className="form-label">Level</label>
-            <select className="form-select" value={form.yoyoLevel} onChange={e => set('yoyoLevel', e.target.value)}>
+            <select className="form-select" value={form.yoyoLevel} onChange={e => { set('yoyoLevel', e.target.value); set('yoyoShuttle', ''); }}>
               <option value="">- เลือก -</option>
-              {[5,9,11,12,13,14,15,16,17,18,19,20,21,22,23].map(v => <option key={v} value={v}>{v}</option>)}
+              {Array.from({length:19},(_,i)=>i+5).map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
           <div style={{ flex: '1 1 140px' }}>
             <label className="form-label">Shuttle</label>
             <select className="form-select" value={form.yoyoShuttle} onChange={e => set('yoyoShuttle', e.target.value)}>
               <option value="">- เลือก -</option>
-              {[1,2,3,4,5,6,7,8].map(v => <option key={v} value={v}>{v}</option>)}
+              {Array.from({length: YOYO_MAX_SHUTTLE[parseInt(form.yoyoLevel)] ?? 8},(_,i)=>i+1).map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
           {inputCard('Distance (m)', 'yd', { readonly: true, value: yoyo || '—', color: '#dc2626' })}
