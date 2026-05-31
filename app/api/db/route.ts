@@ -546,10 +546,18 @@ export async function POST(req: NextRequest) {
 
       // ── ATTENDANCE ─────────────────────────────────────────────────────────
       case 'getAttendanceSessions': {
-        // Returns distinct sessions (date+name+type) ordered by date desc
-        const { data, error } = await sb.from('attendance')
-          .select('session_date,session_name,session_type')
-          .order('session_date', { ascending: false });
+        // Filter to own club's athletes (admin sees all)
+        const attClubId = session?.clubId;
+        let myPlayerIds: string[] | null = null;
+        if (attClubId && session?.role !== 'admin') {
+          const { data: cp } = await sb.from('athletes').select('player_id').eq('club_id', attClubId);
+          myPlayerIds = (cp || []).map((p: { player_id: string }) => p.player_id);
+          if (myPlayerIds.length === 0) return NextResponse.json([]);
+        }
+
+        let q = sb.from('attendance').select('session_date,session_name,session_type').order('session_date', { ascending: false });
+        if (myPlayerIds) q = q.in('player_id', myPlayerIds);
+        const { data, error } = await q;
         if (error) throw error;
         // Deduplicate
         const seen = new Set<string>();
@@ -563,8 +571,17 @@ export async function POST(req: NextRequest) {
 
       case 'getAttendanceBySession': {
         const { sessionDate, sessionName } = params as { sessionDate: string; sessionName: string };
-        const { data, error } = await sb.from('attendance')
-          .select('*').eq('session_date', sessionDate).eq('session_name', sessionName);
+        const attClubId2 = session?.clubId;
+        let myPlayerIds2: string[] | null = null;
+        if (attClubId2 && session?.role !== 'admin') {
+          const { data: cp2 } = await sb.from('athletes').select('player_id').eq('club_id', attClubId2);
+          myPlayerIds2 = (cp2 || []).map((p: { player_id: string }) => p.player_id);
+          if (myPlayerIds2.length === 0) return NextResponse.json([]);
+        }
+
+        let q2 = sb.from('attendance').select('*').eq('session_date', sessionDate).eq('session_name', sessionName);
+        if (myPlayerIds2) q2 = q2.in('player_id', myPlayerIds2);
+        const { data, error } = await q2;
         if (error) throw error;
         return NextResponse.json((data || []).map(r => ({
           id: r.id, sessionDate: r.session_date, sessionName: r.session_name,
