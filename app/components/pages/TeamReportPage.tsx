@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Athlete, Page, User } from '@/lib/types';
-import { getScorePoint } from '@/lib/score';
+import { getScorePoint, SCORE_COLORS } from '@/lib/score';
 import ReportBanner, { PrintHeader } from '../ReportBanner';
 
 interface Props { athletes: Athlete[]; onNavigate: (p: Page, id?: string) => void; user: User; }
@@ -28,6 +28,13 @@ function daysSince(ts: string) {
 
 export default function TeamReportPage({ athletes, onNavigate, user }: Props) {
   const [teamFilter, setTeamFilter] = useState('ALL');
+  const [hmSortKey, setHmSortKey] = useState<string>('rating');
+  const [hmSortDir, setHmSortDir] = useState<1|-1>(1);
+
+  const hmSort = (key: string) => {
+    if (hmSortKey === key) setHmSortDir(d => d === 1 ? -1 : 1);
+    else { setHmSortKey(key); setHmSortDir(1); }
+  };
 
   const teams = Array.from(new Set(athletes.map(a => a.Team).filter(Boolean))).sort();
   const group = teamFilter === 'ALL' ? athletes : athletes.filter(a => a.Team === teamFilter);
@@ -215,6 +222,113 @@ export default function TeamReportPage({ athletes, onNavigate, user }: Props) {
             </div>
           </div>
         )}
+
+        {/* ── Physical Heatmap ── */}
+        {group.filter(a => a.Latest).length > 0 && (() => {
+          const sorted = [...group].sort((a, b) => {
+            let va: number, vb: number;
+            if (hmSortKey === 'rating') {
+              va = Number(a.Latest?.Rating) || 0;
+              vb = Number(b.Latest?.Rating) || 0;
+            } else if (hmSortKey === 'name') {
+              return hmSortDir * (a.Name || '').localeCompare(b.Name || '');
+            } else {
+              const m = METRICS.find(x => x.key === hmSortKey);
+              va = m ? getScorePoint(m.key, String(a.Latest?.[m.field] || ''), a.DOB || '', a.Position || '') : 0;
+              vb = m ? getScorePoint(m.key, String(b.Latest?.[m.field] || ''), b.DOB || '', b.Position || '') : 0;
+            }
+            return hmSortDir * (vb - va);
+          });
+
+          // column avg scores
+          const metricAvgs = METRICS.map(m => {
+            const vals = group.map(a => getScorePoint(m.key, String(a.Latest?.[m.field] || ''), a.DOB || '', a.Position || '')).filter(s => s > 0);
+            return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+          });
+
+          const SortBtn = ({ k, label, style }: { k: string; label: string; style?: React.CSSProperties }) => (
+            <th onClick={() => hmSort(k)} style={{ padding: '8px 6px', textAlign: 'center', fontWeight: 700, fontSize: '0.65rem', color: hmSortKey === k ? '#0f172a' : '#94a3b8', textTransform: 'uppercase', cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none', ...style }}>
+              {label} {hmSortKey === k ? (hmSortDir === 1 ? '↑' : '↓') : ''}
+            </th>
+          );
+
+          return (
+            <div className="surface" style={{ marginBottom: 24 }}>
+              <div className="section-hd">
+                <i className="bi bi-grid-3x3-gap-fill" style={{ color: '#818cf8' }} /> Physical Heatmap
+                <span style={{ fontSize: '0.72rem', fontWeight: 400, color: '#94a3b8', marginLeft: 8 }}>คลิกหัวคอลัมน์เพื่อจัดเรียง · คลิกผู้เล่นเพื่อดูรายละเอียด</span>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '2px 2px', fontSize: '0.8rem' }}>
+                  <thead>
+                    <tr>
+                      <SortBtn k="name" label="ผู้เล่น" style={{ textAlign: 'left', minWidth: 130 }} />
+                      <SortBtn k="rating" label="Rating" />
+                      {METRICS.map(m => <SortBtn key={m.key} k={m.key} label={m.label.replace(' ','&')} />)}
+                    </tr>
+                    {/* Average row */}
+                    <tr style={{ background: '#f1f5f9' }}>
+                      <td style={{ padding: '5px 8px', fontWeight: 700, fontSize: '0.65rem', color: '#64748b' }}>ค่าเฉลี่ยทีม</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'center', fontWeight: 700, fontSize: '0.72rem', color: '#64748b' }}>
+                        {avgRating > 0 ? avgRating.toFixed(0) : '—'}
+                      </td>
+                      {metricAvgs.map((avg, i) => {
+                        const sc = Math.round(avg) as 1|2|3|4|5;
+                        const col = sc > 0 && SCORE_COLORS[sc] ? SCORE_COLORS[sc] : { bg: '#f1f5f9', color: '#94a3b8' };
+                        return (
+                          <td key={i} style={{ padding: '5px 6px', textAlign: 'center', background: avg > 0 ? col.bg : '#f1f5f9', borderRadius: 4 }}>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: avg > 0 ? col.color : '#cbd5e1' }}>
+                              {avg > 0 ? avg.toFixed(1) : '—'}
+                            </span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sorted.map(a => {
+                      const rating = Number(a.Latest?.Rating) || 0;
+                      return (
+                        <tr key={a.PlayerID} onClick={() => onNavigate('scout', a.PlayerID)}
+                          style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.opacity = '0.82')}
+                          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
+                          <td style={{ padding: '7px 8px', fontWeight: 600 }}>
+                            <div style={{ fontSize: '0.8rem' }}>{a.Name}</div>
+                            <div style={{ fontSize: '0.62rem', color: '#94a3b8' }}>{a.Position || '—'} · {a.Team || '—'}</div>
+                          </td>
+                          <td style={{ padding: '7px 6px', textAlign: 'center' }}>
+                            <span style={{ fontWeight: 800, fontSize: '0.85rem', color: rating >= 70 ? '#16a34a' : rating >= 50 ? '#2563eb' : rating >= 30 ? '#d97706' : '#dc2626' }}>{rating || '—'}</span>
+                          </td>
+                          {METRICS.map(m => {
+                            const sc = getScorePoint(m.key, String(a.Latest?.[m.field] || ''), a.DOB || '', a.Position || '') as 0|1|2|3|4|5;
+                            const col = sc > 0 ? SCORE_COLORS[sc] : null;
+                            return (
+                              <td key={m.key} style={{ padding: '4px 3px', textAlign: 'center' }}>
+                                <div style={{ background: col?.bg || '#f1f5f9', color: col?.color || '#cbd5e1', borderRadius: 6, padding: '4px 0', fontWeight: 800, fontSize: '0.78rem', minWidth: 34 }}>
+                                  {sc > 0 ? sc : '—'}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {/* Legend */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
+                {([5,4,3,2,1] as const).map(s => (
+                  <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ width: 18, height: 18, borderRadius: 4, background: SCORE_COLORS[s].bg, border: `1px solid ${SCORE_COLORS[s].color}40` }} />
+                    <span style={{ fontSize: '0.68rem', color: SCORE_COLORS[s].color, fontWeight: 600 }}>{s} – {SCORE_COLORS[s].labelTH}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Full Roster Table */}
         <div className="surface">

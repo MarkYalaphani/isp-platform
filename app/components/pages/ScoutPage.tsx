@@ -164,6 +164,31 @@ const LINE_OPTS = {
   },
 };
 
+const SCORE_LINE_OPTS = {
+  responsive: true,
+  plugins: {
+    legend: { position: 'bottom' as const, labels: { boxWidth: 10, font: { size: 10 }, padding: 10 } },
+    tooltip: {
+      callbacks: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        label: (ctx: any) =>
+          `${ctx.dataset.label ?? ''}: ${['','★ ต้องปรับ','พัฒนาได้','ปานกลาง','ดี','ยอดเยี่ยม'][ctx.raw] ?? ctx.raw}/5`,
+      },
+    },
+  },
+  scales: {
+    y: {
+      min: 0.5, max: 5.5, ticks: {
+        stepSize: 1,
+        callback: (v: number | string) => (['','Poor','Fair','Avg','Good','Elite'] as const)[Number(v)] ?? '',
+        font: { size: 9 },
+      },
+      grid: { color: 'rgba(0,0,0,0.05)' },
+    },
+    x: { ticks: { font: { size: 8 }, maxRotation: 30 }, grid: { display: false } },
+  },
+};
+
 const IR_SECTIONS = [
   {
     key: 'behaviour', label: 'Behaviour', labelTH: 'พฤติกรรม', color: '#818cf8', icon: 'bi-emoji-smile-fill',
@@ -320,6 +345,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const [rpeRecs,        setRpeRecs]        = useState<import('@/lib/types').RPERecord[]>([]);
   const [matchPerf,      setMatchPerf]      = useState<PlayerMatchPerf[]>([]);
   const [dateRange, setDateRange] = useState<'all'|'1y'|'6m'|'3m'>('all');
+  const [chartView, setChartView] = useState<'score'|'raw'>('score');
   const [goals, setGoals] = useState<Record<string,string>>({});
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showParentReport, setShowParentReport] = useState(false);
@@ -1424,7 +1450,16 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
             <div id="scoutHistorySection" className="surface mb-4">
               <div className="section-hd" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <span><i className="bi bi-graph-up" style={{ color: '#34d399' }} /> Historical Progress <span style={{ fontSize: '0.7rem', fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>ประวัติพัฒนาการ</span> <span style={{ fontSize: '0.72rem', fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>{filteredHIST.length}/{HIST.length} ครั้ง</span></span>
-                <div style={{ display: 'flex', gap: 4 }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {/* View toggle */}
+                  <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 7, padding: 2 }}>
+                    {(['score','raw'] as const).map(v => (
+                      <button key={v} onClick={() => setChartView(v)} style={{ padding: '3px 10px', borderRadius: 5, border: 'none', background: chartView === v ? '#0f172a' : 'transparent', color: chartView === v ? 'white' : '#64748b', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}>
+                        {v === 'score' ? '📈 Score' : '📊 Raw'}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Date range */}
                   {(['all','1y','6m','3m'] as const).map(d => (
                     <button key={d} onClick={() => setDateRange(d)} style={{ padding: '3px 10px', borderRadius: 6, border: `1px solid ${dateRange === d ? '#38bdf8' : '#e2e8f0'}`, background: dateRange === d ? '#38bdf8' : 'white', color: dateRange === d ? 'white' : '#64748b', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
                       {d === 'all' ? 'All' : d === '1y' ? '1 Year' : d === '6m' ? '6 Mo' : '3 Mo'}
@@ -1432,33 +1467,82 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                   ))}
                 </div>
               </div>
-              <div id="scoutHistoryCharts" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-                {HISTORY_CHARTS.map(hc => {
-                  const chartVals = HIST.map(r => {
-                    const v = r[hc.field];
-                    if (v === undefined || v === '') return null;
-                    const n = typeof v === 'number' ? v : parseFloat(String(v));
-                    return isNaN(n) ? null : n;
-                  });
-                  const trend = getTrend(chartVals);
-                  return (
-                    <div key={String(hc.field)} style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 14px 10px', borderTop: `3px solid ${hc.color}` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <div>
-                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>{hc.label}</div>
-                          <div style={{ fontSize: '0.58rem', color: '#94a3b8' }}>{hc.labelTH}</div>
-                        </div>
-                        {trend && (
-                          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: trend.up ? '#16a34a' : '#dc2626', background: trend.up ? '#f0fdf4' : '#fef2f2', borderRadius: 4, padding: '2px 6px' }}>
-                            {trend.up ? '▲' : '▼'} {trend.pct}%
-                          </span>
-                        )}
-                      </div>
-                      <Line data={lineData(hc.field, hc.color)} options={LINE_OPTS} />
+
+              {/* ── Score Trend (combined) ── */}
+              {chartView === 'score' && (() => {
+                const scoreTrendDatasets = METRICS.map(m => ({
+                  label: m.label,
+                  data: filteredHIST.map(r => {
+                    const v = r[m.field as keyof typeof r];
+                    if (!v && v !== 0) return null;
+                    const sc = getScorePoint(m.key, String(v), dob, athletePos);
+                    return sc > 0 ? sc : null;
+                  }),
+                  borderColor: m.color,
+                  backgroundColor: m.color + '22',
+                  tension: 0.35,
+                  pointRadius: 4,
+                  pointHoverRadius: 7,
+                  pointBackgroundColor: m.color,
+                  borderWidth: 2.5,
+                  spanGaps: true,
+                }));
+                const allNull = scoreTrendDatasets.every(d => d.data.every(v => v === null));
+                if (allNull) return <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>ยังไม่มีข้อมูลเพียงพอ</div>;
+                return (
+                  <div style={{ padding: '8px 0' }}>
+                    {/* Overall trend summary */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                      {METRICS.map(m => {
+                        const vals = filteredHIST.map(r => { const v = r[m.field as keyof typeof r]; const sc = v ? getScorePoint(m.key, String(v), dob, athletePos) : 0; return sc > 0 ? sc : null; }).filter((v): v is number => v !== null);
+                        const trend = vals.length >= 2 ? vals[vals.length-1] - vals[0] : 0;
+                        const last = vals[vals.length-1];
+                        if (!last) return null;
+                        return (
+                          <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f8fafc', border: `1px solid ${m.color}40`, borderRadius: 8, padding: '5px 10px' }}>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: m.color }} />
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#334155' }}>{m.label}</span>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: m.color }}>{last}/5</span>
+                            {trend !== 0 && <span style={{ fontSize: '0.65rem', fontWeight: 700, color: trend > 0 ? '#16a34a' : '#dc2626' }}>{trend > 0 ? '▲' : '▼'}{Math.abs(trend)}</span>}
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
+                    <Line data={{ labels: histLabels, datasets: scoreTrendDatasets }} options={SCORE_LINE_OPTS} />
+                  </div>
+                );
+              })()}
+
+              {/* ── Raw Mini Charts ── */}
+              {chartView === 'raw' && (
+                <div id="scoutHistoryCharts" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+                  {HISTORY_CHARTS.map(hc => {
+                    const chartVals = HIST.map(r => {
+                      const v = r[hc.field];
+                      if (v === undefined || v === '') return null;
+                      const n = typeof v === 'number' ? v : parseFloat(String(v));
+                      return isNaN(n) ? null : n;
+                    });
+                    const trend = getTrend(chartVals);
+                    return (
+                      <div key={String(hc.field)} style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 14px 10px', borderTop: `3px solid ${hc.color}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                          <div>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>{hc.label}</div>
+                            <div style={{ fontSize: '0.58rem', color: '#94a3b8' }}>{hc.labelTH}</div>
+                          </div>
+                          {trend && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: trend.up ? '#16a34a' : '#dc2626', background: trend.up ? '#f0fdf4' : '#fef2f2', borderRadius: 4, padding: '2px 6px' }}>
+                              {trend.up ? '▲' : '▼'} {trend.pct}%
+                            </span>
+                          )}
+                        </div>
+                        <Line data={lineData(hc.field, hc.color)} options={LINE_OPTS} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
