@@ -179,7 +179,7 @@ function SingleTab({ athletes, onSuccess }: Props) {
 
           {/* Agility */}
           <div className="surface mb-4">
-            <div className="section-hd"><i className="bi bi-arrow-left-right" /> Arrowhead Agility Test</div>
+            <div className="section-hd"><i className="bi bi-arrow-left-right" /> Illinois Agility Test (L+R)</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
               <div style={{ flex: '1 1 140px' }}>
                 <label className="form-label">หมุนซ้าย (s)</label>

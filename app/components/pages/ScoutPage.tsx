@@ -232,15 +232,15 @@ function FC26CardLarge({ athlete, teamLogo, cardRef }: {
 }) {
   const W = 220; const H = 330; const PANEL = 121; const photoH = H - PANEL;
   const rating = Math.round(Number(athlete?.Latest?.Rating) || 0);
-  const d = athlete.DOB || ''; const l = athlete.Latest || {};
+  const d = athlete.DOB || ''; const l = athlete.Latest || ''; const p = athlete.Position || '';
   function toStat(s: number) { return s > 0 ? Math.min(99, Math.round(s * 19.8)) : 0; }
   const sc = {
-    spd: toStat(getScorePoint('speed30',  String(l.Speed30    ||''), d)),
-    jmp: toStat(getScorePoint('cmj',      String(l.CMJ        ||''), d)),
-    agi: toStat(getScorePoint('agility',  String(l.Agility    ||''), d)),
-    end: toStat(getScorePoint('yoyo',     String(l.YoYo       ||''), d)),
-    str: toStat(getScorePoint('pushup',   String(l.Pushup     ||''), d)),
-    flx: toStat(getScorePoint('sitreach', String(l.SitAndReach||''), d)),
+    spd: toStat(getScorePoint('speed30',  String((l as Record<string,unknown>).Speed30    ||''), d, p)),
+    jmp: toStat(getScorePoint('cmj',      String((l as Record<string,unknown>).CMJ        ||''), d, p)),
+    agi: toStat(getScorePoint('agility',  String((l as Record<string,unknown>).Agility    ||''), d, p)),
+    end: toStat(getScorePoint('yoyo',     String((l as Record<string,unknown>).YoYo       ||''), d, p)),
+    str: toStat(getScorePoint('pushup',   String((l as Record<string,unknown>).Pushup     ||''), d, p)),
+    flx: toStat(getScorePoint('sitreach', String((l as Record<string,unknown>).SitAndReach||''), d, p)),
   };
   const STATS: [string,number][] = [['SPD',sc.spd],['JMP',sc.jmp],['AGI',sc.agi],['END',sc.end],['STR',sc.str],['FLX',sc.flx]];
   const ini = (n: string) => (n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
@@ -506,15 +506,16 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
 
       /* stats */
       const d = athlete.DOB || '';
+      const p = athlete.Position || '';
       const l = athlete.Latest || {} as Record<string, unknown>;
       const toStat = (s: number) => s > 0 ? Math.min(99, Math.round(s * 19.8)) : 0;
       const sc = {
-        spd: toStat(getScorePoint('speed30',  String(l['Speed30']     ||''), d)),
-        jmp: toStat(getScorePoint('cmj',      String(l['CMJ']         ||''), d)),
-        agi: toStat(getScorePoint('agility',  String(l['Agility']     ||''), d)),
-        end: toStat(getScorePoint('yoyo',     String(l['YoYo']        ||''), d)),
-        str: toStat(getScorePoint('pushup',   String(l['Pushup']      ||''), d)),
-        flx: toStat(getScorePoint('sitreach', String(l['SitAndReach'] ||''), d)),
+        spd: toStat(getScorePoint('speed30',  String(l['Speed30']     ||''), d, p)),
+        jmp: toStat(getScorePoint('cmj',      String(l['CMJ']         ||''), d, p)),
+        agi: toStat(getScorePoint('agility',  String(l['Agility']     ||''), d, p)),
+        end: toStat(getScorePoint('yoyo',     String(l['YoYo']        ||''), d, p)),
+        str: toStat(getScorePoint('pushup',   String(l['Pushup']      ||''), d, p)),
+        flx: toStat(getScorePoint('sitreach', String(l['SitAndReach'] ||''), d, p)),
       };
       const STATS_DATA: [string, number][] = [
         ['SPD',sc.spd],['JMP',sc.jmp],['AGI',sc.agi],
@@ -595,13 +596,14 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const effectiveIdx = viewTestIdx >= 0 && viewTestIdx < HIST.length ? viewTestIdx : HIST.length - 1;
   const viewTest: Partial<typeof latest> = effectiveIdx >= 0 ? HIST[effectiveIdx] : latest;
 
+  const athletePos = athlete?.Position || '';
   const scores = METRICS.reduce<Record<string, number>>((acc, m) => {
-    acc[m.key] = getScorePoint(m.key, String(latest[m.field] ?? ''), dob);
+    acc[m.key] = getScorePoint(m.key, String(latest[m.field] ?? ''), dob, athletePos);
     return acc;
   }, {});
 
   const viewScores = METRICS.reduce<Record<string, number>>((acc, m) => {
-    acc[m.key] = getScorePoint(m.key, String(viewTest[m.field] ?? ''), dob);
+    acc[m.key] = getScorePoint(m.key, String(viewTest[m.field] ?? ''), dob, athletePos);
     return acc;
   }, {});
 

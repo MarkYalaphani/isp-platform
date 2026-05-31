@@ -132,8 +132,9 @@ export default function PublicAthletePage({params}:{params:Promise<{playerId:str
   const initials=(data.Name||'?').split(' ').map((w:string)=>w[0]).join('').slice(0,2).toUpperCase();
   const lastTest=HIST.length?fmtDate(HIST[HIST.length-1].Timestamp):'—';
 
+  const athletePos=data.Position||'';
   const scores=METRICS.reduce<Record<string,number>>((acc,m)=>{
-    acc[m.key]=latest?getScorePoint(m.key,String(latest[m.field]||''),dob):0;
+    acc[m.key]=latest?getScorePoint(m.key,String(latest[m.field]||''),dob,athletePos):0;
     return acc;
   },{});
 

@@ -233,7 +233,7 @@ export default function ParentReport({ athlete: a, user, onClose, irHistory = []
                 const raw = String(a.Latest?.[m.field as keyof typeof a.Latest] || '');
                 const val = parseFloat(raw);
                 const hasVal = !isNaN(val) && val > 0;
-                const score = hasVal ? getScorePoint(m.key, raw, a.DOB || '') : 0;
+                const score = hasVal ? getScorePoint(m.key, raw, a.DOB || '', a.Position || '') : 0;
                 const sc = score > 0 ? SCORE_COLORS[score] : null;
                 return (
                   <tr key={m.key} style={{ borderBottom:'1px solid #f1f5f9' }}>

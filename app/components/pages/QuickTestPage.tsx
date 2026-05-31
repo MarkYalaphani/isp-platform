@@ -38,7 +38,8 @@ export default function QuickTestPage({ athletes, onSuccess }: Props) {
   const bmi      = form.height && form.weight ? (parseFloat(form.weight) / Math.pow(parseFloat(form.height) / 100, 2)).toFixed(1) : '';
   const pp       = form.cmj && form.weight ? Math.max(0, Math.round(60.7 * parseFloat(form.cmj) + 45.3 * parseFloat(form.weight) - 2055)) : 0;
 
-  const liveScore = (key: string, val: string) => val ? getScorePoint(key, val, dob) : 0;
+  const pos = athlete?.Position || '';
+  const liveScore = (key: string, val: string) => val ? getScorePoint(key, val, dob, pos) : 0;
   const allScores = {
     speed30:  liveScore('speed30',  form.speed30),
     cmj:      liveScore('cmj',      form.cmj),

@@ -298,8 +298,9 @@ export async function POST(req: NextRequest) {
         const f = params;
         if (!f.playerId) return NextResponse.json({ status: 'error', message: 'ไม่พบนักกีฬา' });
 
-        const { data: ath } = await sb.from('athletes').select('dob').eq('player_id', f.playerId).single();
+        const { data: ath } = await sb.from('athletes').select('dob, position').eq('player_id', f.playerId).single();
         const dob = ath?.dob || '';
+        const position = ath?.position || '';
 
         const bmi = f.height && f.weight
           ? (parseFloat(f.weight) / Math.pow(parseFloat(f.height) / 100, 2)).toFixed(2) : f.bmi || '';
@@ -317,7 +318,7 @@ export async function POST(req: NextRequest) {
           yoyo: rawYoyo, pushup: f.pushup||'', sitreach: f.sitReach||'',
         };
         const scores: Record<string, number> = {};
-        Object.keys(vals).forEach(k => { scores[k] = getScorePoint(k, vals[k], dob); });
+        Object.keys(vals).forEach(k => { scores[k] = getScorePoint(k, vals[k], dob, position); });
         const rating = calcRating(scores);
 
         const { error } = await sb.from('test_records').insert({
@@ -866,8 +867,9 @@ export async function POST(req: NextRequest) {
       case 'updateTestRecord': {
         const f = params as Record<string, string>;
         if (!f.testId) return NextResponse.json({ status: 'error', message: 'ไม่พบ testId' });
-        const { data: ath } = await sb.from('athletes').select('dob').eq('player_id', f.playerId).single();
+        const { data: ath } = await sb.from('athletes').select('dob, position').eq('player_id', f.playerId).single();
         const dob = ath?.dob || '';
+        const position = ath?.position || '';
         const bmi = f.height && f.weight
           ? (parseFloat(f.weight) / Math.pow(parseFloat(f.height) / 100, 2)).toFixed(2) : '';
         const peakPower = f.cmj && f.weight
@@ -882,7 +884,7 @@ export async function POST(req: NextRequest) {
           yoyo: rawYoyo, pushup: f.pushup||'', sitreach: f.sitReach||'',
         };
         const scores: Record<string, number> = {};
-        Object.keys(vals).forEach(k => { scores[k] = getScorePoint(k, vals[k], dob); });
+        Object.keys(vals).forEach(k => { scores[k] = getScorePoint(k, vals[k], dob, position); });
         const rating = calcRating(scores);
         const { error } = await sb.from('test_records').update({
           height: f.height||'', weight: f.weight||'', muscle: f.muscle||'', fat: f.fat||'',
