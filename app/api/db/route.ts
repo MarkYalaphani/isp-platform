@@ -3,7 +3,7 @@ import { supabase as sb } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
 import { getScorePoint } from '@/lib/score';
 import { calcYoyoDist, calcVo2 } from '@/lib/devData';
-import { signToken, verifyToken, SessionPayload } from '@/lib/session';
+import { signToken, verifyToken, needsRefresh, SessionPayload } from '@/lib/session';
 
 // Actions that don't require a login token
 const PUBLIC_ACTIONS = new Set(['login', 'setup', 'getCheckInInfo', 'submitCheckIn']);
@@ -118,11 +118,13 @@ function toSkillAssessment(r: Record<string, unknown>) {
 async function uploadPhoto(playerId: string, base64: string, mimeType: string): Promise<string> {
   if (!base64 || !base64.startsWith('data:')) return '';
   const data = base64.replace(/^data:image\/\w+;base64,/, '');
+  if (!data) return '';
   const buffer = Buffer.from(data, 'base64');
+  if (buffer.length > 5 * 1024 * 1024) throw new Error('ไฟล์รูปขนาดใหญ่เกิน 5 MB กรุณาบีบอัดรูปก่อนอัปโหลด');
   const ext = (mimeType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
   const path = `athletes/${playerId}.${ext}`;
   const { error } = await sb.storage.from('athlete-photos').upload(path, buffer, { contentType: mimeType, upsert: true });
-  if (error) { console.error('Photo upload:', error.message); return ''; }
+  if (error) throw new Error(`อัปโหลดรูปไม่สำเร็จ: ${error.message}`);
   return sb.storage.from('athlete-photos').getPublicUrl(path).data.publicUrl;
 }
 
@@ -163,18 +165,36 @@ export async function POST(req: NextRequest) {
 
   // ── Auth gate ────────────────────────────────────────────────────────────
   let session: SessionPayload | null = null;
+  let refreshedToken: string | null = null;
   if (!PUBLIC_ACTIONS.has(action)) {
     session = getSession(req);
     if (!session) {
-      return NextResponse.json({ status: 'error', message: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ status: 'error', message: 'SESSION_EXPIRED' }, { status: 401 });
     }
     if (ADMIN_ONLY_ACTIONS.has(action) && session.role !== 'admin') {
       return NextResponse.json({ status: 'error', message: 'Forbidden' }, { status: 403 });
     }
+    // Proactively refresh token when < 2 hours remain
+    if (needsRefresh(session)) {
+      refreshedToken = signToken({ ...session, iat: Date.now() });
+    }
+  }
+
+  // Helper to attach refreshed token header to any response
+  function withRefresh(res: NextResponse): NextResponse {
+    if (refreshedToken) res.headers.set('X-Refreshed-Token', refreshedToken);
+    return res;
   }
 
   try {
     switch (action) {
+
+      // ── TOKEN REFRESH ──────────────────────────────────────────────────────
+      case 'refreshToken': {
+        if (!session) return NextResponse.json({ status: 'error', message: 'SESSION_EXPIRED' }, { status: 401 });
+        const newToken = signToken({ ...session, iat: Date.now() });
+        return NextResponse.json({ status: 'success', token: newToken });
+      }
 
       // ── SETUP: สร้าง admin ครั้งแรก ──────────────────────────────────────
       case 'setup': {

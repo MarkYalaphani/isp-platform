@@ -1,7 +1,8 @@
 import { createHmac } from 'crypto';
 
 const SECRET = process.env.SESSION_SECRET ?? 'dev-secret-please-set-SESSION_SECRET-in-env';
-const TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const TTL_MS    = 7 * 24 * 60 * 60 * 1000; // 7 days
+const REFRESH_MS = 2 * 60 * 60 * 1000;    // refresh when < 2 hours remain
 
 export interface SessionPayload {
   username: string;
@@ -14,6 +15,12 @@ export function signToken(payload: SessionPayload): string {
   const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig  = createHmac('sha256', SECRET).update(data).digest('hex');
   return `${data}.${sig}`;
+}
+
+/** Returns true when the token is still valid but should be refreshed */
+export function needsRefresh(payload: SessionPayload): boolean {
+  const age = Date.now() - payload.iat;
+  return age > TTL_MS - REFRESH_MS;
 }
 
 export function verifyToken(token: string | null | undefined): SessionPayload | null {

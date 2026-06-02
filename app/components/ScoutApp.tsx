@@ -94,7 +94,10 @@ export default function ScoutApp() {
         setAthletes(data.filter((a): a is Athlete => !('error' in a)));
       }
     } catch (e) {
-      console.error('Failed to load athletes', e);
+      if ((e as Error).message !== 'SESSION_EXPIRED') {
+        console.error('Failed to load athletes', e);
+      }
+      // SESSION_EXPIRED handled by the event listener above
     } finally {
       setLoading(false);
     }
@@ -126,6 +129,23 @@ export default function ScoutApp() {
     localStorage.removeItem('scoutToken');
     setCurrentPage('home');
   };
+
+  // Auto-logout when session expires (detected by callGAS)
+  useEffect(() => {
+    const handler = () => {
+      handleLogout();
+      // Brief delay so LoginModal re-renders, then show message
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          const e = new CustomEvent('app-toast', { detail: { text: 'Session หมดอายุ — กรุณา Login ใหม่', type: 'error', duration: 5000 } });
+          window.dispatchEvent(e);
+        }
+      }, 200);
+    };
+    window.addEventListener('session-expired', handler);
+    return () => window.removeEventListener('session-expired', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const canAccess = (page: Page): boolean => {
     if (!user) return false;
