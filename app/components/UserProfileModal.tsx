@@ -16,6 +16,7 @@ export default function UserProfileModal({ user, onClose, onSaved }: Props) {
   const [logo, setLogo]                 = useState<{ base64: string; mime: string } | null>(null);
   const [logoPreview, setLogoPreview]   = useState(user.logoUrl || '');
   const [showPw, setShowPw]             = useState(false);
+  const [currentPw, setCurrentPw]       = useState('');
   const [newPw, setNewPw]               = useState('');
   const [confirmPw, setConfirmPw]       = useState('');
   const [saving, setSaving]             = useState(false);
@@ -36,6 +37,7 @@ export default function UserProfileModal({ user, onClose, onSaved }: Props) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!displayName.trim()) { showToast('กรุณากรอกชื่อที่แสดง', 'error'); return; }
+    if (showPw && !currentPw)          { showToast('กรุณากรอกรหัสผ่านปัจจุบัน', 'error'); return; }
     if (showPw && newPw !== confirmPw) { showToast('รหัสผ่านใหม่ไม่ตรงกัน', 'error'); return; }
     if (showPw && newPw.length < 6)   { showToast('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร', 'error'); return; }
 
@@ -56,6 +58,7 @@ export default function UserProfileModal({ user, onClose, onSaved }: Props) {
       if (showPw && newPw) {
         const pwRes = await callGAS('changePassword', {
           username: user.username,
+          currentPassword: currentPw,
           newPassword: newPw,
         }) as { status: string; message?: string };
         if (pwRes.status !== 'success') {
@@ -124,12 +127,16 @@ export default function UserProfileModal({ user, onClose, onSaved }: Props) {
 
           {/* Password change */}
           <div style={{ marginBottom:16, padding:14, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:12 }}>
-            <button type="button" className="btn-outline btn-sm" onClick={() => { setShowPw(v=>!v); setNewPw(''); setConfirmPw(''); }}>
+            <button type="button" className="btn-outline btn-sm" onClick={() => { setShowPw(v=>!v); setCurrentPw(''); setNewPw(''); setConfirmPw(''); }}>
               <i className={`bi bi-${showPw?'chevron-up':'key-fill'} me-1`}/>
               {showPw ? 'ยกเลิก' : 'เปลี่ยนรหัสผ่าน'}
             </button>
             {showPw && (
               <div style={{ marginTop:14, display:'flex', flexDirection:'column', gap:12 }}>
+                <div>
+                  <label className="form-label">รหัสผ่านปัจจุบัน <span style={{ color:'#ef4444' }}>*</span></label>
+                  <input type="password" className="form-control" value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="กรอกรหัสผ่านปัจจุบัน" autoComplete="current-password"/>
+                </div>
                 <div>
                   <label className="form-label">รหัสผ่านใหม่</label>
                   <input type="password" className="form-control" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="อย่างน้อย 6 ตัวอักษร" autoComplete="new-password"/>
