@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
           club_id: clubId || '', photo_url: photoUrl,
         });
         if (error) throw error;
-        return NextResponse.json({ status: 'success', message: `ลงทะเบียน ${name} สำเร็จ (ID: ${playerId})` });
+        return NextResponse.json({ status: 'success', message: `ลงทะเบียน ${name} สำเร็จ (ID: ${playerId})`, playerId });
       }
 
       // ── UPDATE ATHLETE ─────────────────────────────────────────────────────

@@ -51,8 +51,10 @@ export default function AddAthletePage({ onSuccess }: Props) {
       } else {
         setMsg({ type: 'error', text: res.message });
       }
-    } catch {
-      setMsg({ type: 'error', text: 'Connection error' });
+    } catch (err) {
+      if ((err as Error).message !== 'SESSION_EXPIRED') {
+        setMsg({ type: 'error', text: 'Connection error — กรุณาลองใหม่' });
+      }
     } finally {
       setSaving(false);
     }

@@ -68,8 +68,10 @@ function SingleTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: U
       } else {
         showToast(res.message || 'บันทึกไม่สำเร็จ', 'error');
       }
-    } catch {
-      showToast('เกิดข้อผิดพลาด', 'error');
+    } catch (err) {
+      if ((err as Error).message !== 'SESSION_EXPIRED') {
+        showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+      }
     } finally {
       setSaving(false);
     }
