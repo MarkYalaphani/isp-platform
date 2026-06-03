@@ -12,7 +12,7 @@ const tabs = [
   { page: 'home' as Page,      icon: 'bi-house-fill',        label: 'Home' },
   { page: 'roster' as Page,    icon: 'bi-people-fill',       label: 'Roster' },
   { page: 'scout' as Page,     icon: 'bi-person-badge-fill', label: 'Scout' },
-  { page: 'aichat' as Page,    icon: 'bi-robot',             label: 'AI Chat' },
+  { page: 'quicktest' as Page,  icon: 'bi-lightning-charge-fill', label: 'Test' },
 ];
 
 export default function BottomNav({ currentPage, onNavigate, onOpenMenu }: Props) {

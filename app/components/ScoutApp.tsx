@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User, Athlete, Page } from '@/lib/types';
 import { callGAS } from '@/lib/api';
-import { callDB } from '@/lib/db';
+
 import { parseClubPages, loadClubPagesLocal, saveClubPagesLocal } from '@/lib/clubSettings';
 import LoginModal from './LoginModal';
 import Sidebar from './Sidebar';
@@ -62,24 +62,31 @@ export default function ScoutApp() {
     document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
   };
 
+  const ALL_PAGE_IDS = ['dashboard','roster','scout','skill','attendance','wellness','ir','compare','lineup','teamreport','performance','quicktest','register','training'];
+
   useEffect(() => {
     const saved = sessionStorage.getItem('scoutUser') || localStorage.getItem('scoutUser');
     if (saved) {
       try { setUser(JSON.parse(saved)); } catch { sessionStorage.removeItem('scoutUser'); }
     }
-    // Load global Club permissions — localStorage first (fast), DB second (source of truth)
-    const ALL_IDS = ['dashboard','roster','scout','skill','attendance','wellness','ir','compare','lineup','teamreport','performance','quicktest','register','training'];
-    const localPages = loadClubPagesLocal(ALL_IDS);
+    // Load Club permissions from localStorage cache immediately (fast)
+    const localPages = loadClubPagesLocal(ALL_PAGE_IDS);
     if (localPages && localPages.length > 0) setClubAllowedPages(localPages);
+  }, []);
 
-    callDB<{ pages?: string }>('getClubSettings')
+  // Refresh club settings from server after login (requires auth token)
+  useEffect(() => {
+    if (!user) return;
+    callGAS('getClubSettings')
       .then(d => {
-        const merged = parseClubPages(d.pages ?? null, ALL_IDS);
+        const data = d as { pages?: string };
+        const merged = parseClubPages(data.pages ?? null, ALL_PAGE_IDS);
         setClubAllowedPages(merged);
         saveClubPagesLocal(merged);
       })
       .catch(() => {});
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.username]);
 
   const loadAthletes = useCallback(async () => {
     if (!user) return;

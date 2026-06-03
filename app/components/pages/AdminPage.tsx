@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { UserRecord } from '@/lib/types';
 import { callGAS } from '@/lib/api';
-import { callDB } from '@/lib/db';
+
 import { showToast } from '@/lib/toast';
 import { parseClubPages, loadClubPagesLocal, saveClubPagesLocal } from '@/lib/clubSettings';
 
@@ -79,7 +79,7 @@ export default function AdminPage() {
 
     // 2. Load from DB (Supabase) — source of truth
     try {
-      const d = await callDB<{ pages?: string }>('getClubSettings');
+      const d = await callGAS('getClubSettings') as { pages?: string };
       const merged = parseClubPages(d.pages ?? null, ALL_IDS);
       setClubPages(merged);
       saveClubPagesLocal(merged);
@@ -94,7 +94,7 @@ export default function AdminPage() {
     saveClubPagesLocal(clubPages); // localStorage ก่อน
     setClubSaving(true);
     try {
-      const res = await callDB<{ status: string }>('saveClubSettings', { pages: clubPages.join(',') });
+      const res = await callGAS('saveClubSettings', { pages: clubPages.join(',') }) as { status: string };
       if (res.status === 'success') {
         showToast(`บันทึกสิทธิ์เรียบร้อย (${clubPages.length}/${ALL_IDS.length} ฟีเจอร์)`, 'success');
       } else {
