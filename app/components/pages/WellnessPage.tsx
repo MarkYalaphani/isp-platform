@@ -538,7 +538,7 @@ export default function WellnessPage({ athletes, user }: Props) {
 
           {/* Athlete table */}
           <div className="table-scroll-wrap" style={{ borderRadius:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div style={{ minWidth:600 }}>
+            <div className="wellness-ath-table" style={{ minWidth:600 }}>
               <WellnessTableHeader />
               {filtered.map((a, i) => (
                 <WellnessRow
@@ -623,7 +623,7 @@ export default function WellnessPage({ athletes, user }: Props) {
 
           {/* Athlete table */}
           <div className="table-scroll-wrap" style={{ borderRadius:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div style={{ minWidth:580 }}>
+            <div className="wellness-ath-table" style={{ minWidth:580 }}>
               <RPETableHeader />
               {filtered.map((a, i) => (
                 <RPERow

@@ -268,15 +268,15 @@ export default function QuickTestPage({ athletes, onSuccess }: Props) {
       </div>
 
       {/* Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20 }}>
-        <button className="btn-outline" onClick={() => setStep(s => s - 1)} disabled={step === 0} style={{ visibility: step === 0 ? 'hidden' : 'visible' }}>
+      <div className="quick-test-nav" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 20 }}>
+        <button className="btn-outline" onClick={() => setStep(s => s - 1)} disabled={step === 0} style={{ visibility: step === 0 ? 'hidden' : 'visible', flex: 1 }}>
           <i className="bi bi-arrow-left me-1" />ย้อนกลับ
         </button>
         {step < STEPS.length - 1
-          ? <button className="btn-primary" onClick={() => setStep(s => s + 1)} disabled={!canNext()} style={{ minWidth: 140, justifyContent: 'center' }}>
+          ? <button className="btn-primary" onClick={() => setStep(s => s + 1)} disabled={!canNext()} style={{ flex: 2, justifyContent: 'center' }}>
               ถัดไป <i className="bi bi-arrow-right ms-1" />
             </button>
-          : <button className="btn-primary" onClick={handleSubmit} disabled={saving || !form.playerId} style={{ minWidth: 160, justifyContent: 'center', background: '#0f172a' }}>
+          : <button className="btn-primary" onClick={handleSubmit} disabled={saving || !form.playerId} style={{ flex: 2, justifyContent: 'center', background: '#0f172a' }}>
               {saving ? <><span className="spinner-ring" style={{ width: 16, height: 16, borderWidth: 2, margin: 0 }} /> กำลังบันทึก…</> : <><i className="bi bi-cloud-arrow-up me-1" />บันทึกผลการทดสอบ</>}
             </button>}
       </div>
