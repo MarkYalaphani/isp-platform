@@ -6,7 +6,7 @@ import { callGAS } from '@/lib/api';
 interface Props { onSuccess: () => void }
 
 const POSITIONS = ['FWD', 'MID', 'DEF', 'GK', 'FWD/MID', 'MID/DEF'];
-const TEAMS = ['U10', 'U12', 'U14', 'U15', 'U17', 'U19', 'U21', 'Senior'];
+const TEAMS = ['U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U18','Senior'];
 
 export default function AddAthletePage({ onSuccess }: Props) {
   const [form, setForm] = useState({
