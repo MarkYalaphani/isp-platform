@@ -83,7 +83,7 @@ function irGrade(pct:number){if(pct>=90)return{label:'Excellent',color:'#10b981'
 function getTrend(data:(number|null)[]){const v=data.filter(x=>x!==null)as number[];if(v.length<2)return null;const first=v[0],last=v[v.length-1];if(!first)return null;const pct=Math.round(((last-first)/first)*100);return{pct:Math.abs(pct),up:last>=first};}
 
 /* ── types ── */
-type HistRecord={Timestamp:string;Rating:number;Speed30:string;CMJ:string;Agility:string;Situp:string;LongJump:string;YoYo:string;Pushup:string;SitAndReach:string;Height:string;Weight:string;BMI:string;Fat:string;Muscle:string;VO2Max:string};
+type HistRecord={Timestamp:string;Rating:number;Speed30:string;CMJ:string;PeakPower:string;Agility:string;AgiL:string;AgiR:string;Situp:string;LongJump:string;YoYo:string;YoyoLevel:string;YoyoShuttle:string;Pushup:string;SitAndReach:string;Height:string;Weight:string;BMI:string;Fat:string;Muscle:string;VO2Max:string};
 type IRRecord=Record<string,number|string>;
 type AthleteData={Name:string;Nickname:string;DOB:string;Team:string;Position:string;Club:string;Province:string;DomFoot:string;DomHand:string;PhotoUrl:string;TestCount:number;PlayerID:string;History:HistRecord[];Latest:Record<string,string|number>|null;IRHistory:IRRecord[]};
 
@@ -173,7 +173,8 @@ export default function PublicAthletePage({params}:{params:Promise<{playerId:str
     {key:'bmi',     label:'BMI',      icon:'bi-calculator-fill',   color:'#fb923c',val:bmi!=='—'?bmi:'—'},
     {key:'fat',     label:'Body Fat', icon:'bi-droplet-fill',      color:'#f472b6',val:latest?.Fat     ?`${latest.Fat} %`    :'—'},
     {key:'muscle',  label:'Muscle',   icon:'bi-lightning-fill',    color:'#4ade80',val:latest?.Muscle  ?`${latest.Muscle} %` :'—'},
-    {key:'vo2max',  label:'VO₂ Max',  icon:'bi-heart-pulse-fill',  color:'#f87171',val:latest?.VO2Max  ?`${latest.VO2Max}`   :'—'},
+    {key:'vo2max',    label:'VO₂ Max',    icon:'bi-heart-pulse-fill',  color:'#f87171',val:latest?.VO2Max    ?`${latest.VO2Max}`      :'—'},
+    {key:'peakpower', label:'Peak Power', icon:'bi-lightning-charge-fill', color:'#fbbf24',val:latest?.PeakPower?`${latest.PeakPower} W`:'—'},
     {key:'domfoot', label:'Dom. Foot',icon:'bi-geo-fill',          color:'#a3e635',val:data.DomFoot||'—'},
     {key:'domhand', label:'Dom. Hand',icon:'bi-hand-index-fill',   color:'#facc15',val:data.DomHand||'—'},
     {key:'age',     label:'Age',      icon:'bi-calendar3',         color:'#c084fc',val:age!=null?`${age} yrs`:'—'},
@@ -478,6 +479,58 @@ export default function PublicAthletePage({params}:{params:Promise<{playerId:str
           </div>
         )}
 
+        {/* ── TEST HISTORY TABLE ── */}
+        {HIST.length>0&&(
+          <div className="pub-surface">
+            <div className="pub-hd"><i className="bi bi-table" style={{color:'#f59e0b'}}/> ประวัติการทดสอบทั้งหมด <span style={{fontSize:'0.72rem',fontWeight:400,color:'#94a3b8',marginLeft:6}}>{HIST.length} ครั้ง</span></div>
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.75rem'}}>
+                <thead>
+                  <tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
+                    <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#64748b',whiteSpace:'nowrap'}}>วันที่</th>
+                    <th style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:'#38bdf8'}}>Rating</th>
+                    {METRICS.map(m=><th key={m.key} style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:m.color,whiteSpace:'nowrap'}}>{m.label}</th>)}
+                    <th style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:'#94a3b8'}}>Ht</th>
+                    <th style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:'#94a3b8'}}>Wt</th>
+                    <th style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:'#fbbf24'}}>Power</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...HIST].reverse().map((r,i)=>{
+                    const rowScores=METRICS.reduce<Record<string,number>>((acc,m)=>{acc[m.key]=r[m.field as keyof HistRecord]?getScorePoint(m.key,String(r[m.field as keyof HistRecord]),dob,athletePos):0;return acc;},{});
+                    return(
+                      <tr key={i} style={{background:i%2===0?'white':'#f8fafc',borderBottom:'1px solid #f1f5f9'}}>
+                        <td style={{padding:'7px 10px',fontWeight:600,whiteSpace:'nowrap',color:'#334155'}}>{r.Timestamp?String(r.Timestamp).split('T')[0]:'—'}</td>
+                        <td style={{padding:'7px 6px',textAlign:'center'}}>
+                          <span style={{fontWeight:800,color:Number(r.Rating)>=70?'#16a34a':Number(r.Rating)>=50?'#2563eb':Number(r.Rating)>=30?'#d97706':'#dc2626'}}>{r.Rating||'—'}</span>
+                        </td>
+                        {METRICS.map(m=>{
+                          const val=r[m.field as keyof HistRecord];
+                          const sc=rowScores[m.key];
+                          const col=sc>0?SCORE_COLORS[sc]:null;
+                          return(
+                            <td key={m.key} style={{padding:'7px 6px',textAlign:'center'}}>
+                              {val?(
+                                <div>
+                                  <div style={{fontWeight:700,color:'#0f172a'}}>{String(val)}</div>
+                                  {col&&<div style={{fontSize:'0.6rem',fontWeight:700,color:col.color}}>{sc}/5</div>}
+                                </div>
+                              ):<span style={{color:'#cbd5e1'}}>—</span>}
+                            </td>
+                          );
+                        })}
+                        <td style={{padding:'7px 6px',textAlign:'center',color:'#64748b'}}>{r.Height||'—'}</td>
+                        <td style={{padding:'7px 6px',textAlign:'center',color:'#64748b'}}>{r.Weight||'—'}</td>
+                        <td style={{padding:'7px 6px',textAlign:'center',color:'#d97706',fontWeight:600}}>{r.PeakPower||'—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* ── INDIVIDUAL REPORT ── */}
         {irHistory.length>0&&latestIR&&(()=>{
           const overall=Number(latestIR.OverallIRScore)||0;
@@ -543,9 +596,9 @@ export default function PublicAthletePage({params}:{params:Promise<{playerId:str
                   </div>
                 ))}
               </div>
-              {/* Comments */}
+              {/* Overall comments */}
               {(latestIR.GoodLevel||latestIR.ToImprove||latestIR.Comments)&&(
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:12,marginBottom:16}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:12,marginBottom:12}}>
                   {latestIR.GoodLevel&&(
                     <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:10,padding:14}}>
                       <div style={{fontSize:'0.68rem',fontWeight:700,color:'#16a34a',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}><i className="bi bi-check-circle-fill me-1"/>สิ่งที่ดี</div>
@@ -564,6 +617,40 @@ export default function PublicAthletePage({params}:{params:Promise<{playerId:str
                       <p style={{margin:0,fontSize:'0.82rem',color:'#1e40af'}}>{String(latestIR.Comments)}</p>
                     </div>
                   )}
+                </div>
+              )}
+              {/* Section-specific comments */}
+              {(latestIR.BehaviourComment||latestIR.LifestyleComment||latestIR.TechnicalComment)&&(
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginBottom:12}}>
+                  {[
+                    {key:'BehaviourComment',label:'💬 พฤติกรรม',    bg:'#faf5ff',border:'#c4b5fd',color:'#6d28d9'},
+                    {key:'LifestyleComment', label:'💬 วิถีชีวิต',   bg:'#f0fdf4',border:'#6ee7b7',color:'#065f46'},
+                    {key:'TechnicalComment', label:'💬 เทคนิค',      bg:'#f0f9ff',border:'#7dd3fc',color:'#0369a1'},
+                  ].filter(x=>latestIR[x.key]).map(x=>(
+                    <div key={x.key} style={{background:x.bg,border:`1px solid ${x.border}`,borderRadius:10,padding:12}}>
+                      <div style={{fontSize:'0.68rem',fontWeight:700,color:x.color,marginBottom:5}}>{x.label}</div>
+                      <p style={{margin:0,fontSize:'0.8rem',color:x.color,whiteSpace:'pre-wrap'}}>{String(latestIR[x.key])}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* IDP Goals */}
+              {(latestIR.IdpGoalShort||latestIR.IdpGoalLong||latestIR.IdpAction||latestIR.IdpDream)&&(
+                <div style={{background:'#0f172a',borderRadius:12,padding:16,marginBottom:12}}>
+                  <div style={{fontSize:'0.72rem',fontWeight:700,color:'#38bdf8',letterSpacing:1,textTransform:'uppercase',marginBottom:12}}><i className="bi bi-bullseye me-2"/>เป้าหมายพัฒนาการ (IDP Goals)</div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
+                    {[
+                      {label:'เป้าหมายระยะสั้น', val:latestIR.IdpGoalShort, color:'#38bdf8'},
+                      {label:'เป้าหมายระยะยาว', val:latestIR.IdpGoalLong,  color:'#818cf8'},
+                      {label:'แผนปฏิบัติ',       val:latestIR.IdpAction,    color:'#34d399'},
+                      {label:'ความฝัน',           val:latestIR.IdpDream,     color:'#f472b6'},
+                    ].filter(x=>x.val).map(x=>(
+                      <div key={x.label} style={{background:'rgba(255,255,255,0.05)',borderRadius:8,padding:12,border:`1px solid ${x.color}30`}}>
+                        <div style={{fontSize:'0.62rem',fontWeight:700,color:x.color,marginBottom:5,textTransform:'uppercase'}}>{x.label}</div>
+                        <p style={{margin:0,fontSize:'0.82rem',color:'rgba(255,255,255,0.85)',lineHeight:1.5}}>{String(x.val)}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               {/* Overall badge */}
