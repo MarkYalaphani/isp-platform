@@ -213,6 +213,9 @@ export default function IRPage({ athletes, user }: Props) {
   const [goodLevel, setGoodLevel] = useState('');
   const [toImprove, setToImprove] = useState('');
   const [comments,  setComments]  = useState('');
+  const [bComment,  setBComment]  = useState('');
+  const [lComment,  setLComment]  = useState('');
+  const [tComment,  setTComment]  = useState('');
   /* IDP goals */
   const [goalShort,  setGoalShort]  = useState('');
   const [goalLong,   setGoalLong]   = useState('');
@@ -243,6 +246,7 @@ export default function IRPage({ athletes, user }: Props) {
     setVals({}); setPlayerId(''); setCoach(''); setPeriod(''); setSeason('Pre-Season');
     setMed({period1:'',injury1:'',absence1:'',period2:'',injury2:'',absence2:''});
     setGoodLevel(''); setToImprove(''); setComments('');
+    setBComment(''); setLComment(''); setTComment('');
     setGoalShort(''); setGoalLong(''); setActionPlan(''); setCoachPlan(''); setDream('');
   };
 
@@ -257,6 +261,7 @@ export default function IRPage({ athletes, user }: Props) {
         med_period1:med.period1,med_injury1:med.injury1,med_absence1:med.absence1,
         med_period2:med.period2,med_injury2:med.injury2,med_absence2:med.absence2,
         goodLevel,toImprove,comments,
+        behaviourComment:bComment,lifestyleComment:lComment,technicalComment:tComment,
         idpGoalShort:goalShort,idpGoalLong:goalLong,idpAction:actionPlan,idpDream:dream,
       }) as {status:string;message:string};
       if(res.status==='success'){showToast(res.message, 'success');setTimeout(resetForm,1400);}
@@ -425,6 +430,10 @@ export default function IRPage({ athletes, user }: Props) {
                 <RatingRow key={item.key} item={item} val={vals[item.key]||0} onChange={v=>setScore(item.key,v)} color="#818cf8"/>
               ))}
             </div>
+            <div style={{marginTop:12}}>
+              <label className="form-label" style={{fontSize:'0.78rem',color:'#818cf8'}}><i className="bi bi-chat-square-text me-1"/>ความเห็นโค้ช — พฤติกรรม</label>
+              <textarea className="form-control" rows={2} value={bComment} onChange={e=>setBComment(e.target.value)} placeholder="ข้อสังเกต คำแนะนำเกี่ยวกับพฤติกรรมของนักกีฬา..." style={{fontSize:'0.82rem'}}/>
+            </div>
           </Section>
 
           {/* ④ วิถีชีวิต */}
@@ -434,6 +443,10 @@ export default function IRPage({ athletes, user }: Props) {
                 <RatingRow key={item.key} item={item} val={vals[item.key]||0} onChange={v=>setScore(item.key,v)} color="#34d399"/>
               ))}
             </div>
+            <div style={{marginTop:12}}>
+              <label className="form-label" style={{fontSize:'0.78rem',color:'#34d399'}}><i className="bi bi-chat-square-text me-1"/>ความเห็นโค้ช — วิถีชีวิต</label>
+              <textarea className="form-control" rows={2} value={lComment} onChange={e=>setLComment(e.target.value)} placeholder="ข้อสังเกต คำแนะนำเกี่ยวกับวิถีชีวิต โภชนาการ และการพักผ่อน..." style={{fontSize:'0.82rem'}}/>
+            </div>
           </Section>
 
           {/* ⑤ เทคนิค */}
@@ -442,6 +455,10 @@ export default function IRPage({ athletes, user }: Props) {
               {IR_T.map(item=>(
                 <RatingRow key={item.key} item={item} val={vals[item.key]||0} onChange={v=>setScore(item.key,v)} color="#38bdf8"/>
               ))}
+            </div>
+            <div style={{marginTop:12}}>
+              <label className="form-label" style={{fontSize:'0.78rem',color:'#38bdf8'}}><i className="bi bi-chat-square-text me-1"/>ความเห็นโค้ช — เทคนิค & สมรรถภาพ</label>
+              <textarea className="form-control" rows={2} value={tComment} onChange={e=>setTComment(e.target.value)} placeholder="ข้อสังเกต คำแนะนำเกี่ยวกับทักษะและสมรรถภาพทางกาย..." style={{fontSize:'0.82rem'}}/>
             </div>
           </Section>
 
@@ -562,6 +579,17 @@ export default function IRPage({ athletes, user }: Props) {
                         <div key={x.label} style={{background:x.bg,border:`1px solid ${x.border}`,borderRadius:8,padding:'10px 12px',marginBottom:8}}>
                           <div style={{fontSize:'0.62rem',fontWeight:700,color:x.color,marginBottom:3,textTransform:'uppercase'}}>{x.label}</div>
                           <div style={{fontSize:'0.82rem',color:x.color}}>{String(x.val)}</div>
+                        </div>
+                      ))}
+                      {/* Section comments */}
+                      {[
+                        {label:'💬 ความเห็น — พฤติกรรม',    val:latestIR.BehaviourComment, border:'#c4b5fd', color:'#6d28d9', bg:'#faf5ff'},
+                        {label:'💬 ความเห็น — วิถีชีวิต',  val:latestIR.LifestyleComment,  border:'#6ee7b7', color:'#065f46', bg:'#f0fdf4'},
+                        {label:'💬 ความเห็น — เทคนิค',      val:latestIR.TechnicalComment,  border:'#7dd3fc', color:'#0369a1', bg:'#f0f9ff'},
+                      ].filter(x=>x.val).map(x=>(
+                        <div key={x.label} style={{background:x.bg,border:`1px solid ${x.border}`,borderRadius:8,padding:'10px 12px',marginBottom:8}}>
+                          <div style={{fontSize:'0.62rem',fontWeight:700,color:x.color,marginBottom:3}}>{x.label}</div>
+                          <div style={{fontSize:'0.82rem',color:x.color,whiteSpace:'pre-wrap'}}>{String(x.val)}</div>
                         </div>
                       ))}
                     </div>

@@ -82,6 +82,9 @@ export interface IRReport {
   GoodLevel: string;
   ToImprove: string;
   Comments: string;
+  BehaviourComment: string;
+  LifestyleComment: string;
+  TechnicalComment: string;
   BehaviourScore: number;
   LifestyleScore: number;
   TechnicalScore: number;
