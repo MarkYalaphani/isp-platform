@@ -431,46 +431,113 @@ export default function ParentReport({ athlete: a, user, onClose, irHistory = []
           </div>
         )}
 
-        {/* ── IDP / Individual Report ── */}
-        {latestIR && (
+        {/* ── IDP / Individual Development Plan ── */}
+        {latestIR && (()=>{
+          const pG=(p:number)=>{
+            if(p>=90)return{emoji:'🌟',th:'ยอดเยี่ยม',bg:'#f0fdf4',border:'#bbf7d0',color:'#15803d'};
+            if(p>=75)return{emoji:'✅',th:'ดี',bg:'#eff6ff',border:'#bfdbfe',color:'#1d4ed8'};
+            if(p>=50)return{emoji:'👍',th:'ปานกลาง',bg:'#fffbeb',border:'#fde68a',color:'#b45309'};
+            if(p>=30)return{emoji:'⚠️',th:'ต้องพัฒนา',bg:'#fff7ed',border:'#fed7aa',color:'#c2410c'};
+            return     {emoji:'🔴',th:'ต่ำมาก',bg:'#fef2f2',border:'#fecaca',color:'#dc2626'};
+          };
+          const iG=(v:number)=>{
+            if(v>=5)return{emoji:'🌟',label:'ยอดเยี่ยม',color:'#15803d'};
+            if(v>=4)return{emoji:'✅',label:'ดี',color:'#1d4ed8'};
+            if(v>=3)return{emoji:'👍',label:'ปานกลาง',color:'#b45309'};
+            if(v>=2)return{emoji:'⚠️',label:'พัฒนาได้',color:'#c2410c'};
+            if(v>=1)return{emoji:'🔴',label:'ต้องปรับ',color:'#dc2626'};
+            return     {emoji:'—',label:'ยังไม่ประเมิน',color:'#94a3b8'};
+          };
+          const overall=Number(latestIR.OverallIRScore)||0;
+          const og=pG(overall);
+          const fmtDate=(ts:string)=>{try{return new Date(ts).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});}catch{return ts.split('T')[0];}};
+          return(
           <div style={{ marginBottom:24 }}>
-            <SectionTitle icon="bi-clipboard2-check" title="Individual Development Plan (IDP)" color="#7c3aed"/>
-            <div style={{ fontSize:'0.72rem', color:'#94a3b8', marginBottom:10 }}>
-              ประเมินโดย: {latestIR.Coach||'—'} · Period: {latestIR.Period||'—'} · Season: {latestIR.Season||'—'}
-              {latestIR.Timestamp && ` · ${latestIR.Timestamp.split('T')[0]}`}
+            <SectionTitle icon="bi-clipboard2-check" title="รายงานพัฒนาการรายบุคคล (IDP)" color="#7c3aed"/>
+            {/* Session info */}
+            <div style={{ fontSize:'0.75rem', color:'#64748b', marginBottom:12, display:'flex', flexWrap:'wrap', gap:8 }}>
+              {latestIR.Coach&&<span>👤 โค้ช: {latestIR.Coach}</span>}
+              {latestIR.Season&&<span>📅 {latestIR.Season}</span>}
+              {latestIR.Period&&<span>⏱ {latestIR.Period}</span>}
+              {latestIR.Timestamp&&<span style={{marginLeft:'auto'}}>📆 {fmtDate(String(latestIR.Timestamp))}</span>}
             </div>
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:12 }}>
+
+            {/* Overall banner */}
+            <div style={{ background:og.bg, border:`2px solid ${og.border}`, borderRadius:14, padding:'14px 18px', marginBottom:16, display:'flex', alignItems:'center', gap:14 }}>
+              <div style={{ fontSize:'2.4rem', lineHeight:1 }}>{og.emoji}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:'1rem', fontWeight:800, color:og.color }}>{a.Name?.split(' ')[0]||'นักกีฬา'} อยู่ในระดับ &ldquo;{og.th}&rdquo;</div>
+                <div style={{ fontSize:'0.75rem', color:'#475569', marginTop:3 }}>คะแนนรวมทุกด้าน {overall}%</div>
+              </div>
+              <div style={{ textAlign:'center', background:'white', borderRadius:10, padding:'8px 12px', border:`1px solid ${og.border}` }}>
+                <div style={{ fontSize:'1.6rem', fontWeight:900, color:og.color, lineHeight:1 }}>{overall}</div>
+                <div style={{ fontSize:'0.58rem', color:'#94a3b8', fontWeight:700 }}>/ 100</div>
+              </div>
+            </div>
+
+            {/* 3 area cards */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:16 }}>
               {[
-                { label:'พฤติกรรม', val:latestIR.BehaviourScore, color:'#38bdf8' },
-                { label:'ไลฟ์สไตล์', val:latestIR.LifestyleScore, color:'#34d399' },
-                { label:'ทักษะ/ยุทธวิธี', val:latestIR.TechnicalScore, color:'#f59e0b' },
-                { label:'คะแนนรวม', val:latestIR.OverallIRScore, color:'#7c3aed' },
-              ].map(x=>(
-                <div key={x.label} style={{ background:'#f5f3ff', borderRadius:10, padding:'10px 14px', textAlign:'center', minWidth:90, border:'1px solid #ddd6fe' }}>
-                  <div style={{ fontSize:'1.3rem', fontWeight:900, color:x.color }}>{x.val||'—'}</div>
-                  <div style={{ fontSize:'0.65rem', color:'#64748b', fontWeight:700 }}>{x.label}</div>
-                </div>
-              ))}
+                {key:'b',label:'🧠 พฤติกรรม',desc:'วินัย ความพยายาม ทัศนคติ',pct:Number(latestIR.BehaviourScore)||0,color:'#818cf8'},
+                {key:'l',label:'🌿 วิถีชีวิต', desc:'การนอน อาหาร สุขภาพ',     pct:Number(latestIR.LifestyleScore)||0, color:'#34d399'},
+                {key:'t',label:'⚽ ทักษะ',    desc:'เทคนิค กลยุทธ์ สมรรถภาพ', pct:Number(latestIR.TechnicalScore)||0,color:'#f472b6'},
+              ].map(c=>{
+                const g=pG(c.pct);
+                return(
+                  <div key={c.key} style={{ background:'white', border:`2px solid ${g.border}`, borderRadius:12, padding:12, textAlign:'center' }}>
+                    <div style={{ fontSize:'1.4rem', marginBottom:3 }}>{g.emoji}</div>
+                    <div style={{ fontWeight:800, fontSize:'0.82rem', color:'#0f172a', marginBottom:2 }}>{c.label}</div>
+                    <div style={{ fontSize:'0.6rem', color:'#94a3b8', marginBottom:6 }}>{c.desc}</div>
+                    <div style={{ fontSize:'1.4rem', fontWeight:900, color:g.color, lineHeight:1 }}>{c.pct}%</div>
+                    <div style={{ fontSize:'0.72rem', fontWeight:700, color:g.color, marginTop:2 }}>{g.th}</div>
+                    <div style={{ marginTop:6, background:'#f1f5f9', borderRadius:20, height:5, overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${c.pct}%`, background:c.color, borderRadius:20 }}/>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            {/* Score bars */}
-            <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:12 }}>
-              {[
-                { label:'ตรงต่อเวลา', val:latestIR.B_OnTime },
-                { label:'ความพยายาม', val:latestIR.B_Effort },
-                { label:'การทำงานเป็นทีม', val:latestIR.B_Teamwork },
-                { label:'การนอนหลับ', val:latestIR.L_Sleep },
-                { label:'การดื่มน้ำ', val:latestIR.L_Hydration },
-                { label:'ทักษะกายภาพ', val:latestIR.T_Motricity },
-                { label:'ทักษะเทคนิค', val:latestIR.T_Technical },
-                { label:'ยุทธวิธี', val:latestIR.T_Tactic },
-              ].map(x => (
-                <div key={x.label} style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div style={{ width:130, fontSize:'0.75rem', color:'#374151', fontWeight:600, flexShrink:0 }}>{x.label}</div>
-                  <ScoreBar value={(x.val||0)*20} max={100} color='#7c3aed'/>
-                  <div style={{ width:30, textAlign:'right', fontWeight:800, fontSize:'0.82rem', color:'#7c3aed', flexShrink:0 }}>{x.val||0}/5</div>
+
+            {/* Detail rows by section */}
+            {[
+              { sLabel:'🧠 พฤติกรรม', sColor:'#818cf8', items:[
+                {label:'การตรงต่อเวลา',val:latestIR.B_OnTime},{label:'ความมุ่งมั่นพยายาม',val:latestIR.B_Effort},
+                {label:'การทำงานเป็นทีม',val:latestIR.B_Teamwork},{label:'การให้เกียรติผู้อื่น',val:latestIR.B_Respect},
+                {label:'การเข้าร่วมฝึกซ้อม',val:latestIR.B_Attendance},{label:'การมีส่วนร่วม',val:latestIR.B_Participation},
+                {label:'พัฒนาการที่เห็นได้ชัด',val:latestIR.B_Improvement},
+              ]},
+              { sLabel:'🌿 วิถีชีวิต', sColor:'#34d399', items:[
+                {label:'การนอนหลับพักผ่อน',val:latestIR.L_Sleep},{label:'การดื่มน้ำเพียงพอ',val:latestIR.L_Hydration},
+                {label:'การรับประทานอาหาร',val:latestIR.L_Diet},{label:'การใช้โทรศัพท์/เกม',val:latestIR.L_ScreenTime},
+              ]},
+              { sLabel:'⚽ ทักษะฟุตบอล', sColor:'#f472b6', items:[
+                {label:'การเคลื่อนไหวร่างกาย',val:latestIR.T_Motricity},{label:'ทักษะเทคนิคลูกบอล',val:latestIR.T_Technical},
+                {label:'การอ่านเกมและยุทธวิธี',val:latestIR.T_Tactic},{label:'พื้นฐานเกมรุก',val:latestIR.T_OffFundam},
+                {label:'พื้นฐานเกมรับ',val:latestIR.T_DefFundam},{label:'สมรรถภาพทางกาย',val:latestIR.T_Fitness},
+              ]},
+            ].map(sec=>(
+              <div key={sec.sLabel} style={{ marginBottom:12, background:'#f8fafc', border:`1px solid ${sec.sColor}40`, borderRadius:12, padding:'12px 14px', borderTop:`3px solid ${sec.sColor}` }}>
+                <div style={{ fontWeight:800, fontSize:'0.88rem', color:'#0f172a', marginBottom:10 }}>{sec.sLabel}</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:6 }}>
+                  {sec.items.map(x=>{
+                    const ig=iG(Number(x.val)||0);
+                    const v=Number(x.val)||0;
+                    return(
+                      <div key={x.label} style={{ background:'white', borderRadius:8, padding:'7px 10px', border:'1px solid #f1f5f9' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:v>0?4:0 }}>
+                          <div style={{ fontWeight:600, fontSize:'0.75rem', color:'#334155', flex:1 }}>{x.label}</div>
+                          <div style={{ display:'flex', alignItems:'center', gap:3, flexShrink:0 }}>
+                            <span style={{ fontSize:'0.85rem' }}>{ig.emoji}</span>
+                            <span style={{ fontSize:'0.65rem', fontWeight:700, color:ig.color }}>{v>0?ig.label:'—'}</span>
+                          </div>
+                        </div>
+                        {v>0&&<div style={{ display:'flex', gap:2 }}>{[1,2,3,4,5].map(n=><div key={n} style={{ flex:1, height:4, borderRadius:10, background:v>=n?sec.sColor:'#e2e8f0' }}/>)}</div>}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
             {latestIR.GoodLevel && <div style={{ marginBottom:8, padding:'8px 12px', background:'#f0fdf4', borderRadius:8, fontSize:'0.78rem', color:'#166534', borderLeft:'3px solid #10b981' }}><strong>จุดแข็ง:</strong> {latestIR.GoodLevel}</div>}
             {latestIR.ToImprove && <div style={{ marginBottom:8, padding:'8px 12px', background:'#fef9ec', borderRadius:8, fontSize:'0.78rem', color:'#92400e', borderLeft:'3px solid #f59e0b' }}><strong>สิ่งที่ต้องพัฒนา:</strong> {latestIR.ToImprove}</div>}
             {latestIR.Comments && <div style={{ marginBottom:8, padding:'8px 12px', background:'#f5f3ff', borderRadius:8, fontSize:'0.78rem', color:'#4c1d95', borderLeft:'3px solid #7c3aed' }}><strong>ความคิดเห็นโค้ช:</strong> {latestIR.Comments}</div>}
@@ -502,7 +569,8 @@ export default function ParentReport({ athlete: a, user, onClose, irHistory = []
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ── Footer ── */}
         <div style={{ borderTop:'1px solid #e2e8f0', paddingTop:16, display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'0.7rem', color:'#94a3b8' }}>

@@ -36,23 +36,23 @@ const HISTORY_FIELDS = [
 ];
 
 const IR_SECTIONS = [
-  { key:'behaviour', label:'Behaviour', color:'#818cf8', icon:'bi-emoji-smile-fill',
+  { key:'behaviour', label:'Behaviour', labelTH:'พฤติกรรม', color:'#818cf8', icon:'bi-emoji-smile-fill',
     items:[
-      {field:'B_OnTime',label:'Be on Time'},{field:'B_Effort',label:'Effort'},
-      {field:'B_Teamwork',label:'Teamwork'},{field:'B_Respect',label:'Respect'},
-      {field:'B_Attendance',label:'Attendance'},{field:'B_Participation',label:'Participation'},
-      {field:'B_Improvement',label:'Improvement'},
+      {field:'B_OnTime',label:'Be on Time',labelTH:'การตรงต่อเวลา'},{field:'B_Effort',label:'Effort',labelTH:'ความมุ่งมั่นพยายาม'},
+      {field:'B_Teamwork',label:'Teamwork',labelTH:'การทำงานเป็นทีม'},{field:'B_Respect',label:'Respect',labelTH:'การให้เกียรติผู้อื่น'},
+      {field:'B_Attendance',label:'Attendance',labelTH:'การเข้าร่วมฝึกซ้อม'},{field:'B_Participation',label:'Participation',labelTH:'การมีส่วนร่วม'},
+      {field:'B_Improvement',label:'Improvement',labelTH:'พัฒนาการที่เห็นได้ชัด'},
     ], scoreField:'BehaviourScore' },
-  { key:'lifestyle', label:'Lifestyle', color:'#34d399', icon:'bi-heart-fill',
+  { key:'lifestyle', label:'Lifestyle', labelTH:'วิถีชีวิต', color:'#34d399', icon:'bi-heart-fill',
     items:[
-      {field:'L_Sleep',label:'Sleep'},{field:'L_Hydration',label:'Hydration'},
-      {field:'L_Diet',label:'Diet'},{field:'L_ScreenTime',label:'Screen Time'},
+      {field:'L_Sleep',label:'Sleep',labelTH:'การนอนหลับพักผ่อน'},{field:'L_Hydration',label:'Hydration',labelTH:'การดื่มน้ำเพียงพอ'},
+      {field:'L_Diet',label:'Diet',labelTH:'การรับประทานอาหาร'},{field:'L_ScreenTime',label:'Screen Time',labelTH:'การใช้โทรศัพท์/เกม'},
     ], scoreField:'LifestyleScore' },
-  { key:'technical', label:'Technical', color:'#f472b6', icon:'bi-trophy-fill',
+  { key:'technical', label:'Technical', labelTH:'ทักษะฟุตบอล', color:'#f472b6', icon:'bi-trophy-fill',
     items:[
-      {field:'T_Motricity',label:'Motricity'},{field:'T_Technical',label:'Technical'},
-      {field:'T_Tactic',label:'Tactic'},{field:'T_OffFundam',label:'Off. Fundamental'},
-      {field:'T_DefFundam',label:'Def. Fundamental'},{field:'T_Fitness',label:'Fitness'},
+      {field:'T_Motricity',label:'Motricity',labelTH:'การเคลื่อนไหวร่างกาย'},{field:'T_Technical',label:'Technical',labelTH:'ทักษะเทคนิคลูกบอล'},
+      {field:'T_Tactic',label:'Tactic',labelTH:'การอ่านเกมและยุทธวิธี'},{field:'T_OffFundam',label:'Off. Fundamental',labelTH:'พื้นฐานเกมรุก'},
+      {field:'T_DefFundam',label:'Def. Fundamental',labelTH:'พื้นฐานเกมรับ'},{field:'T_Fitness',label:'Fitness',labelTH:'สมรรถภาพทางกาย'},
     ], scoreField:'TechnicalScore' },
 ];
 
@@ -79,7 +79,21 @@ function getGrade(r:number){
   return          {label:'Fair',   emoji:'📊',color:'#ef4444',bg:'linear-gradient(135deg,#ef4444,#b91c1c)',border:'#f87171',shadow:'rgba(239,68,68,0.3)'};
 }
 function irScoreColor(s:number){if(s>=5)return'#16a34a';if(s>=4)return'#22c55e';if(s>=3)return'#f59e0b';if(s>=2)return'#f97316';return'#ef4444';}
-function irGrade(pct:number){if(pct>=90)return{label:'Excellent',color:'#10b981'};if(pct>=75)return{label:'Good',color:'#3b82f6'};if(pct>=50)return{label:'Average',color:'#f59e0b'};return{label:'Below Avg',color:'#ef4444'};}
+function irGrade(pct:number){
+  if(pct>=90)return{label:'ยอดเยี่ยม',emoji:'🌟',color:'#15803d',bg:'#f0fdf4',border:'#bbf7d0'};
+  if(pct>=75)return{label:'ดี',        emoji:'✅',color:'#1d4ed8',bg:'#eff6ff',border:'#bfdbfe'};
+  if(pct>=50)return{label:'ปานกลาง',  emoji:'👍',color:'#b45309',bg:'#fffbeb',border:'#fde68a'};
+  if(pct>=30)return{label:'ต้องพัฒนา',emoji:'⚠️',color:'#c2410c',bg:'#fff7ed',border:'#fed7aa'};
+  return       {label:'ต่ำมาก',      emoji:'🔴',color:'#dc2626',bg:'#fef2f2',border:'#fecaca'};
+}
+function irItemGrade(v:number):{emoji:string;label:string;color:string}{
+  if(v>=5)return{emoji:'🌟',label:'ยอดเยี่ยม',color:'#15803d'};
+  if(v>=4)return{emoji:'✅',label:'ดี',         color:'#1d4ed8'};
+  if(v>=3)return{emoji:'👍',label:'ปานกลาง',  color:'#b45309'};
+  if(v>=2)return{emoji:'⚠️',label:'พัฒนาได้', color:'#c2410c'};
+  if(v>=1)return{emoji:'🔴',label:'ต้องปรับ', color:'#dc2626'};
+  return   {emoji:'—', label:'ยังไม่ประเมิน',color:'#94a3b8'};
+}
 function getTrend(data:(number|null)[]){const v=data.filter(x=>x!==null)as number[];if(v.length<2)return null;const first=v[0],last=v[v.length-1];if(!first)return null;const pct=Math.round(((last-first)/first)*100);return{pct:Math.abs(pct),up:last>=first};}
 
 /* ── types ── */
@@ -535,66 +549,87 @@ export default function PublicAthletePage({params}:{params:Promise<{playerId:str
         {irHistory.length>0&&latestIR&&(()=>{
           const overall=Number(latestIR.OverallIRScore)||0;
           const og=irGrade(overall);
+          const fmtTs=(ts:string)=>{try{return new Date(ts).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});}catch{return ts.split('T')[0];}};
           return(
             <div className="pub-surface">
               <div className="pub-hd">
                 <i className="bi bi-clipboard2-check-fill" style={{color:'#818cf8'}}/>
-                Individual Report <span style={{fontSize:'0.72rem',color:'#94a3b8',fontWeight:400,marginLeft:6}}>Ekkono Method</span>
-                <span style={{marginLeft:'auto',fontSize:'0.72rem',color:'#94a3b8'}}>{irHistory.length} session{irHistory.length>1?'s':''}</span>
+                รายงานพัฒนาการรายบุคคล <span style={{fontSize:'0.7rem',color:'#94a3b8',fontWeight:400,marginLeft:6}}>Individual Development Plan</span>
+                <span style={{marginLeft:'auto',fontSize:'0.72rem',color:'#94a3b8'}}>{irHistory.length} ครั้ง</span>
               </div>
               {/* Session info */}
-              <div style={{display:'flex',flexWrap:'wrap',gap:10,marginBottom:20,padding:'12px 16px',background:'#f8fafc',borderRadius:10,fontSize:'0.8rem',color:'#475569'}}>
-                {latestIR.Season&&<span><i className="bi bi-calendar3 me-1"/>{String(latestIR.Season)}</span>}
+              <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16,padding:'10px 14px',background:'#f8fafc',borderRadius:10,fontSize:'0.8rem',color:'#475569',alignItems:'center'}}>
+                {latestIR.Season&&<span style={{fontWeight:700,color:'#334155'}}><i className="bi bi-calendar3 me-1"/>{String(latestIR.Season)}</span>}
                 {latestIR.Period&&<span><i className="bi bi-clock me-1"/>{String(latestIR.Period)}</span>}
-                {latestIR.Coach&&<span><i className="bi bi-person-fill me-1"/>Coach: {String(latestIR.Coach)}</span>}
-                {latestIR.Timestamp&&<span style={{marginLeft:'auto',color:'#94a3b8'}}>{String(latestIR.Timestamp).split('T')[0]}</span>}
+                {latestIR.Coach&&<span><i className="bi bi-person-fill me-1"/>โค้ช: {String(latestIR.Coach)}</span>}
+                {latestIR.Timestamp&&<span style={{marginLeft:'auto',color:'#94a3b8',fontSize:'0.72rem'}}>📅 {fmtTs(String(latestIR.Timestamp))}</span>}
               </div>
-              {/* 4 score cards */}
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:24}} className="pub-grid4">
+
+              {/* Overall banner */}
+              <div style={{background:og.bg,border:`2px solid ${og.border}`,borderRadius:14,padding:'14px 18px',marginBottom:16,display:'flex',alignItems:'center',gap:14}}>
+                <div style={{fontSize:'2.4rem',lineHeight:1}}>{og.emoji}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:'1rem',fontWeight:800,color:og.color}}>{data.Name?.split(' ')[0]||'นักกีฬา'} อยู่ในระดับ &ldquo;{og.label}&rdquo;</div>
+                  <div style={{fontSize:'0.78rem',color:'#475569',marginTop:3}}>คะแนนรวมทุกด้าน {overall}% · {irHistory.length} ครั้งที่ประเมิน</div>
+                </div>
+                <div style={{textAlign:'center',background:'white',borderRadius:10,padding:'8px 12px',border:`1px solid ${og.border}`}}>
+                  <div style={{fontSize:'1.6rem',fontWeight:900,color:og.color,lineHeight:1}}>{overall}</div>
+                  <div style={{fontSize:'0.58rem',color:'#94a3b8',fontWeight:700}}>/ 100</div>
+                </div>
+              </div>
+
+              {/* 3 area cards */}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}} className="pub-grid3">
                 {[
-                  {label:'Behaviour', pct:Number(latestIR.BehaviourScore)||0,color:'#818cf8'},
-                  {label:'Lifestyle', pct:Number(latestIR.LifestyleScore)||0, color:'#34d399'},
-                  {label:'Technical', pct:Number(latestIR.TechnicalScore)||0, color:'#f472b6'},
-                  {label:'Overall IR',pct:overall,color:'#38bdf8',big:true},
+                  {key:'b',label:'🧠 พฤติกรรม',desc:'วินัย ความพยายาม ทัศนคติ',pct:Number(latestIR.BehaviourScore)||0,color:'#818cf8'},
+                  {key:'l',label:'🌿 วิถีชีวิต', desc:'การนอน อาหาร สุขภาพ',     pct:Number(latestIR.LifestyleScore)||0, color:'#34d399'},
+                  {key:'t',label:'⚽ ทักษะ',    desc:'เทคนิค กลยุทธ์ สมรรถภาพ', pct:Number(latestIR.TechnicalScore)||0,color:'#f472b6'},
                 ].map(c=>{
                   const g=irGrade(c.pct);
                   return(
-                    <div key={c.label} style={{background:(c as {big?:boolean}).big?'#0f172a':'white',border:`1px solid ${(c as {big?:boolean}).big?'#1e293b':'#e2e8f0'}`,borderTop:`3px solid ${c.color}`,borderRadius:12,padding:'16px 14px',textAlign:'center'}}>
-                      <div style={{fontSize:'0.62rem',fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',color:(c as {big?:boolean}).big?'rgba(255,255,255,0.5)':'#94a3b8',marginBottom:6}}>{c.label}</div>
-                      <div style={{fontSize:'2rem',fontWeight:900,color:(c as {big?:boolean}).big?'white':'#0f172a',lineHeight:1}}>{c.pct}<span style={{fontSize:'1rem',fontWeight:500,marginLeft:1}}>%</span></div>
-                      <div style={{marginTop:8,background:(c as {big?:boolean}).big?'rgba(255,255,255,0.1)':'#f1f5f9',borderRadius:20,height:6,overflow:'hidden'}}>
+                    <div key={c.key} style={{background:'white',border:`2px solid ${g.border}`,borderRadius:12,padding:'12px',textAlign:'center'}}>
+                      <div style={{fontSize:'1.5rem',marginBottom:3}}>{g.emoji}</div>
+                      <div style={{fontWeight:800,fontSize:'0.85rem',color:'#0f172a',marginBottom:2}}>{c.label}</div>
+                      <div style={{fontSize:'0.62rem',color:'#94a3b8',marginBottom:6}}>{c.desc}</div>
+                      <div style={{fontSize:'1.4rem',fontWeight:900,color:g.color,lineHeight:1}}>{c.pct}%</div>
+                      <div style={{fontSize:'0.75rem',fontWeight:700,color:g.color,marginTop:2}}>{g.label}</div>
+                      <div style={{marginTop:6,background:'#f1f5f9',borderRadius:20,height:5,overflow:'hidden'}}>
                         <div style={{height:'100%',width:`${c.pct}%`,background:c.color,borderRadius:20}}/>
                       </div>
-                      <div style={{fontSize:'0.68rem',marginTop:6,fontWeight:700,color:g.color}}>{g.label}</div>
                     </div>
                   );
                 })}
               </div>
-              {/* 3 sections */}
-              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:20}} className="pub-grid3">
-                {IR_SECTIONS.map(sec=>(
-                  <div key={sec.key} style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:10,padding:14}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,paddingBottom:10,borderBottom:`2px solid ${sec.color}20`}}>
-                      <i className={`bi ${sec.icon}`} style={{color:sec.color,fontSize:'0.9rem'}}/>
-                      <span style={{fontWeight:700,fontSize:'0.8rem',color:'#334155'}}>{sec.label}</span>
-                      <span style={{marginLeft:'auto',fontWeight:800,fontSize:'0.85rem',color:sec.color}}>{Number(latestIR[sec.scoreField])||0}%</span>
-                    </div>
-                    {sec.items.map(item=>{
-                      const val=Number(latestIR[item.field])||0;
-                      return(
-                        <div key={item.field} style={{display:'flex',alignItems:'center',gap:8,marginBottom:7}}>
-                          <span style={{flex:1,fontSize:'0.72rem',color:'#475569',fontWeight:500}}>{item.label}</span>
-                          <div style={{display:'flex',gap:3}}>
-                            {[1,2,3,4,5].map(n=>(
-                              <div key={n} style={{width:14,height:14,borderRadius:3,background:val>=n?irScoreColor(val):'#e2e8f0'}}/>
-                            ))}
+
+              {/* 3 sections detail */}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:16}} className="pub-grid3">
+                {IR_SECTIONS.map(sec=>{
+                  const secDesc:Record<string,string>={behaviour:'ด้านจิตใจ วินัย และการอยู่ร่วมกับผู้อื่น',lifestyle:'พฤติกรรมดูแลตัวเองนอกสนาม',technical:'ความสามารถในการเล่นฟุตบอล'};
+                  return(
+                    <div key={sec.key} style={{background:'#f8fafc',border:`1px solid ${sec.color}40`,borderRadius:12,padding:12,borderTop:`3px solid ${sec.color}`}}>
+                      <div style={{marginBottom:10,paddingBottom:8,borderBottom:'1px solid #f1f5f9'}}>
+                        <div style={{fontWeight:800,fontSize:'0.85rem',color:'#0f172a'}}><i className={`bi ${sec.icon} me-2`} style={{color:sec.color}}/>{sec.labelTH}</div>
+                        <div style={{fontSize:'0.62rem',color:'#94a3b8',marginTop:2}}>{secDesc[sec.key]||''}</div>
+                      </div>
+                      {sec.items.map(item=>{
+                        const val=Number(latestIR[item.field])||0;
+                        const ig=irItemGrade(val);
+                        return(
+                          <div key={String(item.field)} style={{marginBottom:7,padding:'7px 9px',borderRadius:8,background:val>0?'white':'transparent',border:'1px solid #f1f5f9'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:val>0?4:0}}>
+                              <span style={{fontWeight:600,fontSize:'0.78rem',color:'#334155'}}>{item.labelTH}</span>
+                              <div style={{display:'flex',alignItems:'center',gap:3}}>
+                                <span style={{fontSize:'0.9rem'}}>{ig.emoji}</span>
+                                <span style={{fontSize:'0.68rem',fontWeight:700,color:ig.color}}>{val>0?ig.label:'—'}</span>
+                              </div>
+                            </div>
+                            {val>0&&<div style={{display:'flex',gap:2}}>{[1,2,3,4,5].map(n=><div key={n} style={{flex:1,height:4,borderRadius:10,background:val>=n?irScoreColor(val):'#e2e8f0'}}/>)}</div>}
                           </div>
-                          <span style={{fontSize:'0.7rem',fontWeight:700,color:val>0?irScoreColor(val):'#cbd5e1',minWidth:18,textAlign:'right'}}>{val>0?val:'—'}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
               {/* Overall comments */}
               {(latestIR.GoodLevel||latestIR.ToImprove||latestIR.Comments)&&(
