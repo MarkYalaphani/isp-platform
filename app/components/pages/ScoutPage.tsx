@@ -1874,68 +1874,109 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
 
               return (
                 <>
-                  {/* ── Session info bar ── */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20, padding: '12px 16px', background: '#f8fafc', borderRadius: 10, fontSize: '0.8rem', color: '#475569' }}>
-                    {latest.Season && <span><i className="bi bi-calendar3 me-1 text-primary" />{latest.Season}</span>}
+                  {/* ── Session info ── */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16, padding: '10px 16px', background: '#f8fafc', borderRadius: 10, fontSize: '0.82rem', color: '#475569', alignItems: 'center' }}>
+                    {latest.Season && <span style={{ fontWeight: 700, color: '#334155' }}><i className="bi bi-calendar3 me-1" />{latest.Season}</span>}
                     {latest.Period && <span><i className="bi bi-clock me-1" />{latest.Period}</span>}
-                    {latest.Coach  && <span><i className="bi bi-person-fill me-1" />Coach: {latest.Coach}</span>}
-                    {latest.Timestamp && <span style={{ marginLeft: 'auto', color: '#94a3b8' }}><i className="bi bi-calendar-check me-1" />{String(latest.Timestamp).split(' ')[0]}</span>}
+                    {latest.Coach  && <span><i className="bi bi-person-fill me-1" />โค้ช: {latest.Coach}</span>}
+                    {latest.Timestamp && <span style={{ marginLeft: 'auto', color: '#94a3b8', fontSize: '0.75rem' }}>📅 {(()=>{try{return new Date(String(latest.Timestamp)).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});}catch{return String(latest.Timestamp).split('T')[0];}})()}</span>}
                   </div>
 
-                  {/* ── 4 Score Summary Cards ── */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
+                  {/* ── Overall Summary Banner ── */}
+                  {(()=>{
+                    const pG=(p:number)=>{
+                      if(p>=90)return{emoji:'🌟',th:'ยอดเยี่ยม',bg:'#f0fdf4',border:'#bbf7d0',color:'#15803d'};
+                      if(p>=75)return{emoji:'✅',th:'ดี',bg:'#eff6ff',border:'#bfdbfe',color:'#1d4ed8'};
+                      if(p>=50)return{emoji:'👍',th:'ปานกลาง',bg:'#fffbeb',border:'#fde68a',color:'#b45309'};
+                      if(p>=30)return{emoji:'⚠️',th:'ต้องพัฒนา',bg:'#fff7ed',border:'#fed7aa',color:'#c2410c'};
+                      return     {emoji:'🔴',th:'ต่ำมาก',bg:'#fef2f2',border:'#fecaca',color:'#dc2626'};
+                    };
+                    const g=pG(overall);
+                    return(
+                      <div style={{background:g.bg,border:`2px solid ${g.border}`,borderRadius:14,padding:'16px 20px',marginBottom:20,display:'flex',alignItems:'center',gap:14}}>
+                        <div style={{fontSize:'2.8rem',lineHeight:1}}>{g.emoji}</div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:'1.1rem',fontWeight:800,color:g.color}}>{athlete?.Name?.split(' ')[0]||'นักกีฬา'} อยู่ในระดับ &ldquo;{g.th}&rdquo;</div>
+                          <div style={{fontSize:'0.8rem',color:'#475569',marginTop:4}}>คะแนนรวมทุกด้าน {overall}% · {irHistory.length} ครั้งที่ประเมิน</div>
+                        </div>
+                        <div style={{textAlign:'center',background:'white',borderRadius:10,padding:'8px 14px',border:`1px solid ${g.border}`}}>
+                          <div style={{fontSize:'1.8rem',fontWeight:900,color:g.color,lineHeight:1}}>{overall}</div>
+                          <div style={{fontSize:'0.6rem',color:'#94a3b8',fontWeight:700}}>/ 100</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── 3 Area Cards ── */}
+                  <div className="scout-ir-3col" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:20 }}>
                     {[
-                      { label: 'Behaviour',  pct: Number(latest.BehaviourScore)||0, color: '#818cf8' },
-                      { label: 'Lifestyle',  pct: Number(latest.LifestyleScore)||0, color: '#34d399' },
-                      { label: 'Technical',  pct: Number(latest.TechnicalScore)||0, color: '#f472b6' },
-                      { label: 'Overall IR', pct: overall, color: '#38bdf8', big: true },
-                    ].map(c => {
-                      const g = irGrade(c.pct);
-                      return (
-                        <div key={c.label} style={{ background: c.big ? '#0f172a' : 'white', border: `1px solid ${c.big ? '#1e293b' : '#e2e8f0'}`, borderTop: `3px solid ${c.color}`, borderRadius: 12, padding: '16px 14px', textAlign: 'center' }}>
-                          <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: c.big ? 'rgba(255,255,255,0.5)' : '#94a3b8', marginBottom: 6 }}>{c.label}</div>
-                          <div style={{ fontSize: '2rem', fontWeight: 900, color: c.big ? 'white' : '#0f172a', lineHeight: 1 }}>{c.pct}<span style={{ fontSize: '1rem', fontWeight: 500, marginLeft: 1 }}>%</span></div>
-                          <div style={{ marginTop: 8, background: c.big ? 'rgba(255,255,255,0.1)' : '#f1f5f9', borderRadius: 20, height: 6, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${c.pct}%`, background: c.color, borderRadius: 20, transition: 'width 0.6s' }} />
+                      {key:'b',label:'🧠 พฤติกรรม',desc:'วินัย ความพยายาม ทัศนคติ',pct:Number(latest.BehaviourScore)||0,color:'#818cf8'},
+                      {key:'l',label:'🌿 วิถีชีวิต', desc:'การนอน อาหาร สุขภาพ',     pct:Number(latest.LifestyleScore)||0, color:'#34d399'},
+                      {key:'t',label:'⚽ ทักษะ',    desc:'เทคนิค กลยุทธ์ สมรรถภาพ', pct:Number(latest.TechnicalScore)||0,color:'#f472b6'},
+                    ].map(c=>{
+                      const pG=(p:number)=>{
+                        if(p>=90)return{emoji:'🌟',th:'ยอดเยี่ยม',border:'#bbf7d0',color:'#15803d'};
+                        if(p>=75)return{emoji:'✅',th:'ดี',         border:'#bfdbfe',color:'#1d4ed8'};
+                        if(p>=50)return{emoji:'👍',th:'ปานกลาง',  border:'#fde68a',color:'#b45309'};
+                        if(p>=30)return{emoji:'⚠️',th:'ต้องพัฒนา',border:'#fed7aa',color:'#c2410c'};
+                        return     {emoji:'🔴',th:'ต่ำมาก',      border:'#fecaca',color:'#dc2626'};
+                      };
+                      const g=pG(c.pct);
+                      return(
+                        <div key={c.key} style={{background:'white',border:`2px solid ${g.border}`,borderRadius:12,padding:'14px',textAlign:'center'}}>
+                          <div style={{fontSize:'1.6rem',marginBottom:4}}>{g.emoji}</div>
+                          <div style={{fontWeight:800,fontSize:'0.88rem',color:'#0f172a',marginBottom:2}}>{c.label}</div>
+                          <div style={{fontSize:'0.65rem',color:'#94a3b8',marginBottom:8}}>{c.desc}</div>
+                          <div style={{fontSize:'1.6rem',fontWeight:900,color:g.color,lineHeight:1}}>{c.pct}%</div>
+                          <div style={{fontSize:'0.78rem',fontWeight:700,color:g.color,marginTop:3}}>{g.th}</div>
+                          <div style={{marginTop:8,background:'#f1f5f9',borderRadius:20,height:6,overflow:'hidden'}}>
+                            <div style={{height:'100%',width:`${c.pct}%`,background:c.color,borderRadius:20}}/>
                           </div>
-                          <div style={{ fontSize: '0.68rem', marginTop: 6, fontWeight: 700, color: g.color }}>{g.label}</div>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* ── 3 Sections Detail ── */}
-                  <div className="scout-ir-3col" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }}>
-                    {IR_SECTIONS.map(sec => (
-                      <div key={sec.key} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 10, borderBottom: `2px solid ${sec.color}20` }}>
-                          <i className={`bi ${sec.icon}`} style={{ color: sec.color, fontSize: '0.9rem' }} />
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: '0.8rem', color: '#334155', lineHeight: 1.2 }}>{sec.label}</div>
-                            <div style={{ fontSize: '0.6rem', color: '#94a3b8' }}>{sec.labelTH}</div>
-                          </div>
-                          <span style={{ marginLeft: 'auto', fontWeight: 800, fontSize: '0.85rem', color: sec.color }}>{Number(latest[sec.scoreField]) || 0}%</span>
-                        </div>
-                        {sec.items.map(item => {
-                          const val = Number(latest[item.field]) || 0;
-                          return (
-                            <div key={String(item.field)} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600 }}>{item.labelTH}</div>
-                                <div style={{ fontSize: '0.6rem', color: '#94a3b8' }}>{item.label}</div>
-                              </div>
-                              <div style={{ display: 'flex', gap: 3 }}>
-                                {[1,2,3,4,5].map(n => (
-                                  <div key={n} style={{ width: 14, height: 14, borderRadius: 3, background: val >= n ? irScoreColor(val) : '#e2e8f0' }} />
-                                ))}
-                              </div>
-                              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: val > 0 ? irScoreColor(val) : '#cbd5e1', minWidth: 18, textAlign: 'right' }}>{val > 0 ? val : '—'}</span>
+                  {/* ── 3 Sections Detail (parent-friendly) ── */}
+                  {(()=>{
+                    const secDesc:Record<string,string>={behaviour:'ด้านจิตใจ วินัย และการอยู่ร่วมกับผู้อื่น',lifestyle:'พฤติกรรมดูแลตัวเองนอกสนาม',technical:'ความสามารถในการเล่นฟุตบอล'};
+                    const iG=(v:number)=>{
+                      if(v>=5)return{emoji:'🌟',label:'ยอดเยี่ยม',color:'#15803d'};
+                      if(v>=4)return{emoji:'✅',label:'ดี',         color:'#1d4ed8'};
+                      if(v>=3)return{emoji:'👍',label:'ปานกลาง',  color:'#b45309'};
+                      if(v>=2)return{emoji:'⚠️',label:'พัฒนาได้', color:'#c2410c'};
+                      if(v>=1)return{emoji:'🔴',label:'ต้องปรับ', color:'#dc2626'};
+                      return     {emoji:'—', label:'ยังไม่ประเมิน',color:'#94a3b8'};
+                    };
+                    return(
+                      <div className="scout-ir-3col" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
+                        {IR_SECTIONS.map(sec=>(
+                          <div key={sec.key} style={{background:'#f8fafc',border:`1px solid ${sec.color}40`,borderRadius:12,padding:14,borderTop:`3px solid ${sec.color}`}}>
+                            <div style={{marginBottom:12,paddingBottom:10,borderBottom:'1px solid #f1f5f9'}}>
+                              <div style={{fontWeight:800,fontSize:'0.9rem',color:'#0f172a'}}><i className={`bi ${sec.icon} me-2`} style={{color:sec.color}}/>{sec.labelTH}</div>
+                              <div style={{fontSize:'0.65rem',color:'#94a3b8',marginTop:2}}>{secDesc[sec.key]||''}</div>
                             </div>
-                          );
-                        })}
+                            {sec.items.map(item=>{
+                              const val=Number(latest[item.field])||0;
+                              const ig=iG(val);
+                              return(
+                                <div key={String(item.field)} style={{marginBottom:8,padding:'8px 10px',borderRadius:8,background:val>0?'white':'#f8fafc',border:'1px solid #f1f5f9'}}>
+                                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:val>0?5:0}}>
+                                    <div style={{fontWeight:700,fontSize:'0.8rem',color:'#334155'}}>{item.labelTH}</div>
+                                    <div style={{display:'flex',alignItems:'center',gap:4}}>
+                                      <span style={{fontSize:'1rem'}}>{ig.emoji}</span>
+                                      <span style={{fontSize:'0.72rem',fontWeight:700,color:ig.color}}>{val>0?ig.label:'—'}</span>
+                                    </div>
+                                  </div>
+                                  {val>0&&<div style={{display:'flex',gap:3}}>{[1,2,3,4,5].map(n=><div key={n} style={{flex:1,height:5,borderRadius:10,background:val>=n?irScoreColor(val):'#e2e8f0'}}/>)}</div>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
 
                   {/* ── Comments ── */}
                   {(latest.GoodLevel || latest.ToImprove || latest.Comments) && (
