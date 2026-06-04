@@ -346,6 +346,9 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const [matchPerf,      setMatchPerf]      = useState<PlayerMatchPerf[]>([]);
   const [dateRange, setDateRange] = useState<'all'|'1y'|'6m'|'3m'>('all');
   const [chartView, setChartView] = useState<'score'|'raw'>('score');
+  const [aiInsights, setAiInsights] = useState<{summary:string;strengths:string[];priorities:string[];training:string[];parentNote:string}|null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [goals, setGoals] = useState<Record<string,string>>({});
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showParentReport, setShowParentReport] = useState(false);
@@ -577,6 +580,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   useEffect(() => { if (initialId) setSelectedId(initialId); }, [initialId]);
 
   useEffect(() => {
+    setAiInsights(null); setAiError('');
     if (!selectedId) { setIrHistory([]); setLatestSkill(null); return; }
     setIrLoading(true);
     callGAS('getIRHistory', { playerId: selectedId })
@@ -2287,6 +2291,131 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
               </div>
             );
           })()}
+
+          {/* ── AI INSIGHTS ── */}
+          {latest && Object.values(scores).some(s => s > 0) && (
+            <div className="surface mb-4">
+              <div className="section-hd" style={{ justifyContent: 'space-between' }}>
+                <span><i className="bi bi-robot" style={{ color: '#818cf8' }} /> AI วิเคราะห์สมรรถภาพ <span style={{ fontSize: '0.68rem', fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>powered by Claude</span></span>
+                {!aiInsights && !aiLoading && (
+                  <button onClick={async () => {
+                    setAiLoading(true); setAiError(''); setAiInsights(null);
+                    const token = typeof window !== 'undefined' ? (sessionStorage.getItem('scoutToken') || localStorage.getItem('scoutToken')) : null;
+                    try {
+                      const res = await fetch('/api/ai-insights', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                        body: JSON.stringify({
+                          athleteName: athlete?.Name || '',
+                          age: age,
+                          position: athlete?.Position || '',
+                          team: athlete?.Team || '',
+                          scores,
+                          latest,
+                          testCount: HIST.length,
+                          rating,
+                          irData: irHistory.length > 0 ? {
+                            behaviourScore: Number(irHistory[0].BehaviourScore) || 0,
+                            lifestyleScore: Number(irHistory[0].LifestyleScore) || 0,
+                            technicalScore: Number(irHistory[0].TechnicalScore) || 0,
+                            goodLevel: String(irHistory[0].GoodLevel || ''),
+                            toImprove: String(irHistory[0].ToImprove || ''),
+                          } : null,
+                        }),
+                      });
+                      if (res.status === 503) { setAiError('ฟีเจอร์ AI ยังไม่ได้เปิดใช้งาน'); return; }
+                      const data = await res.json() as { insights?: typeof aiInsights; error?: string };
+                      if (data.insights) setAiInsights(data.insights);
+                      else setAiError(data.error || 'ไม่สามารถวิเคราะห์ได้');
+                    } catch { setAiError('Connection error'); }
+                    finally { setAiLoading(false); }
+                  }} className="btn-outline btn-sm" style={{ color: '#818cf8', borderColor: '#818cf8' }}>
+                    <i className="bi bi-stars me-1" />วิเคราะห์ด้วย AI
+                  </button>
+                )}
+                {aiInsights && (
+                  <button onClick={() => setAiInsights(null)} className="btn-outline btn-sm" style={{ fontSize: '0.7rem' }}>
+                    <i className="bi bi-arrow-clockwise me-1" />วิเคราะห์ใหม่
+                  </button>
+                )}
+              </div>
+
+              {aiLoading && (
+                <div style={{ textAlign: 'center', padding: '32px 0', color: '#818cf8' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                    <span className="spinner-ring" style={{ width: 20, height: 20, borderColor: '#818cf8', borderTopColor: 'transparent' }} />
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Claude กำลังวิเคราะห์...</span>
+                  </div>
+                </div>
+              )}
+
+              {aiError && !aiLoading && (
+                <div style={{ padding: '12px 16px', background: '#fef2f2', borderRadius: 10, color: '#dc2626', fontSize: '0.82rem' }}>
+                  <i className="bi bi-exclamation-triangle me-2" />{aiError}
+                </div>
+              )}
+
+              {!aiInsights && !aiLoading && !aiError && (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8', fontSize: '0.85rem' }}>
+                  <i className="bi bi-stars" style={{ fontSize: '2rem', display: 'block', marginBottom: 8, color: '#c4b5fd' }} />
+                  กด "วิเคราะห์ด้วย AI" เพื่อรับข้อเสนอแนะส่วนตัวจาก Claude
+                </div>
+              )}
+
+              {aiInsights && (
+                <div>
+                  {/* Summary */}
+                  <div style={{ background: 'linear-gradient(135deg,#1e1b4b,#312e81)', borderRadius: 12, padding: '14px 18px', marginBottom: 14, color: 'white' }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#a5b4fc', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>📋 สรุปภาพรวม</div>
+                    <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.9)' }}>{aiInsights.summary}</p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, marginBottom: 14 }}>
+                    {/* Strengths */}
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#16a34a', marginBottom: 8 }}>💪 จุดแข็ง</div>
+                      {aiInsights.strengths.map((s, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5 }}>
+                          <span style={{ color: '#16a34a', flexShrink: 0 }}>✓</span>
+                          <span style={{ fontSize: '0.8rem', color: '#166534', lineHeight: 1.4 }}>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Priorities */}
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#dc2626', marginBottom: 8 }}>🎯 สิ่งที่ต้องพัฒนา</div>
+                      {aiInsights.priorities.map((p, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5 }}>
+                          <span style={{ color: '#dc2626', flexShrink: 0 }}>→</span>
+                          <span style={{ fontSize: '0.8rem', color: '#991b1b', lineHeight: 1.4 }}>{p}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Training recommendations */}
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#1d4ed8', marginBottom: 8 }}>⚡ คำแนะนำการฝึก</div>
+                      {aiInsights.training.map((t, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5 }}>
+                          <span style={{ color: '#2563eb', flexShrink: 0 }}>•</span>
+                          <span style={{ fontSize: '0.8rem', color: '#1e40af', lineHeight: 1.4 }}>{t}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Parent note */}
+                  {aiInsights.parentNote && (
+                    <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#7c3aed', marginBottom: 5 }}>👪 สำหรับผู้ปกครอง</div>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: '#4c1d95', lineHeight: 1.5 }}>{aiInsights.parentNote}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── TRAINING VIDEOS ── */}
           {weaknesses.length > 0 && (

@@ -19,27 +19,44 @@ interface Props { athletes: Athlete[]; user: User; }
 
 /* ── Constants ───────────────────────────────────────────── */
 const IR_B = [
-  { key:'b_ontime',        label:'Be On Time',       labelTH:'การตรงต่อเวลา'           },
-  { key:'b_effort',        label:'Effort',            labelTH:'ความมุ่งมั่นพยายาม'       },
-  { key:'b_teamwork',      label:'Teamwork',          labelTH:'การทำงานเป็นทีม'          },
-  { key:'b_respect',       label:'Respect',           labelTH:'การให้เกียรติผู้อื่น'     },
-  { key:'b_attendance',    label:'Attendance',        labelTH:'การเข้าร่วมฝึกซ้อม'      },
-  { key:'b_participation', label:'Participation',     labelTH:'การมีส่วนร่วม'            },
-  { key:'b_improvement',   label:'Improvement',       labelTH:'พัฒนาการที่เห็นได้ชัด'   },
+  { key:'b_ontime',        label:'Be On Time',       labelTH:'การตรงต่อเวลา',
+    desc:'นักกีฬามาถึงสนามตรงเวลาหรือก่อนเวลา พร้อมอุปกรณ์ครบถ้วน' },
+  { key:'b_effort',        label:'Effort',            labelTH:'ความมุ่งมั่นพยายาม',
+    desc:'ความพยายามในการฝึกซ้อม ไม่ยอมแพ้ง่าย ทำดีที่สุดทุกครั้ง' },
+  { key:'b_teamwork',      label:'Teamwork',          labelTH:'การทำงานเป็นทีม',
+    desc:'ช่วยเหลือเพื่อนร่วมทีม สื่อสารดี และแก้ปัญหาร่วมกัน' },
+  { key:'b_respect',       label:'Respect',           labelTH:'การให้เกียรติผู้อื่น',
+    desc:'เคารพผู้ฝึกสอน เพื่อนร่วมทีม คู่แข่ง และกรรมการ' },
+  { key:'b_attendance',    label:'Attendance',        labelTH:'การเข้าร่วมฝึกซ้อม',
+    desc:'ความสม่ำเสมอในการมาฝึกซ้อม ไม่ขาดซ้อมโดยไม่มีเหตุผล' },
+  { key:'b_participation', label:'Participation',     labelTH:'การมีส่วนร่วม',
+    desc:'กล้าแสดงออก ถามคำถาม และร่วมกิจกรรมฝึกซ้อมอย่างกระตือรือร้น' },
+  { key:'b_improvement',   label:'Improvement',       labelTH:'พัฒนาการที่เห็นได้ชัด',
+    desc:'นักกีฬาพัฒนาขึ้นจากช่วงที่ผ่านมา ทั้งในด้านทักษะและทัศนคติ' },
 ];
 const IR_L = [
-  { key:'l_sleep',         label:'Sleep',             labelTH:'การนอนหลับพักผ่อน'       },
-  { key:'l_hydration',     label:'Hydration',         labelTH:'การดื่มน้ำเพียงพอ'       },
-  { key:'l_diet',          label:'Diet',              labelTH:'การรับประทานอาหาร'        },
-  { key:'l_screentime',    label:'Screen Time',       labelTH:'การใช้อุปกรณ์อิเล็กทรอนิกส์' },
+  { key:'l_sleep',         label:'Sleep',             labelTH:'การนอนหลับพักผ่อน',
+    desc:'นอนหลับพักผ่อนอย่างเพียงพอ 8-10 ชั่วโมง/วัน เพื่อฟื้นฟูร่างกาย' },
+  { key:'l_hydration',     label:'Hydration',         labelTH:'การดื่มน้ำเพียงพอ',
+    desc:'ดื่มน้ำสะอาดให้เพียงพอ โดยเฉพาะก่อน-ระหว่าง-หลังฝึกซ้อม' },
+  { key:'l_diet',          label:'Diet',              labelTH:'การรับประทานอาหาร',
+    desc:'รับประทานอาหารครบ 5 หมู่ หลีกเลี่ยงของหวาน น้ำอัดลม และอาหารขยะ' },
+  { key:'l_screentime',    label:'Screen Time',       labelTH:'การใช้อุปกรณ์อิเล็กทรอนิกส์',
+    desc:'จำกัดเวลาใช้โทรศัพท์/เกม โดยเฉพาะก่อนนอน เพื่อคุณภาพการพักผ่อนที่ดี' },
 ];
 const IR_T = [
-  { key:'t_motricity',     label:'Motricity',         labelTH:'กลไกและการเคลื่อนไหวร่างกาย' },
-  { key:'t_technical',     label:'Technical',         labelTH:'ทักษะเทคนิคลูกบอล'       },
-  { key:'t_tactic',        label:'Tactical Awareness',labelTH:'การอ่านเกมและยุทธวิธี'    },
-  { key:'t_offfundam',     label:'Offensive Fundamentals', labelTH:'พื้นฐานเกมรุก'      },
-  { key:'t_deffundam',     label:'Defensive Fundamentals', labelTH:'พื้นฐานเกมรับ'      },
-  { key:'t_fitness',       label:'Physical Fitness',  labelTH:'สมรรถภาพทางกาย'          },
+  { key:'t_motricity',     label:'Motricity',         labelTH:'กลไกและการเคลื่อนไหวร่างกาย',
+    desc:'ความสามารถในการควบคุมร่างกาย การทรงตัว และการเคลื่อนไหวที่คล่องแคล่ว' },
+  { key:'t_technical',     label:'Technical',         labelTH:'ทักษะเทคนิคลูกบอล',
+    desc:'การรับบอล ส่งบอล เลี้ยงบอล และการยิงประตูด้วยเทคนิคที่ถูกต้อง' },
+  { key:'t_tactic',        label:'Tactical Awareness',labelTH:'การอ่านเกมและยุทธวิธี',
+    desc:'ความเข้าใจในยุทธวิธีของทีม การเลือกตำแหน่งที่ถูกต้อง และการตัดสินใจในสนาม' },
+  { key:'t_offfundam',     label:'Offensive Fundamentals', labelTH:'พื้นฐานเกมรุก',
+    desc:'การสร้างโอกาสทำประตู การเคลื่อนที่หาพื้นที่ว่าง และการสนับสนุนเพื่อนร่วมทีม' },
+  { key:'t_deffundam',     label:'Defensive Fundamentals', labelTH:'พื้นฐานเกมรับ',
+    desc:'การยืนตำแหน่งรับ การดักบอล การประกบตัว และการช่วยเหลือเพื่อนในการรับ' },
+  { key:'t_fitness',       label:'Physical Fitness',  labelTH:'สมรรถภาพทางกาย',
+    desc:'ความแข็งแรง ความเร็ว ความอดทน และความยืดหยุ่น ที่จำเป็นสำหรับกีฬาฟุตบอล' },
 ];
 
 const SCORE_CFG: Record<number,{label:string;color:string;bg:string}> = {
@@ -61,12 +78,12 @@ function grade(pct:number){
 
 /* ── Rating row ──────────────────────────────────────────── */
 function RatingRow({ item, val, onChange, color }:{
-  item:{key:string;label:string;labelTH:string}; val:number; onChange:(v:number)=>void; color:string;
+  item:{key:string;label:string;labelTH:string;desc?:string}; val:number; onChange:(v:number)=>void; color:string;
 }) {
   const sc = SCORE_CFG[val] || SCORE_CFG[0];
   return (
     <div style={{
-      display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
+      display:'flex', alignItems:'flex-start', gap:10, padding:'10px 14px',
       borderRadius:10, background:'var(--bg)',
       border:`1.5px solid ${val>0 ? color+'55' : 'var(--border)'}`,
       transition:'border-color 0.15s',
@@ -74,6 +91,7 @@ function RatingRow({ item, val, onChange, color }:{
       <div style={{flex:1, minWidth:0}}>
         <div style={{fontWeight:700, fontSize:'0.82rem'}}>{item.label}</div>
         <div style={{fontSize:'0.67rem', color:'var(--text-muted)', marginTop:1}}>{item.labelTH}</div>
+        {item.desc&&<div style={{fontSize:'0.63rem',color:'#94a3b8',marginTop:3,lineHeight:1.4,fontStyle:'italic'}}>{item.desc}</div>}
       </div>
       <div style={{display:'flex', gap:4, flexShrink:0}}>
         {[1,2,3,4,5].map(n=>(

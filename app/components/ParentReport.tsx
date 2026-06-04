@@ -473,7 +473,34 @@ export default function ParentReport({ athlete: a, user, onClose, irHistory = []
             </div>
             {latestIR.GoodLevel && <div style={{ marginBottom:8, padding:'8px 12px', background:'#f0fdf4', borderRadius:8, fontSize:'0.78rem', color:'#166534', borderLeft:'3px solid #10b981' }}><strong>จุดแข็ง:</strong> {latestIR.GoodLevel}</div>}
             {latestIR.ToImprove && <div style={{ marginBottom:8, padding:'8px 12px', background:'#fef9ec', borderRadius:8, fontSize:'0.78rem', color:'#92400e', borderLeft:'3px solid #f59e0b' }}><strong>สิ่งที่ต้องพัฒนา:</strong> {latestIR.ToImprove}</div>}
-            {latestIR.Comments && <div style={{ padding:'8px 12px', background:'#f5f3ff', borderRadius:8, fontSize:'0.78rem', color:'#4c1d95', borderLeft:'3px solid #7c3aed' }}><strong>ความคิดเห็นโค้ช:</strong> {latestIR.Comments}</div>}
+            {latestIR.Comments && <div style={{ marginBottom:8, padding:'8px 12px', background:'#f5f3ff', borderRadius:8, fontSize:'0.78rem', color:'#4c1d95', borderLeft:'3px solid #7c3aed' }}><strong>ความคิดเห็นโค้ช:</strong> {latestIR.Comments}</div>}
+            {/* Section-specific comments */}
+            {(latestIR.BehaviourComment||latestIR.LifestyleComment||latestIR.TechnicalComment)&&(
+              <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:8 }}>
+                {latestIR.BehaviourComment&&<div style={{ padding:'8px 12px', background:'#faf5ff', borderRadius:8, fontSize:'0.78rem', color:'#6d28d9', borderLeft:'3px solid #a78bfa' }}><strong>💬 พฤติกรรม:</strong> {String(latestIR.BehaviourComment)}</div>}
+                {latestIR.LifestyleComment&&<div style={{ padding:'8px 12px', background:'#f0fdf4', borderRadius:8, fontSize:'0.78rem', color:'#065f46', borderLeft:'3px solid #6ee7b7' }}><strong>💬 วิถีชีวิต:</strong> {String(latestIR.LifestyleComment)}</div>}
+                {latestIR.TechnicalComment&&<div style={{ padding:'8px 12px', background:'#f0f9ff', borderRadius:8, fontSize:'0.78rem', color:'#0369a1', borderLeft:'3px solid #7dd3fc' }}><strong>💬 เทคนิค:</strong> {String(latestIR.TechnicalComment)}</div>}
+              </div>
+            )}
+            {/* IDP Goals */}
+            {(latestIR.IdpGoalShort||latestIR.IdpGoalLong||latestIR.IdpAction||latestIR.IdpDream)&&(
+              <div style={{ marginTop:12, background:'#0f172a', borderRadius:10, padding:'12px 14px' }}>
+                <div style={{ fontSize:'0.7rem', fontWeight:700, color:'#38bdf8', marginBottom:8, textTransform:'uppercase', letterSpacing:1 }}>🎯 เป้าหมายพัฒนาการ (IDP Goals)</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8 }}>
+                  {[
+                    {label:'เป้าหมายระยะสั้น', val:latestIR.IdpGoalShort, color:'#38bdf8'},
+                    {label:'เป้าหมายระยะยาว', val:latestIR.IdpGoalLong,  color:'#818cf8'},
+                    {label:'แผนปฏิบัติ',       val:latestIR.IdpAction,    color:'#34d399'},
+                    {label:'ความฝัน',           val:latestIR.IdpDream,     color:'#f472b6'},
+                  ].filter(x=>x.val).map(x=>(
+                    <div key={x.label} style={{ background:'rgba(255,255,255,0.07)', borderRadius:8, padding:'8px 10px' }}>
+                      <div style={{ fontSize:'0.6rem', fontWeight:700, color:x.color, marginBottom:3 }}>{x.label}</div>
+                      <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.85)', lineHeight:1.4 }}>{String(x.val)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

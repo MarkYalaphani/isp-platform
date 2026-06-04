@@ -85,6 +85,10 @@ export interface IRReport {
   BehaviourComment: string;
   LifestyleComment: string;
   TechnicalComment: string;
+  IdpGoalShort: string;
+  IdpGoalLong: string;
+  IdpAction: string;
+  IdpDream: string;
   BehaviourScore: number;
   LifestyleScore: number;
   TechnicalScore: number;
