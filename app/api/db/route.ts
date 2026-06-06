@@ -706,6 +706,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'success' });
       }
 
+      case 'updateAttendanceRecord': {
+        const { id: recId, status: newStatus, notes: newNotes } = params as { id: string; status: string; notes?: string };
+        if (!recId) return NextResponse.json({ status: 'error', message: 'missing id' }, { status: 400 });
+        const { error } = await sb.from('attendance')
+          .update({ status: newStatus, notes: newNotes ?? '' })
+          .eq('id', recId);
+        if (error) throw error;
+        return NextResponse.json({ status: 'success' });
+      }
+
       // ── WELLNESS CHECK ────────────────────────────────────────────────────
       case 'saveWellness': {
         const { records } = params as { records: Array<{ playerId:string; checkDate:string; fatigue:number; sleepQuality:number; soreness:number; stress:number; mood:number; notes?:string; createdBy?:string }> };
@@ -809,6 +819,37 @@ export async function POST(req: NextRequest) {
         const { data, error } = await q;
         if (error) throw error;
         return NextResponse.json((data||[]).map(r=>({ id:r.id, matchDate:r.match_date, opponent:r.opponent, venue:r.venue||'', matchType:r.match_type, teamName:r.team_name||'', scoreFor:r.score_for, scoreAgainst:r.score_against, result:r.result, notes:r.notes||'', createdBy:r.created_by||'' })));
+      }
+
+      case 'updateMatch': {
+        const { id: mId, ...mData } = params as { id: string; [k: string]: unknown };
+        if (!mId) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
+        const sf = Number(mData.scoreFor)||0, sa = Number(mData.scoreAgainst)||0;
+        const result = sf > sa ? 'W' : sf < sa ? 'L' : 'D';
+        const { error } = await sb.from('matches').update({
+          match_date: mData.matchDate, opponent: mData.opponent,
+          venue: mData.venue||'', match_type: mData.matchType,
+          team_name: mData.teamName||'', score_for: sf, score_against: sa,
+          result, notes: mData.notes||'',
+        }).eq('id', mId);
+        if (error) throw error;
+        return NextResponse.json({ status:'success', result });
+      }
+
+      case 'updateMatchStat': {
+        const { id: statId, ...statData } = params as { id: string; [k: string]: unknown };
+        if (!statId) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
+        const { error } = await sb.from('match_stats').update({
+          minutes_played: Number(statData.minutesPlayed)||0,
+          goals:          Number(statData.goals)||0,
+          assists:        Number(statData.assists)||0,
+          yellow_cards:   Number(statData.yellowCards)||0,
+          red_cards:      Number(statData.redCards)||0,
+          rating:         Number(statData.rating)||0,
+          notes:          String(statData.notes||''),
+        }).eq('id', statId);
+        if (error) throw error;
+        return NextResponse.json({ status:'success' });
       }
       case 'getMatchStats': {
         const { matchId } = params as { matchId: string };

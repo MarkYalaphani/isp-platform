@@ -53,6 +53,9 @@ export default function AttendancePage({ athletes, user }: Props) {
   const [selectedSession, setSelectedSession] = useState<string|null>(null); // "date|name"
   const [histRecords, setHistRecords] = useState<AttendanceRecord[]>([]);
   const [view, setView]               = useState<'check'|'history'|'stats'>('check');
+  const [editingRecord, setEditingRecord] = useState<string|null>(null); // record id being edited
+  const [histTeamFilter, setHistTeamFilter] = useState('ALL');
+  const [statsTeamFilter, setStatsTeamFilter] = useState('ALL');
 
   // Filter
   const [filterTeam, setFilterTeam]   = useState('ALL');
@@ -87,6 +90,23 @@ export default function AttendancePage({ athletes, user }: Props) {
     setHistRecords(Array.isArray(d) ? d : []);
     setSelectedSession(key);
   }, []);
+
+  const handleUpdateRecord = async (recId: string, newStatus: AttendanceStatus) => {
+    const prev = histRecords.find(r => r.id === recId);
+    if (!prev) return;
+    setHistRecords(rs => rs.map(r => r.id === recId ? { ...r, status: newStatus } : r));
+    setEditingRecord(null);
+    try {
+      const res = await callGAS('updateAttendanceRecord', { id: recId, status: newStatus, notes: prev.notes || '' }) as { status: string };
+      if (res.status !== 'success') {
+        showToast('แก้ไขไม่สำเร็จ', 'error');
+        setHistRecords(rs => rs.map(r => r.id === recId ? prev : r));
+      } else showToast('แก้ไขสำเร็จ', 'success');
+    } catch {
+      showToast('Connection error', 'error');
+      setHistRecords(rs => rs.map(r => r.id === recId ? prev : r));
+    }
+  };
 
   const handleShowQR = () => {
     if (!sessionDate || !sessionName) { showToast('กรุณากรอกวันที่และชื่อ session ก่อน', 'error'); return; }
@@ -416,34 +436,68 @@ export default function AttendancePage({ athletes, user }: Props) {
                     </div>
                   </div>
 
+                  {/* Team filter for history */}
+                  <div style={{ marginBottom:10, display:'flex', alignItems:'center', gap:8 }}>
+                    <label style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--text-muted)', whiteSpace:'nowrap' }}>กรองรุ่น:</label>
+                    <select className="form-select" value={histTeamFilter} onChange={e=>setHistTeamFilter(e.target.value)} style={{ width:'auto', fontSize:'0.8rem' }}>
+                      <option value="ALL">ทุกรุ่น</option>
+                      {teams.filter(t=>t!=='ALL').map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+
                   {/* Attendance list */}
                   <div className="surface" style={{ padding:0, overflow:'hidden' }}>
                     <table className="data-table">
                       <thead>
                         <tr>
                           <th style={{ paddingLeft:16 }}>นักกีฬา</th>
-                          <th>ทีม</th>
+                          <th>ทีม/รุ่น</th>
                           <th style={{ textAlign:'center' }}>สถานะ</th>
-                          <th>หมายเหตุ</th>
+                          <th style={{ textAlign:'center' }}>แก้ไข</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {histRecords.map(r => {
-                          const a = athletes.find(x=>x.PlayerID===r.playerId);
-                          const cfg = STATUS_CFG[r.status as AttendanceStatus] || STATUS_CFG.absent;
-                          return (
-                            <tr key={r.id}>
-                              <td style={{ paddingLeft:16, fontWeight:600 }}>{a?.Name || r.playerId}</td>
-                              <td style={{ fontSize:'0.8rem', color:'var(--text-muted)' }}>{a?.Team||'—'}</td>
-                              <td style={{ textAlign:'center' }}>
-                                <span style={{ background:cfg.bg, color:cfg.color, border:`1px solid ${cfg.border}`, borderRadius:20, padding:'3px 10px', fontSize:'0.72rem', fontWeight:800, display:'inline-flex', alignItems:'center', gap:4 }}>
-                                  <i className={`bi ${cfg.icon}`}/>{cfg.label}
-                                </span>
-                              </td>
-                              <td style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>{r.notes||'—'}</td>
-                            </tr>
-                          );
-                        })}
+                        {histRecords
+                          .filter(r => histTeamFilter === 'ALL' || athletes.find(x=>x.PlayerID===r.playerId)?.Team === histTeamFilter)
+                          .map(r => {
+                            const a = athletes.find(x=>x.PlayerID===r.playerId);
+                            const cfg = STATUS_CFG[r.status as AttendanceStatus] || STATUS_CFG.absent;
+                            const isEditing = editingRecord === r.id;
+                            return (
+                              <tr key={r.id}>
+                                <td style={{ paddingLeft:16, fontWeight:600 }}>{a?.Name || r.playerId}</td>
+                                <td style={{ fontSize:'0.8rem', color:'var(--text-muted)' }}>{a?.Team||'—'}</td>
+                                <td style={{ textAlign:'center' }}>
+                                  {isEditing ? (
+                                    <div style={{ display:'flex', gap:4, justifyContent:'center', flexWrap:'wrap' }}>
+                                      {(Object.keys(STATUS_CFG) as AttendanceStatus[]).map(s => {
+                                        const c = STATUS_CFG[s];
+                                        return (
+                                          <button key={s} onClick={()=>handleUpdateRecord(r.id, s)}
+                                            style={{ background:c.bg, color:c.color, border:`1px solid ${c.border}`, borderRadius:8, padding:'3px 8px', fontSize:'0.65rem', fontWeight:800, cursor:'pointer', display:'flex', alignItems:'center', gap:3 }}>
+                                            <i className={`bi ${c.icon}`}/>{c.label}
+                                          </button>
+                                        );
+                                      })}
+                                      <button onClick={()=>setEditingRecord(null)} style={{ background:'var(--bg)', border:'1px solid var(--border)', borderRadius:8, padding:'3px 8px', fontSize:'0.65rem', cursor:'pointer', color:'var(--text-muted)' }}>ยกเลิก</button>
+                                    </div>
+                                  ) : (
+                                    <span style={{ background:cfg.bg, color:cfg.color, border:`1px solid ${cfg.border}`, borderRadius:20, padding:'3px 10px', fontSize:'0.72rem', fontWeight:800, display:'inline-flex', alignItems:'center', gap:4 }}>
+                                      <i className={`bi ${cfg.icon}`}/>{cfg.label}
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ textAlign:'center' }}>
+                                  {!isEditing && (
+                                    <button onClick={()=>setEditingRecord(r.id)} title="แก้ไขสถานะ"
+                                      style={{ background:'none', border:'1px solid var(--border)', borderRadius:7, padding:'3px 8px', cursor:'pointer', fontSize:'0.75rem', color:'var(--text-muted)' }}>
+                                      <i className="bi bi-pencil-fill"/>
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>
@@ -457,16 +511,23 @@ export default function AttendancePage({ athletes, user }: Props) {
       {/* ══════════ TAB: STATS ══════════ */}
       {view === 'stats' && (
         <div>
-          <div className="surface" style={{ marginBottom:16, padding:'14px 18px' }}>
-            <div style={{ fontSize:'0.72rem', color:'var(--text-muted)', display:'flex', alignItems:'center', gap:8 }}>
+          <div className="surface" style={{ marginBottom:16, padding:'14px 18px', display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
+            <div style={{ fontSize:'0.72rem', color:'var(--text-muted)', display:'flex', alignItems:'center', gap:8, flex:1 }}>
               <i className="bi bi-info-circle" style={{ color:'#38bdf8' }}/>
               สถิติคำนวณจาก {sessions.length} session ที่บันทึกไว้
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <label style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--text-muted)', whiteSpace:'nowrap' }}>กรองรุ่น:</label>
+              <select className="form-select" value={statsTeamFilter} onChange={e=>setStatsTeamFilter(e.target.value)} style={{ width:'auto', fontSize:'0.8rem' }}>
+                <option value="ALL">ทุกรุ่น</option>
+                {teams.filter(t=>t!=='ALL').map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
           </div>
           {loadingSessions ? (
             <div style={{ textAlign:'center', padding:40 }}><div className="spinner-ring"/></div>
           ) : (
-            <AttendanceStats athletes={athletes} sessions={sessions}/>
+            <AttendanceStats athletes={statsTeamFilter==='ALL' ? athletes : athletes.filter(a=>a.Team===statsTeamFilter)} sessions={sessions}/>
           )}
         </div>
       )}

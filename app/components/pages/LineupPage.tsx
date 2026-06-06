@@ -529,6 +529,7 @@ export default function LineupPage({ athletes, user }: Props) {
   const [selAth, setSelAth]       = useState<string|null>(null);
   const [search, setSearch]       = useState('');
   const [rf, setRf]               = useState<'ALL'|Role>('ALL');
+  const [rtf, setRtf]             = useState('ALL'); // team/รุ่น filter
   const [lname, setLname]         = useState('');
   const [saved, setSaved]         = useState<SavedLineup[]>(()=>loadLineups());
   const [showPanel, setShowPanel] = useState(true);
@@ -554,7 +555,9 @@ export default function LineupPage({ athletes, user }: Props) {
   const assignedIds = new Set(Object.values(assign));
   const notify = (m:string)=>{ setNotif(m); setTimeout(()=>setNotif(''),2200); };
 
+  const teamOptions = Array.from(new Set(athletes.map(a=>a.Team).filter(Boolean))).sort();
   const roster = athletes.filter(a=>{
+    if(rtf!=='ALL'&&a.Team!==rtf) return false;
     if(rf!=='ALL'){const p=(a.Position||'').toLowerCase();if(rf==='GK'&&!p.includes('goal'))return false;if(rf==='DEF'&&!p.includes('def')&&!p.includes('back'))return false;if(rf==='MID'&&!p.includes('mid'))return false;if(rf==='FWD'&&!/forward|fwd|wing|striker/i.test(p))return false;}
     if(search){const q=search.toLowerCase();return(a.Name||'').toLowerCase().includes(q)||(a.Nickname||'').toLowerCase().includes(q);}
     return true;
@@ -1199,6 +1202,14 @@ export default function LineupPage({ athletes, user }: Props) {
             <div className="search-wrap" style={{marginBottom:8}}>
               <i className="bi bi-search"/><input className="form-control" placeholder="ค้นหา..." value={search} onChange={e=>setSearch(e.target.value)} style={{fontSize:'0.8rem'}}/>
             </div>
+
+            {teamOptions.length > 1 && (
+              <select value={rtf} onChange={e=>setRtf(e.target.value)}
+                style={{width:'100%',marginBottom:8,padding:'5px 8px',borderRadius:7,border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text-main)',fontSize:'0.78rem',fontWeight:700}}>
+                <option value="ALL">ทุกรุ่น</option>
+                {teamOptions.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
+            )}
 
             <div style={{display:'flex',gap:4,marginBottom:10,flexWrap:'wrap'}}>
               {(['ALL','GK','DEF','MID','FWD'] as const).map(r=>(

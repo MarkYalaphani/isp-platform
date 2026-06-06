@@ -70,6 +70,12 @@ export default function MatchLogPage({ athletes, user }: Props) {
   const [filterTeam, setFilterTeam] = useState('ALL');
   const teamOptions = useMemo(() => ['ALL', ...TEAMS], []);
 
+  // Edit mode for detail view
+  const [isEditingMatch, setIsEditingMatch] = useState(false);
+  const [editMatchForm, setEditMatchForm] = useState<typeof form>(blankForm());
+  const [editStatVals, setEditStatVals] = useState<Record<string, Partial<MatchStat>>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
+
   // Athletes available for selection: filtered by match team if set
   const poolAthletes = useMemo(() =>
     athletes.filter(a => !form.teamName || a.Team === form.teamName),
@@ -193,6 +199,49 @@ export default function MatchLogPage({ athletes, user }: Props) {
     setAddStep(1);
     setTab('add');
   };
+
+  const startEditMatch = () => {
+    if (!selectedMatch) return;
+    setEditMatchForm({
+      matchDate: selectedMatch.matchDate, opponent: selectedMatch.opponent,
+      venue: selectedMatch.venue, matchType: selectedMatch.matchType,
+      teamName: selectedMatch.teamName, scoreFor: String(selectedMatch.scoreFor),
+      scoreAgainst: String(selectedMatch.scoreAgainst), notes: selectedMatch.notes,
+    });
+    const preload: Record<string, Partial<MatchStat>> = {};
+    matchStats.forEach(s => { preload[s.playerId] = { ...s }; });
+    setEditStatVals(preload);
+    setIsEditingMatch(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedMatch) return;
+    setSavingEdit(true);
+    try {
+      const sf = Number(editMatchForm.scoreFor)||0, sa = Number(editMatchForm.scoreAgainst)||0;
+      const res = await callGAS('updateMatch', { id: selectedMatch.id, ...editMatchForm, scoreFor: sf, scoreAgainst: sa }) as { status: string; result?: Match['result'] };
+      if (res.status !== 'success') { showToast('บันทึกไม่สำเร็จ', 'error'); return; }
+
+      // update per-player stats
+      for (const s of matchStats) {
+        const ev = editStatVals[s.playerId];
+        if (!ev) continue;
+        await callGAS('updateMatchStat', { id: s.id, minutesPlayed: ev.minutesPlayed||0, goals: ev.goals||0, assists: ev.assists||0, yellowCards: ev.yellowCards||0, redCards: ev.redCards||0, rating: ev.rating||0, notes: ev.notes||'' });
+      }
+
+      const newResult = res.result || selectedMatch.result;
+      const updated: Match = { ...selectedMatch, ...editMatchForm, scoreFor: sf, scoreAgainst: sa, result: newResult };
+      setSelectedMatch(updated);
+      setMatches(ms => ms.map(m => m.id === updated.id ? updated : m));
+      setMatchStats(prev => prev.map(s => ({ ...s, ...(editStatVals[s.playerId] ? { minutesPlayed: editStatVals[s.playerId]!.minutesPlayed||0, goals: editStatVals[s.playerId]!.goals||0, assists: editStatVals[s.playerId]!.assists||0, yellowCards: editStatVals[s.playerId]!.yellowCards||0, redCards: editStatVals[s.playerId]!.redCards||0, rating: editStatVals[s.playerId]!.rating||0 } : {}) })));
+      showToast('แก้ไขสำเร็จ', 'success');
+      setIsEditingMatch(false);
+    } catch { showToast('Connection error', 'error'); }
+    finally { setSavingEdit(false); }
+  };
+
+  const setEditStat = (pid: string, k: keyof MatchStat, v: number) =>
+    setEditStatVals(p => ({ ...p, [pid]: { ...(p[pid]||{}), [k]: v } }));
 
   // ── Step indicator ──
   const StepBar = () => (
@@ -548,24 +597,67 @@ export default function MatchLogPage({ athletes, user }: Props) {
       {/* ── DETAIL TAB ── */}
       {tab === 'detail' && selectedMatch && (
         <div>
-          <button className="btn-outline btn-sm" onClick={()=>setTab('list')} style={{marginBottom:16}}><i className="bi bi-arrow-left me-1"/>กลับ</button>
-          <div className="surface" style={{marginBottom:16,padding:'20px 24px',background:'linear-gradient(135deg,#0f172a,#1e293b)',color:'white'}}>
-            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-              {resultBadge(selectedMatch.result)}
-              <div style={{flex:1}}>
-                <div style={{fontWeight:900,fontSize:'1.8rem',letterSpacing:3}}>{selectedMatch.scoreFor} – {selectedMatch.scoreAgainst}</div>
-                <div style={{fontSize:'0.85rem',color:'#7dd3fc'}}>vs {selectedMatch.opponent}</div>
-              </div>
-              <div style={{textAlign:'right',fontSize:'0.78rem',color:'#94a3b8'}}>
-                <div>{fmtDate(selectedMatch.matchDate)}</div>
-                <div>{selectedMatch.matchType} {selectedMatch.teamName&&`· ${selectedMatch.teamName}`}</div>
-                {selectedMatch.venue&&<div><i className="bi bi-geo-alt me-1"/>{selectedMatch.venue}</div>}
+          <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center'}}>
+            <button className="btn-outline btn-sm" onClick={()=>{setTab('list');setIsEditingMatch(false);}}><i className="bi bi-arrow-left me-1"/>กลับ</button>
+            <div style={{flex:1}}/>
+            {!isEditingMatch ? (
+              <button className="btn-outline btn-sm" onClick={startEditMatch} style={{borderColor:'#f59e0b',color:'#f59e0b'}}>
+                <i className="bi bi-pencil-fill me-1"/>แก้ไข
+              </button>
+            ) : (
+              <>
+                <button className="btn-outline btn-sm" onClick={()=>setIsEditingMatch(false)}>ยกเลิก</button>
+                <button className="btn-primary btn-sm" onClick={handleSaveEdit} disabled={savingEdit}>
+                  {savingEdit ? <><span className="spinner-ring" style={{width:14,height:14,borderWidth:2,margin:0}}/> บันทึก...</> : <><i className="bi bi-floppy me-1"/>บันทึก</>}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Match header — view or edit */}
+          {!isEditingMatch ? (
+            <div className="surface" style={{marginBottom:16,padding:'20px 24px',background:'linear-gradient(135deg,#0f172a,#1e293b)',color:'white'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                {resultBadge(selectedMatch.result)}
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:900,fontSize:'1.8rem',letterSpacing:3}}>{selectedMatch.scoreFor} – {selectedMatch.scoreAgainst}</div>
+                  <div style={{fontSize:'0.85rem',color:'#7dd3fc'}}>vs {selectedMatch.opponent}</div>
+                </div>
+                <div style={{textAlign:'right',fontSize:'0.78rem',color:'#94a3b8'}}>
+                  <div>{fmtDate(selectedMatch.matchDate)}</div>
+                  <div>{selectedMatch.matchType} {selectedMatch.teamName&&`· ${selectedMatch.teamName}`}</div>
+                  {selectedMatch.venue&&<div><i className="bi bi-geo-alt me-1"/>{selectedMatch.venue}</div>}
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="surface" style={{marginBottom:16,padding:'16px 20px'}}>
+              <div style={{fontWeight:700,fontSize:'0.85rem',marginBottom:12,color:'#f59e0b'}}><i className="bi bi-pencil-fill me-2"/>แก้ไขข้อมูลแมทช์</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:10}}>
+                <div style={{flex:'1 1 130px'}}><label className="form-label">วันที่</label><input type="date" className="form-control" value={editMatchForm.matchDate} onChange={e=>setEditMatchForm(f=>({...f,matchDate:e.target.value}))}/></div>
+                <div style={{flex:'2 1 180px'}}><label className="form-label">ทีมคู่แข่ง</label><input className="form-control" value={editMatchForm.opponent} onChange={e=>setEditMatchForm(f=>({...f,opponent:e.target.value}))}/></div>
+                <div style={{flex:'1 1 100px'}}><label className="form-label">รุ่น</label>
+                  <select className="form-select" value={editMatchForm.teamName} onChange={e=>setEditMatchForm(f=>({...f,teamName:e.target.value}))}>
+                    <option value="">— ไม่ระบุ —</option>
+                    {TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div style={{flex:'1 1 120px'}}><label className="form-label">ประเภท</label>
+                  <select className="form-select" value={editMatchForm.matchType} onChange={e=>setEditMatchForm(f=>({...f,matchType:e.target.value}))}>
+                    {MATCH_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div style={{flex:'1 1 70px'}}><label className="form-label">ทำประตู</label><input type="number" min={0} className="form-control" value={editMatchForm.scoreFor} onChange={e=>setEditMatchForm(f=>({...f,scoreFor:e.target.value}))}/></div>
+                <div style={{flex:'1 1 70px'}}><label className="form-label">เสียประตู</label><input type="number" min={0} className="form-control" value={editMatchForm.scoreAgainst} onChange={e=>setEditMatchForm(f=>({...f,scoreAgainst:e.target.value}))}/></div>
+                <div style={{flex:'2 1 200px'}}><label className="form-label">สนาม</label><input className="form-control" value={editMatchForm.venue} onChange={e=>setEditMatchForm(f=>({...f,venue:e.target.value}))}/></div>
+              </div>
+            </div>
+          )}
+
+          {/* Stats — view or edit */}
           {matchStats.length > 0 && (
             <div className="surface" style={{padding:0,overflow:'hidden'}}>
-              <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:'0.85rem'}}>สถิตินักกีฬา</div>
+              <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:'0.85rem'}}>สถิตินักกีฬา {isEditingMatch&&<span style={{fontSize:'0.72rem',fontWeight:400,color:'#f59e0b',marginLeft:8}}>(แก้ไขได้)</span>}</div>
               <div style={{overflowX:'auto'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.8rem'}}>
                   <thead><tr style={{background:'var(--bg)'}}>
@@ -576,28 +668,24 @@ export default function MatchLogPage({ athletes, user }: Props) {
                   <tbody>
                     {matchStats.map(s=>{
                       const a = athletes.find(x=>x.PlayerID===s.playerId);
+                      const ev = editStatVals[s.playerId] || s;
+                      const numInp = (k: keyof MatchStat, max: number, col?: string) => isEditingMatch ? (
+                        <input type="number" min={0} max={max} style={{width:52,textAlign:'center',border:'1px solid var(--border)',borderRadius:6,padding:'3px',background:'var(--bg)',color:col||'var(--text-main)',fontWeight:700}} value={ev[k] as number||''} placeholder="0" onChange={e=>setEditStat(s.playerId, k, Number(e.target.value))}/>
+                      ) : null;
                       return (
                         <tr key={s.id} style={{borderBottom:'1px solid var(--border)'}}>
                           <td style={{padding:'8px 12px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:8}}>
-                              {a && (
-                                <div style={{
-                                  width:28,height:28,borderRadius:'50%',overflow:'hidden',flexShrink:0,
-                                  background:TEAM_COLORS[a.Team]||'#6366f1',display:'flex',alignItems:'center',justifyContent:'center',
-                                  fontSize:'0.65rem',fontWeight:800,color:'white',
-                                }}>
-                                  {a.PhotoUrl ? <img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : initials(a.Name)}
-                                </div>
-                              )}
+                              {a && <div style={{width:28,height:28,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:TEAM_COLORS[a.Team]||'#6366f1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,color:'white'}}>{a.PhotoUrl?<img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(a.Name)}</div>}
                               <span style={{fontWeight:700}}>{a?.Name||s.playerId}</span>
                             </div>
                           </td>
-                          <td style={{textAlign:'center'}}>{s.minutesPlayed}&apos;</td>
-                          <td style={{textAlign:'center',color:'#10b981',fontWeight:700}}>{s.goals||'—'}</td>
-                          <td style={{textAlign:'center',color:'#38bdf8',fontWeight:700}}>{s.assists||'—'}</td>
-                          <td style={{textAlign:'center'}}>{s.yellowCards>0?<span style={{color:'#f59e0b',fontWeight:900}}>{'🟨'.repeat(s.yellowCards)}</span>:'—'}</td>
-                          <td style={{textAlign:'center'}}>{s.redCards>0?<span style={{color:'#ef4444',fontWeight:900}}>🟥</span>:'—'}</td>
-                          <td style={{textAlign:'center',fontWeight:900,color:'#6366f1'}}>{s.rating||'—'}</td>
+                          <td style={{textAlign:'center'}}>{isEditingMatch ? numInp('minutesPlayed',200) : `${s.minutesPlayed}'`}</td>
+                          <td style={{textAlign:'center',color:'#10b981',fontWeight:700}}>{isEditingMatch ? numInp('goals',20,'#10b981') : (s.goals||'—')}</td>
+                          <td style={{textAlign:'center',color:'#38bdf8',fontWeight:700}}>{isEditingMatch ? numInp('assists',20,'#38bdf8') : (s.assists||'—')}</td>
+                          <td style={{textAlign:'center'}}>{isEditingMatch ? numInp('yellowCards',2,'#f59e0b') : (s.yellowCards>0?<span style={{color:'#f59e0b',fontWeight:900}}>{'🟨'.repeat(s.yellowCards)}</span>:'—')}</td>
+                          <td style={{textAlign:'center'}}>{isEditingMatch ? numInp('redCards',1,'#ef4444') : (s.redCards>0?<span style={{color:'#ef4444',fontWeight:900}}>🟥</span>:'—')}</td>
+                          <td style={{textAlign:'center',fontWeight:900,color:'#6366f1'}}>{isEditingMatch ? numInp('rating',10,'#6366f1') : (s.rating||'—')}</td>
                         </tr>
                       );
                     })}
