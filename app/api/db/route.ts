@@ -466,6 +466,95 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'success' });
       }
 
+      // ── ADMIN MONITOR ─────────────────────────────────────────────────────
+      case 'getMonitorStats': {
+        if (session?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+        // Parallel count queries
+        const [
+          { count: cAthletes }, { count: cTests }, { count: cIR }, { count: cSelf },
+          { count: cAttend },  { count: cWellness }, { count: cMatches }, { count: cUsers },
+          { count: cSkill },
+        ] = await Promise.all([
+          sb.from('athletes').select('*',{count:'exact',head:true}),
+          sb.from('test_records').select('*',{count:'exact',head:true}),
+          sb.from('ir_reports').select('*',{count:'exact',head:true}),
+          sb.from('idp_self').select('*',{count:'exact',head:true}),
+          sb.from('attendance').select('*',{count:'exact',head:true}),
+          sb.from('wellness_checks').select('*',{count:'exact',head:true}),
+          sb.from('matches').select('*',{count:'exact',head:true}),
+          sb.from('users').select('*',{count:'exact',head:true}),
+          sb.from('skill_assessments').select('*',{count:'exact',head:true}),
+        ]);
+
+        // Per-club breakdown: join users → athletes count
+        const { data: usersData } = await sb.from('users')
+          .select('username,display_name,club_id,role,created_at').order('display_name');
+        const { data: athByClub } = await sb.from('athletes')
+          .select('club_id').neq('club_id','');
+        const { data: testByClub } = await sb.from('test_records')
+          .select('player_id,timestamp').order('timestamp',{ascending:false}).limit(2000);
+        const { data: matchByClub } = await sb.from('matches')
+          .select('club_id,match_date').order('match_date',{ascending:false}).limit(500);
+        const { data: irByClub } = await sb.from('ir_reports')
+          .select('player_id,timestamp').order('timestamp',{ascending:false}).limit(500);
+        const { data: athFull } = await sb.from('athletes')
+          .select('player_id,club_id,name,created_at').order('created_at',{ascending:false});
+
+        // Build per-club map
+        const clubMap: Record<string, { athletes:number; tests:number; lastTest:string|null; lastMatch:string|null; lastIR:string|null }> = {};
+        const initClub = (cid: string) => { if (!clubMap[cid]) clubMap[cid] = { athletes:0, tests:0, lastTest:null, lastMatch:null, lastIR:null }; };
+        (athByClub||[]).forEach(a => { initClub(a.club_id); clubMap[a.club_id].athletes++; });
+        const playerClubMap: Record<string,string> = {};
+        (athFull||[]).forEach(a => { playerClubMap[a.player_id] = a.club_id; });
+        (testByClub||[]).forEach(t => {
+          const cid = playerClubMap[t.player_id]; if (!cid) return;
+          initClub(cid); clubMap[cid].tests++;
+          if (!clubMap[cid].lastTest || t.timestamp > clubMap[cid].lastTest!) clubMap[cid].lastTest = t.timestamp;
+        });
+        (matchByClub||[]).forEach(m => {
+          if (!m.club_id) return; initClub(m.club_id);
+          if (!clubMap[m.club_id].lastMatch || m.match_date > clubMap[m.club_id].lastMatch!) clubMap[m.club_id].lastMatch = m.match_date;
+        });
+        (irByClub||[]).forEach(r => {
+          const cid = playerClubMap[r.player_id]; if (!cid) return;
+          initClub(cid);
+          if (!clubMap[cid].lastIR || r.timestamp > clubMap[cid].lastIR!) clubMap[cid].lastIR = r.timestamp;
+        });
+
+        const clubs = (usersData||[])
+          .filter(u => u.role !== 'admin')
+          .map(u => ({
+            username: u.username, displayName: u.display_name,
+            clubId: u.club_id, role: u.role, createdAt: u.created_at,
+            ...(clubMap[u.club_id] || { athletes:0, tests:0, lastTest:null, lastMatch:null, lastIR:null }),
+          }));
+
+        // Recent activity (last 15 each)
+        const { data: recentTests } = await sb.from('test_records')
+          .select('player_id,timestamp,rating').order('timestamp',{ascending:false}).limit(15);
+        const { data: recentIR } = await sb.from('ir_reports')
+          .select('player_id,timestamp,overall_ir_score').order('timestamp',{ascending:false}).limit(10);
+        const { data: recentMatches } = await sb.from('matches')
+          .select('opponent,match_date,result,team_name,score_for,score_against').order('match_date',{ascending:false}).limit(10);
+        const { data: recentAthletes } = await sb.from('athletes')
+          .select('name,team,club_id,created_at').order('created_at',{ascending:false}).limit(10);
+
+        const nameMap: Record<string,string> = {};
+        (athFull||[]).forEach(a => { nameMap[a.player_id] = a.name; });
+
+        return NextResponse.json({
+          totals: { athletes: cAthletes||0, tests: cTests||0, ir: cIR||0, self: cSelf||0, attend: cAttend||0, wellness: cWellness||0, matches: cMatches||0, users: cUsers||0, skill: cSkill||0 },
+          clubs,
+          recent: {
+            tests:    (recentTests||[]).map(r=>({ playerName: nameMap[r.player_id]||r.player_id, timestamp: r.timestamp, rating: r.rating })),
+            ir:       (recentIR||[]).map(r=>({ playerName: nameMap[r.player_id]||r.player_id, timestamp: r.timestamp, score: r.overall_ir_score })),
+            matches:  (recentMatches||[]).map(r=>({ opponent: r.opponent, date: r.match_date, result: r.result, teamName: r.team_name, scoreFor: r.score_for, scoreAgainst: r.score_against })),
+            athletes: (recentAthletes||[]).map(r=>({ name: r.name, team: r.team, clubId: r.club_id, createdAt: r.created_at })),
+          },
+        });
+      }
+
       // ── USERS ──────────────────────────────────────────────────────────────
       case 'getUsers': {
         const { data, error } = await sb.from('users')

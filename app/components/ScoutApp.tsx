@@ -34,6 +34,7 @@ import BatchAddPage from './pages/BatchAddPage';
 import MatchLogPage from './pages/MatchLogPage';
 import CalendarPage from './pages/CalendarPage';
 import TrainingProgramPage from './pages/TrainingProgramPage';
+import MonitorPage from './pages/MonitorPage';
 import { useLang } from '@/lib/lang';
 
 export default function ScoutApp() {
@@ -229,6 +230,7 @@ export default function ScoutApp() {
             {currentPage === 'matchlog'     && <MatchLogPage athletes={athletes} user={user} />}
             {currentPage === 'calendar'     && <CalendarPage athletes={athletes} user={user} onNavigate={navigate} />}
             {currentPage === 'goals'        && <TrainingProgramPage athletes={athletes} user={user} />}
+            {currentPage === 'monitor'      && user.role === 'admin' && <MonitorPage />}
           </>
         )}
         <BottomNav currentPage={currentPage} onNavigate={navigate} onOpenMenu={() => setSidebarOpen(true)} />
