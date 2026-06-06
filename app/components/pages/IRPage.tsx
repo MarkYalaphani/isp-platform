@@ -162,23 +162,25 @@ function ScoreCard({label:lbl,labelTH,pct,color,dark=false}:{label:string;labelT
 }
 
 /* ── QR Tab ──────────────────────────────────────────────── */
-function QRTab(){
+function QRTab({ clubId }: { clubId: string }){
   const [qrUrl,setQrUrl]=useState('');
   const [baseUrl,setBaseUrl]=useState('');
   useEffect(()=>{
     const saved=typeof window!=='undefined'?localStorage.getItem('pj_qr_base'):'';
     const detected=typeof window!=='undefined'?window.location.origin:'';
     const base=saved||detected; setBaseUrl(base); gen(base);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
+  const selfUrl=(base:string)=>`${base}/athlete-self${clubId?`?club=${encodeURIComponent(clubId)}`:''}`;
   const gen=async(base:string)=>{
     if(!base) return;
-    const url=await QRCode.toDataURL(`${base}/athlete-self`,{width:360,margin:2,color:{dark:'#0f172a',light:'#ffffff'}});
+    const url=await QRCode.toDataURL(selfUrl(base),{width:360,margin:2,color:{dark:'#0f172a',light:'#ffffff'}});
     setQrUrl(url);
   };
   return (
     <div className="surface" style={{padding:'24px 28px'}}>
       <div className="section-hd" style={{marginBottom:8}}><i className="bi bi-qr-code me-2"/>QR Code สำหรับนักกีฬากรอก IDP ด้วยตัวเอง</div>
-      <p style={{fontSize:'0.85rem',color:'var(--text-muted)',marginBottom:20}}>QR เดียวสำหรับทุกคน — นักกีฬาสแกนแล้วเลือกชื่อตัวเองกรอกฟอร์ม ไม่ต้องล็อกอิน</p>
+      <p style={{fontSize:'0.85rem',color:'var(--text-muted)',marginBottom:20}}>QR เดียวสำหรับทุกคนในทีม — นักกีฬาสแกนแล้วเลือกชื่อตัวเองกรอกฟอร์ม ไม่ต้องล็อกอิน</p>
       <div style={{display:'flex',gap:10,alignItems:'flex-end',marginBottom:24,flexWrap:'wrap'}}>
         <div style={{flex:'1 1 320px'}}>
           <label className="form-label">URL ของเว็บ</label>
@@ -199,7 +201,7 @@ function QRTab(){
           <div style={{flex:1,minWidth:240}}>
             <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:14,marginBottom:12}}>
               <div style={{fontSize:'0.65rem',color:'var(--text-muted)',marginBottom:4,textTransform:'uppercase',letterSpacing:1}}>ลิงก์ฟอร์ม</div>
-              <div style={{fontSize:'0.82rem',wordBreak:'break-all',color:'#38bdf8',fontWeight:700}}>{baseUrl}/athlete-self</div>
+              <div style={{fontSize:'0.82rem',wordBreak:'break-all',color:'#38bdf8',fontWeight:700}}>{selfUrl(baseUrl)}</div>
             </div>
             <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:12,padding:14,fontSize:'0.82rem',color:'#166534'}}>
               <div style={{fontWeight:700,marginBottom:6}}>📋 ขั้นตอนสำหรับโค้ช</div>
@@ -548,7 +550,7 @@ export default function IRPage({ athletes, user }: Props) {
       )}
 
       {/* ══ QR TAB ══ */}
-      {tab==='qr' && <QRTab/>}
+      {tab==='qr' && <QRTab clubId={user.clubId||''}/>}
 
       {/* ══ HISTORY TAB ══ */}
       {tab==='history' && (

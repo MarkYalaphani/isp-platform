@@ -1,6 +1,13 @@
 'use client';
+import {
+  Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip,
+  CategoryScale, LinearScale,
+} from 'chart.js';
+import { Radar, Line } from 'react-chartjs-2';
 import { Athlete, User, IRReport, SkillAssessment, AttendanceRecord, WellnessRecord, RPERecord } from '@/lib/types';
 import { getScorePoint, SCORE_COLORS } from '@/lib/score';
+
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, CategoryScale, LinearScale);
 
 interface PlayerMatchPerf {
   id: string; matchId: string; playerId: string;

@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase as sb } from '@/lib/supabase';
 
-/* GET — return all athletes for dropdown */
-export async function GET(_req: NextRequest) {
-  const { data, error } = await sb
-    .from('athletes')
-    .select('player_id, name, team')
-    .order('name');
+/* GET — return athletes for dropdown, filtered by club_id when provided */
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const clubId = searchParams.get('club');
+
+  let query = sb.from('athletes').select('player_id, name, team, club_id').order('name');
+  if (clubId) query = query.eq('club_id', clubId);
+
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json((data || []).map(a => ({ id: a.player_id, name: a.name, team: a.team || '' })));
 }

@@ -99,7 +99,12 @@ function getTrend(data:(number|null)[]){const v=data.filter(x=>x!==null)as numbe
 /* ── types ── */
 type HistRecord={Timestamp:string;Rating:number;Speed30:string;CMJ:string;PeakPower:string;Agility:string;AgiL:string;AgiR:string;Situp:string;LongJump:string;YoYo:string;YoyoLevel:string;YoyoShuttle:string;Pushup:string;SitAndReach:string;Height:string;Weight:string;BMI:string;Fat:string;Muscle:string;VO2Max:string};
 type IRRecord=Record<string,number|string>;
-type AthleteData={Name:string;Nickname:string;DOB:string;Team:string;Position:string;Club:string;Province:string;DomFoot:string;DomHand:string;PhotoUrl:string;TestCount:number;PlayerID:string;History:HistRecord[];Latest:Record<string,string|number>|null;IRHistory:IRRecord[]};
+type LatestSkill={assessedAt:string;assessedBy:string;season:string;scoreBallControl:number;scorePassing:number;scoreDribbling:number;scoreShooting:number;scoreTactical:number;skFirstTouch:number;skBallControl:number;skReceiving:number;skWeakFoot:number;skDribbling:number;skShooting:number;skLongPass:number;skPositioning:number;skDecision:number;skScanning:number;skPressure:number;skHeading:number};
+type AttendStats={total:number;present:number;late:number;absent:number;excuse:number;rate:number};
+type WellnessSummary={count:number;avgWellness:number;avgFatigue:number;avgSleep:number;avgMood:number;recent:{date:string;wellness:number;fatigue:number;sleep:number;mood:number}[]};
+type RpeSummary={count:number;avgRpe:number;avgLoad:number;totalLoad:number};
+type MatchStats={apps:number;totalMins:number;goals:number;assists:number;yellowCards:number;redCards:number;avgRating:number;recent:{matchDate:string;opponent:string;matchType:string;result:string;minutesPlayed:number;goals:number;assists:number;rating:number}[]};
+type AthleteData={Name:string;Nickname:string;DOB:string;Team:string;Position:string;Club:string;Province:string;DomFoot:string;DomHand:string;PhotoUrl:string;TestCount:number;PlayerID:string;History:HistRecord[];Latest:Record<string,string|number>|null;IRHistory:IRRecord[];LatestSkill?:LatestSkill|null;AttendStats?:AttendStats;WellnessSummary?:WellnessSummary|null;RpeSummary?:RpeSummary|null;MatchStats?:MatchStats|null};
 
 const RADAR_OPTS={responsive:true,plugins:{legend:{display:false}},scales:{r:{min:0,max:5,ticks:{stepSize:1,font:{size:9},backdropColor:'transparent'},pointLabels:{font:{size:10,weight:600 as const},color:'#475569'},grid:{color:'rgba(0,0,0,0.06)'},angleLines:{color:'rgba(0,0,0,0.06)'}}}};
 const LINE_OPTS={responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,ticks:{font:{size:9}},grid:{color:'rgba(0,0,0,0.05)'}},x:{ticks:{font:{size:8},maxRotation:30},grid:{display:false}}}};
@@ -490,6 +495,143 @@ export default function PublicAthletePage({params}:{params:Promise<{playerId:str
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* ── SKILL ASSESSMENT ── */}
+        {data.LatestSkill&&(
+          <div className="pub-surface">
+            <div className="pub-hd"><i className="bi bi-star-fill" style={{color:'#f59e0b'}}/> ทักษะฟุตบอล <span style={{fontSize:'0.7rem',fontWeight:400,color:'#94a3b8',marginLeft:6}}>Skill Assessment · {data.LatestSkill.season||''}</span></div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:10}}>
+              {[
+                {label:'🎯 ควบคุมบอล',       val:data.LatestSkill.skBallControl,  color:'#38bdf8'},
+                {label:'👆 รับบอลครั้งแรก', val:data.LatestSkill.skFirstTouch,   color:'#34d399'},
+                {label:'🔄 เลี้ยงบอล',       val:data.LatestSkill.skDribbling,    color:'#f59e0b'},
+                {label:'⚽ ยิงประตู',         val:data.LatestSkill.skShooting,     color:'#f87171'},
+                {label:'🦶 เท้าอ่อน',         val:data.LatestSkill.skWeakFoot,     color:'#a78bfa'},
+                {label:'📍 ยืนตำแหน่ง',      val:data.LatestSkill.skPositioning,  color:'#818cf8'},
+                {label:'🧠 ตัดสินใจ',         val:data.LatestSkill.skDecision,     color:'#fb923c'},
+                {label:'👁 มองสนาม',          val:data.LatestSkill.skScanning,     color:'#4ade80'},
+              ].filter(x=>x.val>0).map(x=>(
+                <div key={x.label} style={{background:'white',border:'1px solid #f1f5f9',borderRadius:10,padding:'10px 12px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                    <span style={{fontWeight:600,fontSize:'0.82rem',color:'#334155'}}>{x.label}</span>
+                    <span style={{fontWeight:900,fontSize:'0.95rem',color:x.color}}>{x.val}/5</span>
+                  </div>
+                  <div style={{display:'flex',gap:3}}>{[1,2,3,4,5].map(n=><div key={n} style={{flex:1,height:6,borderRadius:10,background:x.val>=n?x.color:'#e2e8f0'}}/>)}</div>
+                </div>
+              ))}
+            </div>
+            {data.LatestSkill.assessedBy&&<div style={{fontSize:'0.7rem',color:'#94a3b8',marginTop:10}}>ประเมินโดย: {data.LatestSkill.assessedBy}</div>}
+          </div>
+        )}
+
+        {/* ── ATTENDANCE ── */}
+        {data.AttendStats&&data.AttendStats.total>0&&(
+          <div className="pub-surface">
+            <div className="pub-hd"><i className="bi bi-calendar-check-fill" style={{color:'#10b981'}}/> สถิติการเข้าซ้อม</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))',gap:10}}>
+              {[
+                {label:'เซสชันทั้งหมด',val:String(data.AttendStats.total),    color:'#334155',bg:'#f8fafc'},
+                {label:'มาซ้อม',        val:String(data.AttendStats.present),  color:'#16a34a',bg:'#f0fdf4'},
+                {label:'สาย',           val:String(data.AttendStats.late),     color:'#d97706',bg:'#fffbeb'},
+                {label:'ขาด',           val:String(data.AttendStats.absent),   color:'#dc2626',bg:'#fef2f2'},
+                {label:'อัตราเข้าซ้อม', val:`${data.AttendStats.rate}%`,       color:'#7c3aed',bg:'#faf5ff'},
+              ].map(x=>(
+                <div key={x.label} style={{background:x.bg,border:`1px solid ${x.color}20`,borderRadius:10,padding:'10px 12px',textAlign:'center'}}>
+                  <div style={{fontSize:'1.5rem',fontWeight:900,color:x.color,lineHeight:1}}>{x.val}</div>
+                  <div style={{fontSize:'0.68rem',color:'#64748b',fontWeight:600,marginTop:4}}>{x.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── WELLNESS & TRAINING LOAD ── */}
+        {(data.WellnessSummary||data.RpeSummary)&&(
+          <div className="pub-surface">
+            <div className="pub-hd"><i className="bi bi-heart-pulse-fill" style={{color:'#f472b6'}}/> สุขภาพและภาระการฝึก</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:14}}>
+              {data.WellnessSummary&&(
+                <div style={{background:'#fff0fb',border:'1px solid #fbcfe8',borderRadius:12,padding:14}}>
+                  <div style={{fontWeight:700,fontSize:'0.85rem',color:'#9d174d',marginBottom:10}}>💆 Wellness ({data.WellnessSummary.count} ครั้ง)</div>
+                  {[
+                    {label:'ความเป็นอยู่โดยรวม',val:data.WellnessSummary.avgWellness,color:'#ec4899'},
+                    {label:'ความเหนื่อยล้า',     val:data.WellnessSummary.avgFatigue, color:'#f97316'},
+                    {label:'คุณภาพการนอน',       val:data.WellnessSummary.avgSleep,   color:'#8b5cf6'},
+                    {label:'อารมณ์',              val:data.WellnessSummary.avgMood,    color:'#06b6d4'},
+                  ].map(x=>(
+                    <div key={x.label} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                      <span style={{flex:1,fontSize:'0.75rem',color:'#475569'}}>{x.label}</span>
+                      <div style={{flex:2,background:'#f1f5f9',borderRadius:20,height:6,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${x.val*10}%`,background:x.color,borderRadius:20}}/>
+                      </div>
+                      <span style={{fontSize:'0.75rem',fontWeight:700,color:x.color,minWidth:30,textAlign:'right'}}>{x.val}/10</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {data.RpeSummary&&(
+                <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:12,padding:14}}>
+                  <div style={{fontWeight:700,fontSize:'0.85rem',color:'#166534',marginBottom:10}}>💪 ภาระการฝึก ({data.RpeSummary.count} เซสชัน)</div>
+                  {[
+                    {label:'RPE เฉลี่ย',    val:String(data.RpeSummary.avgRpe),           sub:'/ 10', color:'#16a34a'},
+                    {label:'Load เฉลี่ย',   val:String(data.RpeSummary.avgLoad),          sub:'AU',   color:'#2563eb'},
+                    {label:'Total Load',   val:String(data.RpeSummary.totalLoad),         sub:'AU',   color:'#7c3aed'},
+                  ].map(x=>(
+                    <div key={x.label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,padding:'6px 10px',background:'white',borderRadius:8}}>
+                      <span style={{fontSize:'0.78rem',color:'#334155'}}>{x.label}</span>
+                      <span style={{fontWeight:800,color:x.color,fontSize:'0.9rem'}}>{x.val} <span style={{fontSize:'0.65rem',fontWeight:500,color:'#94a3b8'}}>{x.sub}</span></span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── MATCH PERFORMANCE ── */}
+        {data.MatchStats&&data.MatchStats.apps>0&&(
+          <div className="pub-surface">
+            <div className="pub-hd"><i className="bi bi-trophy-fill" style={{color:'#f59e0b'}}/> ผลงานในการแข่งขัน</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(100px,1fr))',gap:8,marginBottom:14}}>
+              {[
+                {label:'นัดที่ลงเล่น',    val:String(data.MatchStats.apps),          color:'#334155'},
+                {label:'นาทีที่ลงเล่น',  val:String(data.MatchStats.totalMins),      color:'#2563eb'},
+                {label:'ประตู',           val:String(data.MatchStats.goals),          color:'#16a34a'},
+                {label:'แอสซิสต์',        val:String(data.MatchStats.assists),        color:'#0891b2'},
+                {label:'ใบเหลือง',        val:String(data.MatchStats.yellowCards),    color:'#d97706'},
+                {label:'เรตติ้งเฉลี่ย',   val:String(data.MatchStats.avgRating)||'—', color:'#7c3aed'},
+              ].map(x=>(
+                <div key={x.label} style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
+                  <div style={{fontSize:'1.4rem',fontWeight:900,color:x.color,lineHeight:1}}>{x.val}</div>
+                  <div style={{fontSize:'0.62rem',color:'#64748b',marginTop:3}}>{x.label}</div>
+                </div>
+              ))}
+            </div>
+            {data.MatchStats.recent.length>0&&(
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.75rem'}}>
+                  <thead><tr style={{background:'#f8fafc',borderBottom:'2px solid #e2e8f0'}}>
+                    {['วันที่','คู่แข่ง','ประเภท','ผล','นาที','ประตู','แอสซิสต์','เรตติ้ง'].map(h=><th key={h} style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:'#64748b',fontSize:'0.65rem',textTransform:'uppercase'}}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {data.MatchStats.recent.map((m,i)=>(
+                      <tr key={i} style={{background:i%2===0?'white':'#f8fafc',borderBottom:'1px solid #f1f5f9'}}>
+                        <td style={{padding:'6px 8px',textAlign:'center'}}>{m.matchDate?new Date(m.matchDate).toLocaleDateString('th-TH',{day:'numeric',month:'short'}):'-'}</td>
+                        <td style={{padding:'6px 8px',fontWeight:600}}>{m.opponent||'-'}</td>
+                        <td style={{padding:'6px 8px',textAlign:'center',color:'#64748b'}}>{m.matchType||'-'}</td>
+                        <td style={{padding:'6px 8px',textAlign:'center'}}><span style={{fontWeight:700,color:m.result==='ชนะ'||m.result==='W'?'#16a34a':m.result==='แพ้'||m.result==='L'?'#dc2626':'#d97706'}}>{m.result||'-'}</span></td>
+                        <td style={{padding:'6px 8px',textAlign:'center'}}>{m.minutesPlayed||0}&apos;</td>
+                        <td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:'#16a34a'}}>{m.goals||0}</td>
+                        <td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:'#2563eb'}}>{m.assists||0}</td>
+                        <td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:'#7c3aed'}}>{m.rating||'-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

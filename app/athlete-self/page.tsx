@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 type AthleteOption = { id: string; name: string; team: string };
 
@@ -93,7 +94,10 @@ function ProgressDots({ current, total }: { current: number; total: number }) {
 }
 
 /* ── Main ─────────────────────────────────────────────────── */
-export default function AthleteSelfPage() {
+function AthleteSelfContent() {
+  const params   = useSearchParams();
+  const clubId   = params.get('club') || '';
+
   const [step,      setStep]      = useState<'select'|'form'|'done'>('select');
   const [athletes,  setAthletes]  = useState<AthleteOption[]>([]);
   const [loading,   setLoading]   = useState(true);
@@ -116,11 +120,12 @@ export default function AthleteSelfPage() {
   const [err,        setErr]        = useState('');
 
   useEffect(() => {
-    fetch('/api/athlete-self')
+    const url = clubId ? `/api/athlete-self?club=${encodeURIComponent(clubId)}` : '/api/athlete-self';
+    fetch(url)
       .then(r => r.json())
       .then(d => { setAthletes(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, [clubId]);
 
   const athlete   = athletes.find(a => a.id === selId);
   const setScore  = (key: string, val: number) => setScores(p => ({ ...p, [key]: p[key]===val ? 0 : val }));
@@ -339,5 +344,17 @@ export default function AthleteSelfPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function AthleteSelfPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight:'100vh', background:'linear-gradient(160deg,#0f172a,#1e3a5f)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontSize:'0.9rem' }}>
+        ⏳ กำลังโหลด...
+      </div>
+    }>
+      <AthleteSelfContent />
+    </Suspense>
   );
 }
