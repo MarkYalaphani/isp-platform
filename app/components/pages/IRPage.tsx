@@ -161,6 +161,20 @@ function ScoreCard({label:lbl,labelTH,pct,color,dark=false}:{label:string;labelT
   );
 }
 
+/* ── Self-Report type ────────────────────────────────────── */
+interface SelfRecord {
+  id: string; playerId: string; submittedAt: string;
+  b_ontime:number; b_effort:number; b_teamwork:number; b_respect:number;
+  b_attendance:number; b_participation:number; b_improvement:number;
+  l_sleep:number; l_hydration:number; l_diet:number; l_screentime:number;
+  t_motricity:number; t_technical:number; t_tactic:number;
+  t_offfundam:number; t_deffundam:number; t_fitness:number;
+  med_period1:string; med_injury1:string; med_absence1:string;
+  med_period2:string; med_injury2:string; med_absence2:string;
+  good_level:string; to_improve:string;
+  goal_short:string; goal_long:string; action_plan:string; dream:string;
+}
+
 /* ── QR Tab ──────────────────────────────────────────────── */
 function QRTab({ clubId }: { clubId: string }){
   const [qrUrl,setQrUrl]=useState('');
@@ -221,7 +235,7 @@ function QRTab({ clubId }: { clubId: string }){
 
 /* ── Main ────────────────────────────────────────────────── */
 export default function IRPage({ athletes, user }: Props) {
-  const [tab, setTab] = useState<'form'|'history'|'qr'>('form');
+  const [tab, setTab] = useState<'form'|'history'|'self'|'qr'>('form');
 
   /* form state */
   const [playerId,  setPlayerId]  = useState('');
@@ -248,6 +262,12 @@ export default function IRPage({ athletes, user }: Props) {
   const [histId,      setHistId]      = useState('');
   const [history,     setHistory]     = useState<IRReport[]>([]);
   const [loadingHist, setLoadingHist] = useState(false);
+
+  /* self-report state */
+  const [selfId,       setSelfId]       = useState('');
+  const [selfHistory,  setSelfHistory]  = useState<SelfRecord[]>([]);
+  const [loadingSelf,  setLoadingSelf]  = useState(false);
+  const [expandedSelf, setExpandedSelf] = useState<string|null>(null);
 
   /* live scores */
   const avg=(keys:string[])=>{const v=keys.map(k=>vals[k]||0).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b)/v.length:0;};
@@ -295,6 +315,25 @@ export default function IRPage({ athletes, user }: Props) {
     setLoadingHist(true);
     try{const d=await callGAS('getIRHistory',{playerId:pid}) as IRReport[];setHistory(Array.isArray(d)?d:[]);}
     finally{setLoadingHist(false);}
+  };
+
+  const loadSelfHistory=async(pid:string)=>{
+    setSelfId(pid); setExpandedSelf(null);
+    if(!pid){setSelfHistory([]);return;}
+    setLoadingSelf(true);
+    try{
+      const d=await callGAS('getSelfHistory',{playerId:pid}) as SelfRecord[];
+      setSelfHistory(Array.isArray(d)?d:[]);
+    } finally{setLoadingSelf(false);}
+  };
+
+  const deleteSelfReport=async(id:string)=>{
+    if(!confirm('ลบรายการนี้? ไม่สามารถกู้คืนได้')) return;
+    try{
+      const res=await callGAS('deleteSelfReport',{id}) as {status:string;message?:string};
+      if(res.status==='success'){showToast('ลบสำเร็จ','success');setSelfHistory(h=>h.filter(r=>r.id!==id));}
+      else showToast(res.message||'ลบไม่สำเร็จ','error');
+    } catch{showToast('Connection error','error');}
   };
 
   const handleDeleteIR=async(id:string)=>{
@@ -366,9 +405,10 @@ export default function IRPage({ athletes, user }: Props) {
         {([
           {id:'form',    icon:'bi-pencil-square', label:'กรอก IDP'},
           {id:'history', icon:'bi-clock-history',  label:'ประวัติ IDP'},
+          {id:'self',    icon:'bi-person-check',   label:'Self Report เด็กกรอก'},
           {id:'qr',      icon:'bi-qr-code',        label:'QR Self-Report'},
-        ] as {id:'form'|'history'|'qr';icon:string;label:string}[]).map(t=>(
-          <button key={t.id} className={`tab-btn${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
+        ] as {id:'form'|'history'|'self'|'qr';icon:string;label:string}[]).map(t=>(
+          <button key={t.id} className={`tab-btn${tab===t.id?' active':''}`} onClick={()=>setTab(t.id as typeof tab)}>
             <i className={`bi ${t.icon} me-1`}/>{t.label}
           </button>
         ))}
@@ -546,6 +586,176 @@ export default function IRPage({ athletes, user }: Props) {
               {saving?<><span className="spinner-ring" style={{width:18,height:18,borderWidth:2,margin:0}}/> บันทึก…</>:<><i className="bi bi-floppy me-1"/>บันทึก IDP</>}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ══ SELF REPORT TAB ══ */}
+      {tab==='self' && (
+        <div>
+          <div className="surface" style={{marginBottom:16,padding:'14px 18px'}}>
+            <label className="form-label">เลือกนักกีฬาเพื่อดู Self Report ที่กรอกเอง</label>
+            <AthleteSearchSelect athletes={athletes} value={selfId} onChange={id=>loadSelfHistory(id)}/>
+          </div>
+
+          {!selfId && (
+            <div style={{textAlign:'center',padding:60,color:'var(--text-muted)'}}>
+              <i className="bi bi-person-check" style={{fontSize:'2.5rem',display:'block',marginBottom:12,opacity:0.3}}/>
+              เลือกนักกีฬาเพื่อดูรายงาน Self Assessment ที่กรอกผ่าน QR Code
+            </div>
+          )}
+
+          {selfId && loadingSelf && (
+            <div style={{textAlign:'center',padding:60,color:'var(--text-muted)'}}><div className="spinner-ring"/></div>
+          )}
+
+          {selfId && !loadingSelf && selfHistory.length===0 && (
+            <div style={{textAlign:'center',padding:60,color:'var(--text-muted)'}}>
+              <i className="bi bi-inbox" style={{fontSize:'2.5rem',display:'block',marginBottom:12,opacity:0.3}}/>
+              นักกีฬาคนนี้ยังไม่เคยกรอก Self Report ผ่าน QR Code
+              <div style={{marginTop:12,fontSize:'0.8rem'}}>ไปที่แท็บ <strong>QR Self-Report</strong> เพื่อสร้าง QR ให้นักกีฬาสแกน</div>
+            </div>
+          )}
+
+          {selfId && !loadingSelf && selfHistory.length>0 && (()=>{
+            const selfAth=athletes.find(a=>a.PlayerID===selfId);
+            const bKeys=['b_ontime','b_effort','b_teamwork','b_respect','b_attendance','b_participation','b_improvement'] as const;
+            const lKeys=['l_sleep','l_hydration','l_diet','l_screentime'] as const;
+            const tKeys=['t_motricity','t_technical','t_tactic','t_offfundam','t_deffundam','t_fitness'] as const;
+            const avg=(r:SelfRecord,keys:readonly string[])=>{const v=keys.map(k=>r[k as keyof SelfRecord] as number).filter(x=>x>0);return v.length?Math.round(v.reduce((a,b)=>a+b)/v.length/5*100):0;};
+            const gradeColor=(p:number)=>p>=80?'#10b981':p>=60?'#38bdf8':p>=40?'#f59e0b':'#ef4444';
+            const gradeLabel=(p:number)=>p>=80?'ดีมาก':p>=60?'ดี':p>=40?'พอใช้':'ต้องพัฒนา';
+            const fmtDate=(s:string)=>{try{const d=new Date(s);return isNaN(d.getTime())?s:d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'});}catch{return s;}};
+            const BMAP=[{k:'b_ontime',l:'การตรงต่อเวลา'},{k:'b_effort',l:'ความมุ่งมั่น'},{k:'b_teamwork',l:'ทำงานเป็นทีม'},{k:'b_respect',l:'ให้เกียรติผู้อื่น'},{k:'b_attendance',l:'เข้าร่วมฝึก'},{k:'b_participation',l:'มีส่วนร่วม'},{k:'b_improvement',l:'พัฒนาการ'}];
+            const LMAP=[{k:'l_sleep',l:'การนอนหลับ'},{k:'l_hydration',l:'ดื่มน้ำ'},{k:'l_diet',l:'อาหาร'},{k:'l_screentime',l:'ใช้โทรศัพท์'}];
+            const TMAP=[{k:'t_motricity',l:'การเคลื่อนไหว'},{k:'t_technical',l:'ทักษะเทคนิค'},{k:'t_tactic',l:'อ่านเกม'},{k:'t_offfundam',l:'เกมรุก'},{k:'t_deffundam',l:'เกมรับ'},{k:'t_fitness',l:'สมรรถภาพ'}];
+            return (
+              <div>
+                {/* summary header */}
+                <div className="surface" style={{marginBottom:16,padding:'16px 20px',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800,fontSize:'1rem'}}>{selfAth?.Name||selfId}</div>
+                    <div style={{fontSize:'0.75rem',color:'var(--text-muted)',marginTop:2}}>{selfAth?.Team||''} · {selfHistory.length} ครั้งที่กรอก</div>
+                  </div>
+                  {(()=>{
+                    const latest=selfHistory[0];
+                    const bP=avg(latest,bKeys); const lP=avg(latest,lKeys); const tP=avg(latest,tKeys);
+                    return (
+                      <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                        {[{l:'🧠 พฤติกรรม',p:bP,c:'#818cf8'},{l:'🌿 วิถีชีวิต',p:lP,c:'#34d399'},{l:'⚽ ทักษะ',p:tP,c:'#38bdf8'}].map(x=>(
+                          <div key={x.l} style={{textAlign:'center',background:'var(--bg)',borderRadius:10,padding:'8px 14px',border:`1px solid ${x.c}40`}}>
+                            <div style={{fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',marginBottom:3}}>{x.l}</div>
+                            <div style={{fontSize:'1.2rem',fontWeight:900,color:gradeColor(x.p)}}>{x.p}%</div>
+                            <div style={{fontSize:'0.6rem',fontWeight:700,color:gradeColor(x.p)}}>{gradeLabel(x.p)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* history list */}
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  {selfHistory.map((sr,i)=>{
+                    const bP=avg(sr,bKeys); const lP=avg(sr,lKeys); const tP=avg(sr,tKeys);
+                    const isExp=expandedSelf===sr.id;
+                    return (
+                      <div key={sr.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden'}}>
+                        {/* row header */}
+                        <div style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',cursor:'pointer',flexWrap:'wrap'}}
+                          onClick={()=>setExpandedSelf(isExp?null:sr.id)}>
+                          <div style={{minWidth:110}}>
+                            <div style={{fontWeight:700,fontSize:'0.82rem'}}>{fmtDate(sr.submittedAt)}</div>
+                            <div style={{fontSize:'0.65rem',color:'var(--text-muted)'}}>ครั้งที่ {selfHistory.length-i}</div>
+                          </div>
+                          <div style={{display:'flex',gap:6,flex:1,flexWrap:'wrap'}}>
+                            {[{l:'B',v:bP,c:'#818cf8',bg:'#ede9fe'},{l:'L',v:lP,c:'#059669',bg:'#d1fae5'},{l:'T',v:tP,c:'#0284c7',bg:'#dbeafe'}].map(x=>(
+                              <span key={x.l} style={{fontSize:'0.72rem',fontWeight:700,background:x.bg,color:x.c,padding:'3px 8px',borderRadius:6}}>{x.l}: {x.v}%</span>
+                            ))}
+                          </div>
+                          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                            {(user.role==='admin'||user.role==='club_pro') && (
+                              <button onClick={e=>{e.stopPropagation();deleteSelfReport(sr.id);}}
+                                style={{padding:'4px 8px',borderRadius:7,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',cursor:'pointer',fontSize:'0.75rem'}}>
+                                <i className="bi bi-trash"/>
+                              </button>
+                            )}
+                            <i className={`bi bi-chevron-${isExp?'up':'down'}`} style={{color:'var(--text-muted)',fontSize:'0.9rem'}}/>
+                          </div>
+                        </div>
+
+                        {/* expanded detail */}
+                        {isExp && (
+                          <div style={{borderTop:'1px solid var(--border)',padding:'16px 18px'}}>
+                            {/* 3 section cards */}
+                            {[
+                              {label:'🧠 พฤติกรรม (Behaviour)',color:'#818cf8',pct:bP,items:BMAP,keys:bKeys},
+                              {label:'🌿 วิถีชีวิต (Lifestyle)',color:'#34d399',pct:lP,items:LMAP,keys:lKeys},
+                              {label:'⚽ ทักษะฟุตบอล (Technical)',color:'#38bdf8',pct:tP,items:TMAP,keys:tKeys},
+                            ].map(sec=>(
+                              <div key={sec.label} style={{marginBottom:14,background:'var(--bg)',borderRadius:12,padding:'12px 14px',border:`1px solid ${sec.color}30`,borderTop:`3px solid ${sec.color}`}}>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                                  <div style={{fontWeight:800,fontSize:'0.85rem',color:'var(--text)'}}>{sec.label}</div>
+                                  <div style={{fontWeight:900,fontSize:'1rem',color:gradeColor(sec.pct)}}>{sec.pct}% <span style={{fontSize:'0.65rem',fontWeight:700}}>{gradeLabel(sec.pct)}</span></div>
+                                </div>
+                                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:6}}>
+                                  {sec.items.map(item=>{
+                                    const v=sr[item.k as keyof SelfRecord] as number||0;
+                                    return (
+                                      <div key={item.k} style={{background:'var(--surface)',borderRadius:8,padding:'7px 10px',border:'1px solid var(--border)'}}>
+                                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:v>0?4:0}}>
+                                          <span style={{fontSize:'0.72rem',fontWeight:600,color:'var(--text)'}}>{item.l}</span>
+                                          <span style={{fontSize:'0.85rem',fontWeight:800,color:v>0?sec.color:'var(--text-muted)'}}>{v||'—'}</span>
+                                        </div>
+                                        {v>0&&<div style={{display:'flex',gap:2}}>{[1,2,3,4,5].map(n=><div key={n} style={{flex:1,height:4,borderRadius:10,background:v>=n?sec.color:'var(--border)'}}/>)}</div>}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* Goals & observations */}
+                            {(sr.goal_short||sr.goal_long||sr.action_plan||sr.dream||sr.good_level||sr.to_improve)&&(
+                              <div style={{background:'#0f172a',borderRadius:12,padding:'14px 16px',marginBottom:12}}>
+                                <div style={{fontSize:'0.7rem',fontWeight:700,color:'#38bdf8',marginBottom:10,textTransform:'uppercase',letterSpacing:1}}>🎯 เป้าหมายและความเห็น</div>
+                                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10}}>
+                                  {[
+                                    {l:'สิ่งที่ทำได้ดี',v:sr.good_level,c:'#34d399'},
+                                    {l:'สิ่งที่อยากพัฒนา',v:sr.to_improve,c:'#f59e0b'},
+                                    {l:'เป้าหมาย 3 เดือน',v:sr.goal_short,c:'#38bdf8'},
+                                    {l:'เป้าหมาย 1 ปี',v:sr.goal_long,c:'#818cf8'},
+                                    {l:'แผนฝึกตัวเอง',v:sr.action_plan,c:'#34d399'},
+                                    {l:'ความฝัน',v:sr.dream,c:'#f472b6'},
+                                  ].filter(x=>x.v).map(x=>(
+                                    <div key={x.l} style={{background:'rgba(255,255,255,0.05)',borderRadius:8,padding:'10px 12px',border:`1px solid ${x.c}30`}}>
+                                      <div style={{fontSize:'0.6rem',fontWeight:700,color:x.c,marginBottom:4,textTransform:'uppercase'}}>{x.l}</div>
+                                      <div style={{fontSize:'0.8rem',color:'rgba(255,255,255,0.85)',lineHeight:1.5}}>{x.v}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Medical */}
+                            {(sr.med_injury1||sr.med_injury2)&&(
+                              <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:10,padding:'12px 14px'}}>
+                                <div style={{fontSize:'0.7rem',fontWeight:700,color:'#dc2626',marginBottom:8,textTransform:'uppercase'}}>🩺 ประวัติการบาดเจ็บ</div>
+                                {[[sr.med_period1,sr.med_injury1,sr.med_absence1],[sr.med_period2,sr.med_injury2,sr.med_absence2]].filter(([,,]) => true).map(([p,inj,abs],idx)=>inj?(
+                                  <div key={idx} style={{fontSize:'0.8rem',color:'#991b1b',marginBottom:4}}>
+                                    {p&&<span style={{fontWeight:700}}>{p} — </span>}{inj}{abs&&` (พัก ${abs})`}
+                                  </div>
+                                ):null)}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

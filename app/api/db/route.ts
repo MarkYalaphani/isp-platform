@@ -411,6 +411,61 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'success' });
       }
 
+      case 'getSelfHistory': {
+        const { playerId: pid } = params as { playerId: string };
+        if (!pid) return NextResponse.json([]);
+        const { data, error } = await sb
+          .from('idp_self')
+          .select('*')
+          .eq('player_id', pid)
+          .order('submitted_at', { ascending: false });
+        if (error) throw error;
+        return NextResponse.json((data || []).map(r => ({
+          id:           String(r.id           || ''),
+          playerId:     String(r.player_id    || ''),
+          submittedAt:  String(r.submitted_at || ''),
+          b_ontime:        Number(r.b_ontime        || 0),
+          b_effort:        Number(r.b_effort        || 0),
+          b_teamwork:      Number(r.b_teamwork      || 0),
+          b_respect:       Number(r.b_respect       || 0),
+          b_attendance:    Number(r.b_attendance    || 0),
+          b_participation: Number(r.b_participation || 0),
+          b_improvement:   Number(r.b_improvement   || 0),
+          l_sleep:         Number(r.l_sleep         || 0),
+          l_hydration:     Number(r.l_hydration     || 0),
+          l_diet:          Number(r.l_diet          || 0),
+          l_screentime:    Number(r.l_screentime    || 0),
+          t_motricity:     Number(r.t_motricity     || 0),
+          t_technical:     Number(r.t_technical     || 0),
+          t_tactic:        Number(r.t_tactic        || 0),
+          t_offfundam:     Number(r.t_offfundam     || 0),
+          t_deffundam:     Number(r.t_deffundam     || 0),
+          t_fitness:       Number(r.t_fitness       || 0),
+          med_period1:     String(r.med_period1     || ''),
+          med_injury1:     String(r.med_injury1     || ''),
+          med_absence1:    String(r.med_absence1    || ''),
+          med_period2:     String(r.med_period2     || ''),
+          med_injury2:     String(r.med_injury2     || ''),
+          med_absence2:    String(r.med_absence2    || ''),
+          good_level:      String(r.good_level      || ''),
+          to_improve:      String(r.to_improve      || ''),
+          goal_short:      String(r.goal_short      || ''),
+          goal_long:       String(r.goal_long       || ''),
+          action_plan:     String(r.action_plan     || ''),
+          dream:           String(r.dream           || ''),
+        })));
+      }
+
+      case 'deleteSelfReport': {
+        if (session?.role !== 'admin' && session?.role !== 'club_pro') {
+          return NextResponse.json({ status: 'error', message: 'ไม่มีสิทธิ์' }, { status: 403 });
+        }
+        const { id: selfId } = params as { id: string };
+        const { error } = await sb.from('idp_self').delete().eq('id', selfId);
+        if (error) throw error;
+        return NextResponse.json({ status: 'success' });
+      }
+
       // ── USERS ──────────────────────────────────────────────────────────────
       case 'getUsers': {
         const { data, error } = await sb.from('users')
