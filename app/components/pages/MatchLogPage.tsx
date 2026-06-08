@@ -222,18 +222,22 @@ export default function MatchLogPage({ athletes, user }: Props) {
       const res = await callGAS('updateMatch', { id: selectedMatch.id, ...editMatchForm, scoreFor: sf, scoreAgainst: sa }) as { status: string; result?: Match['result'] };
       if (res.status !== 'success') { showToast('บันทึกไม่สำเร็จ', 'error'); return; }
 
-      // update per-player stats
-      for (const s of matchStats) {
+      // update per-player stats in parallel
+      await Promise.all(matchStats.map(s => {
         const ev = editStatVals[s.playerId];
-        if (!ev) continue;
-        await callGAS('updateMatchStat', { id: s.id, minutesPlayed: ev.minutesPlayed||0, goals: ev.goals||0, assists: ev.assists||0, yellowCards: ev.yellowCards||0, redCards: ev.redCards||0, rating: ev.rating||0, notes: ev.notes||'' });
-      }
+        if (!ev) return Promise.resolve();
+        return callGAS('updateMatchStat', { id: s.id, minutesPlayed: ev.minutesPlayed||0, goals: ev.goals||0, assists: ev.assists||0, yellowCards: ev.yellowCards||0, redCards: ev.redCards||0, rating: ev.rating||0, notes: ev.notes||'' });
+      }));
 
       const newResult = res.result || selectedMatch.result;
       const updated: Match = { ...selectedMatch, ...editMatchForm, scoreFor: sf, scoreAgainst: sa, result: newResult };
       setSelectedMatch(updated);
       setMatches(ms => ms.map(m => m.id === updated.id ? updated : m));
-      setMatchStats(prev => prev.map(s => ({ ...s, ...(editStatVals[s.playerId] ? { minutesPlayed: editStatVals[s.playerId]!.minutesPlayed||0, goals: editStatVals[s.playerId]!.goals||0, assists: editStatVals[s.playerId]!.assists||0, yellowCards: editStatVals[s.playerId]!.yellowCards||0, redCards: editStatVals[s.playerId]!.redCards||0, rating: editStatVals[s.playerId]!.rating||0 } : {}) })));
+      setMatchStats(prev => prev.map(s => {
+        const ev = editStatVals[s.playerId];
+        if (!ev) return s;
+        return { ...s, minutesPlayed: ev.minutesPlayed||0, goals: ev.goals||0, assists: ev.assists||0, yellowCards: ev.yellowCards||0, redCards: ev.redCards||0, rating: ev.rating||0, notes: ev.notes||'' };
+      }));
       showToast('แก้ไขสำเร็จ', 'success');
       setIsEditingMatch(false);
     } catch { showToast('Connection error', 'error'); }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import {
   Chart as ChartJS, RadialLinearScale, PointElement, LineElement,
@@ -268,6 +268,7 @@ export default function IRPage({ athletes, user }: Props) {
   const [selfHistory,  setSelfHistory]  = useState<SelfRecord[]>([]);
   const [loadingSelf,  setLoadingSelf]  = useState(false);
   const [expandedSelf, setExpandedSelf] = useState<string|null>(null);
+  const selfGenRef = useRef(0);
 
   /* live scores */
   const avg=(keys:string[])=>{const v=keys.map(k=>vals[k]||0).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b)/v.length:0;};
@@ -320,11 +321,15 @@ export default function IRPage({ athletes, user }: Props) {
   const loadSelfHistory=async(pid:string)=>{
     setSelfId(pid); setExpandedSelf(null);
     if(!pid){setSelfHistory([]);return;}
+    const gen = ++selfGenRef.current;
     setLoadingSelf(true);
     try{
       const d=await callGAS('getSelfHistory',{playerId:pid}) as SelfRecord[];
+      if(gen !== selfGenRef.current) return; // stale request — newer one in flight
       setSelfHistory(Array.isArray(d)?d:[]);
-    } finally{setLoadingSelf(false);}
+    } finally{
+      if(gen === selfGenRef.current) setLoadingSelf(false);
+    }
   };
 
   const deleteSelfReport=async(id:string)=>{

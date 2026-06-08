@@ -151,16 +151,6 @@ export default function AttendancePage({ athletes, user }: Props) {
     }
   };
 
-  /* ── Stats computation ── */
-  const statsData = useMemo(() => {
-    if (!sessions.length) return [];
-    return athletes.map(a => {
-      const total = sessions.length;
-      // We'd need all records for stats — show placeholder until loaded
-      return { athlete: a, total };
-    });
-  }, [athletes, sessions]);
-
   /* ── Summary of current check-in ── */
   const summary = useMemo(() => {
     const vals = Object.values(statuses);

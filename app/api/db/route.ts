@@ -82,9 +82,13 @@ function toIRReport(r: Record<string, unknown>) {
     LifestyleComment:  String(r.lifestyle_comment   || ''),
     TechnicalComment:  String(r.technical_comment   || ''),
     BehaviourScore:    Number(r.behaviour_score     || 0),
-    LifestyleScore:  Number(r.lifestyle_score   || 0),
-    TechnicalScore:  Number(r.technical_score   || 0),
-    OverallIRScore:  Number(r.overall_ir_score  || 0),
+    LifestyleScore:    Number(r.lifestyle_score     || 0),
+    TechnicalScore:    Number(r.technical_score     || 0),
+    OverallIRScore:    Number(r.overall_ir_score    || 0),
+    IdpGoalShort:      String(r.idp_goal_short      || ''),
+    IdpGoalLong:       String(r.idp_goal_long       || ''),
+    IdpAction:         String(r.idp_action          || ''),
+    IdpDream:          String(r.idp_dream           || ''),
   };
 }
 
@@ -386,6 +390,10 @@ export async function POST(req: NextRequest) {
           behaviour_comment: f.behaviourComment||'',
           lifestyle_comment:  f.lifestyleComment||'',
           technical_comment:  f.technicalComment||'',
+          idp_goal_short:    f.idpGoalShort||'',
+          idp_goal_long:     f.idpGoalLong||'',
+          idp_action:        f.idpAction||'',
+          idp_dream:         f.idpDream||'',
           behaviour_score: Math.round((bAvg/5)*100),
           lifestyle_score:  Math.round((lAvg/5)*100),
           technical_score:  Math.round((tAvg/5)*100),
@@ -487,19 +495,18 @@ export async function POST(req: NextRequest) {
           sb.from('skill_assessments').select('*',{count:'exact',head:true}),
         ]);
 
-        // Per-club breakdown: join users → athletes count
-        const { data: usersData } = await sb.from('users')
-          .select('username,display_name,club_id,role,created_at').order('display_name');
-        const { data: athByClub } = await sb.from('athletes')
-          .select('club_id').neq('club_id','');
-        const { data: testByClub } = await sb.from('test_records')
-          .select('player_id,timestamp').order('timestamp',{ascending:false}).limit(2000);
-        const { data: matchByClub } = await sb.from('matches')
-          .select('club_id,match_date').order('match_date',{ascending:false}).limit(500);
-        const { data: irByClub } = await sb.from('ir_reports')
-          .select('player_id,timestamp').order('timestamp',{ascending:false}).limit(500);
-        const { data: athFull } = await sb.from('athletes')
-          .select('player_id,club_id,name,created_at').order('created_at',{ascending:false});
+        // Per-club breakdown: all queries in parallel
+        const [
+          { data: usersData }, { data: athByClub }, { data: testByClub },
+          { data: matchByClub }, { data: irByClub }, { data: athFull },
+        ] = await Promise.all([
+          sb.from('users').select('username,display_name,club_id,role,created_at').order('display_name'),
+          sb.from('athletes').select('club_id').neq('club_id',''),
+          sb.from('test_records').select('player_id,timestamp').order('timestamp',{ascending:false}).limit(2000),
+          sb.from('matches').select('club_id,match_date').order('match_date',{ascending:false}).limit(500),
+          sb.from('ir_reports').select('player_id,timestamp').order('timestamp',{ascending:false}).limit(500),
+          sb.from('athletes').select('player_id,club_id,name,created_at').order('created_at',{ascending:false}),
+        ]);
 
         // Build per-club map
         const clubMap: Record<string, { athletes:number; tests:number; lastTest:string|null; lastMatch:string|null; lastIR:string|null }> = {};
@@ -530,15 +537,16 @@ export async function POST(req: NextRequest) {
             ...(clubMap[u.club_id] || { athletes:0, tests:0, lastTest:null, lastMatch:null, lastIR:null }),
           }));
 
-        // Recent activity (last 15 each)
-        const { data: recentTests } = await sb.from('test_records')
-          .select('player_id,timestamp,rating').order('timestamp',{ascending:false}).limit(15);
-        const { data: recentIR } = await sb.from('ir_reports')
-          .select('player_id,timestamp,overall_ir_score').order('timestamp',{ascending:false}).limit(10);
-        const { data: recentMatches } = await sb.from('matches')
-          .select('opponent,match_date,result,team_name,score_for,score_against').order('match_date',{ascending:false}).limit(10);
-        const { data: recentAthletes } = await sb.from('athletes')
-          .select('name,team,club_id,created_at').order('created_at',{ascending:false}).limit(10);
+        // Recent activity — all in parallel
+        const [
+          { data: recentTests }, { data: recentIR },
+          { data: recentMatches }, { data: recentAthletes },
+        ] = await Promise.all([
+          sb.from('test_records').select('player_id,timestamp,rating').order('timestamp',{ascending:false}).limit(15),
+          sb.from('ir_reports').select('player_id,timestamp,overall_ir_score').order('timestamp',{ascending:false}).limit(10),
+          sb.from('matches').select('opponent,match_date,result,team_name,score_for,score_against').order('match_date',{ascending:false}).limit(10),
+          sb.from('athletes').select('name,team,club_id,created_at').order('created_at',{ascending:false}).limit(10),
+        ]);
 
         const nameMap: Record<string,string> = {};
         (athFull||[]).forEach(a => { nameMap[a.player_id] = a.name; });
