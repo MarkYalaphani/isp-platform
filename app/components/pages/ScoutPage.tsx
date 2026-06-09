@@ -677,7 +677,11 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
         }),
       });
       const data = await res.json() as { report?: Parameters<typeof ScoutReportModal>[0]['aiReport']; error?: string };
-      if (!data.report) throw new Error(data.error || 'Failed');
+      if (!data.report) {
+        const debugInfo = (data as {debug?: string[]}).debug;
+        const msg = data.error + (debugInfo ? '\n\nDebug:\n' + debugInfo.join('\n') : '');
+        throw new Error(msg);
+      }
 
       setScoutReportData({
         athlete,
