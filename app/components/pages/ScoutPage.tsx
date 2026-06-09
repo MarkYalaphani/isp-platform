@@ -13,6 +13,7 @@ import { DEV_DATA, VIDEO_DB } from '@/lib/devData';
 import EditAthleteModal from '../EditAthleteModal';
 import ReportBanner, { PrintHeader } from '../ReportBanner';
 import ParentReport from '../ParentReport';
+import ScoutReportModal from '../ScoutReportModal';
 import AthleteSearchSelect from '../AthleteSearchSelect';
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale);
@@ -352,6 +353,9 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const [goals, setGoals] = useState<Record<string,string>>({});
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showParentReport, setShowParentReport] = useState(false);
+  const [showScoutReport, setShowScoutReport] = useState(false);
+  const [scoutReportData, setScoutReportData] = useState<Parameters<typeof ScoutReportModal>[0] | null>(null);
+  const [scoutReportLoading, setScoutReportLoading] = useState(false);
   const [goalDraft, setGoalDraft] = useState<Record<string,string>>({});
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -575,6 +579,122 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
       a.href = out.toDataURL('image/png');
       a.click();
     } catch (e) { console.error('download card failed', e); }
+  };
+
+  const handleGenerateScoutReport = async () => {
+    if (!athlete) return;
+    setScoutReportLoading(true);
+    try {
+      const age = calcAge(athlete.DOB);
+      const lat = athlete.Latest as Partial<TestRecord>;
+      const scores: Record<string, number> = {};
+      const values: Record<string, string> = {};
+      const metricKeys = [
+        { key:'speed30', field:'Speed30' }, { key:'cmj', field:'CMJ' },
+        { key:'agility', field:'Agility' }, { key:'yoyo', field:'YoYo' },
+        { key:'longjump', field:'LongJump' }, { key:'pushup', field:'Pushup' },
+        { key:'situp', field:'Situp' }, { key:'sitreach', field:'SitAndReach' },
+      ];
+      metricKeys.forEach(({ key, field }) => {
+        const raw = String(lat[field as keyof TestRecord] || '');
+        const s = getScorePoint(key, raw, athlete.DOB, athlete.Position);
+        if (s > 0) { scores[key] = s; values[key] = raw; }
+      });
+
+      // Trend: compare last 2 tests
+      const hist = athlete.History || [];
+      let trend: 'improving'|'stable'|'declining'|'insufficient' = 'insufficient';
+      if (hist.length >= 2) {
+        const last = Number(hist[hist.length-1]?.Rating) || 0;
+        const prev = Number(hist[hist.length-2]?.Rating) || 0;
+        trend = last > prev + 2 ? 'improving' : last < prev - 2 ? 'declining' : 'stable';
+      }
+
+      // Attendance rate
+      const totalSessions = attendanceRecs.length;
+      const presentCount = attendanceRecs.filter(r => r.status === 'present' || r.status === 'late').length;
+      const attendanceRate = totalSessions > 0 ? Math.round(presentCount / totalSessions * 100) : null;
+
+      // Wellness avg
+      const avgWellness = wellnessRecs.length > 0
+        ? Math.round(wellnessRecs.slice(0,10).reduce((s,r) => s + r.wellnessScore, 0) / Math.min(wellnessRecs.length, 10))
+        : null;
+
+      // Match stats
+      const matchTotal = matchPerf.length;
+      const matchStatsPayload = matchTotal > 0 ? {
+        matches: matchTotal,
+        goals: matchPerf.reduce((s, m) => s + (m.goals||0), 0),
+        assists: matchPerf.reduce((s, m) => s + (m.assists||0), 0),
+        avgRating: parseFloat((matchPerf.reduce((s, m) => s + (m.rating||0), 0) / matchTotal).toFixed(1)),
+      } : null;
+
+      // IDP
+      const latIR = irHistory[0] || null;
+      const idpPayload = latIR ? {
+        behaviourScore: latIR.BehaviourScore,
+        lifestyleScore: latIR.LifestyleScore,
+        technicalScore: latIR.TechnicalScore,
+        overallScore: latIR.OverallIRScore,
+        goodLevel: latIR.GoodLevel || '',
+        toImprove: latIR.ToImprove || '',
+        comments: latIR.Comments || '',
+        goalShort: latIR.IdpGoalShort || '',
+        goalLong: latIR.IdpGoalLong || '',
+        dream: latIR.IdpDream || '',
+      } : null;
+
+      const token = sessionStorage.getItem('scoutToken') || localStorage.getItem('scoutToken') || '';
+      const res = await fetch('/api/ai-scout-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          athlete: {
+            name: athlete.Name, nickname: athlete.Nickname, age,
+            dob: athlete.DOB, position: athlete.Position,
+            team: athlete.Team, club: athlete.Club,
+            province: athlete.Province, domFoot: athlete.DomFoot, domHand: athlete.DomHand,
+          },
+          physical: {
+            rating: Number(lat?.Rating) || 0, testCount: hist.length,
+            height: String(lat?.Height||''), weight: String(lat?.Weight||''),
+            bmi: String(lat?.BMI||''), fat: String(lat?.Fat||''),
+            muscle: String(lat?.Muscle||''), vo2max: String(lat?.VO2Max||''),
+            scores, values, trend,
+          },
+          skills: latestSkill ? {
+            scoreBallControl: latestSkill.scoreBallControl,
+            scorePassing: latestSkill.scorePassing,
+            scoreDribbling: latestSkill.scoreDribbling,
+            scoreShooting: latestSkill.scoreShooting,
+            scoreTactical: latestSkill.scoreTactical,
+            scoreTotal: latestSkill.scoreTotal,
+          } : null,
+          idp: idpPayload,
+          attendance: attendanceRate !== null ? { rate: attendanceRate, totalSessions } : null,
+          wellness: avgWellness !== null ? { avgScore: avgWellness, recentNote: '' } : null,
+          matchStats: matchStatsPayload,
+        }),
+      });
+      const data = await res.json() as { report?: Parameters<typeof ScoutReportModal>[0]['aiReport']; error?: string };
+      if (!data.report) throw new Error(data.error || 'Failed');
+
+      setScoutReportData({
+        athlete,
+        aiReport: data.report,
+        latestSkill,
+        latestIR: latIR,
+        attendanceRate,
+        matchStats: matchStatsPayload,
+        generatedAt: new Date().toISOString(),
+        onClose: () => setShowScoutReport(false),
+      });
+      setShowScoutReport(true);
+    } catch (e) {
+      alert('AI Scout Report ล้มเหลว: ' + String(e));
+    } finally {
+      setScoutReportLoading(false);
+    }
   };
 
   useEffect(() => { if (initialId) setSelectedId(initialId); }, [initialId]);
@@ -971,6 +1091,21 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
             <button className="btn-outline" onClick={handleDownloadCard}><i className="bi bi-download me-1" />ดาวน์โหลดการ์ด</button>
             <button className="btn-outline" onClick={() => setShowParentReport(true)}><i className="bi bi-file-earmark-person me-1" />รายงานผู้ปกครอง</button>
             <button className="btn-primary" onClick={handlePDF}><i className="bi bi-printer me-1" />Print</button>
+            <button
+              onClick={handleGenerateScoutReport}
+              disabled={scoutReportLoading}
+              style={{
+                background: scoutReportLoading ? '#475569' : 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+                color: 'white', border: 'none', borderRadius: 10, padding: '8px 18px',
+                cursor: scoutReportLoading ? 'not-allowed' : 'pointer',
+                fontWeight: 800, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 7,
+                boxShadow: scoutReportLoading ? 'none' : '0 4px 16px rgba(124,58,237,0.5)',
+                transition: 'all 0.2s',
+              }}>
+              {scoutReportLoading
+                ? <><span className="spinner-ring" style={{ width:16, height:16, borderWidth:2, margin:0 }}/> กำลังวิเคราะห์...</>
+                : <><i className="bi bi-stars"/> AI Scout Report</>}
+            </button>
           </div>
         )}
       </div>
@@ -2595,6 +2730,11 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
           onClose={() => setShowEditModal(false)}
           onSaved={() => { setShowEditModal(false); onRefresh(); }}
         />
+      )}
+
+      {/* ── AI SCOUT REPORT MODAL ── */}
+      {showScoutReport && scoutReportData && (
+        <ScoutReportModal {...scoutReportData} onClose={() => setShowScoutReport(false)} />
       )}
 
     </div>
