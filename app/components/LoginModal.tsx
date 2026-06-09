@@ -7,39 +7,60 @@ import { LOGO_URL } from '@/lib/devData';
 
 interface Props { onLogin: (user: User) => void; }
 
-const FEATURES = [
-  { icon: 'bi-stars',                  color: '#f59e0b', label: 'AI Scout Report',  badge: 'AI' },
-  { icon: 'bi-grid-1x2-fill',          color: '#38bdf8', label: 'Dashboard',        badge: '' },
-  { icon: 'bi-person-badge-fill',      color: '#818cf8', label: 'Scout + FC26',     badge: '' },
-  { icon: 'bi-lightning-charge-fill',  color: '#60a5fa', label: 'Physical Tests',   badge: '8ด้าน' },
-  { icon: 'bi-bullseye',               color: '#a78bfa', label: 'Skill Assessment', badge: '27' },
-  { icon: 'bi-clipboard2-check-fill',  color: '#818cf8', label: 'IDP + QR Fill',    badge: '' },
-  { icon: 'bi-people-fill',            color: '#34d399', label: 'Roster',           badge: '' },
-  { icon: 'bi-check2-square',          color: '#4ade80', label: 'Attendance',       badge: 'QR' },
-  { icon: 'bi-heart-pulse-fill',       color: '#f472b6', label: 'Wellness & RPE',   badge: '' },
-  { icon: 'bi-diagram-3-fill',         color: '#60a5fa', label: 'Line-Up Builder',  badge: '' },
-  { icon: 'bi-flag-fill',              color: '#fb923c', label: 'Match Log',        badge: '' },
-  { icon: 'bi-calendar3',              color: '#38bdf8', label: 'ปฏิทินทีม',       badge: '' },
-  { icon: 'bi-bar-chart-line-fill',    color: '#10b981', label: 'Team Report',      badge: '' },
-  { icon: 'bi-intersect',              color: '#fb923c', label: 'Compare H2H',      badge: '' },
-  { icon: 'bi-trophy-fill',            color: '#fbbf24', label: 'Leaderboard',      badge: '' },
-  { icon: 'bi-list-check',             color: '#818cf8', label: 'Training Program', badge: '' },
-  { icon: 'bi-play-btn-fill',          color: '#f87171', label: 'Training Video',   badge: '' },
-  { icon: 'bi-clipboard-data-fill',    color: '#e879f9', label: 'Update Results',   badge: '' },
-  { icon: 'bi-lightning-fill',         color: '#fbbf24', label: 'Quick Test',       badge: '' },
-  { icon: 'bi-display-fill',           color: '#94a3b8', label: 'Admin Monitor',    badge: '' },
-  { icon: 'bi-person-plus-fill',       color: '#6ee7b7', label: 'Add Athlete',      badge: '' },
-];
-
-const HIGHLIGHTS = [
-  { icon: 'bi-stars',               color: '#f59e0b', grad: 'rgba(245,158,11,0.12)', label: 'AI Scout Report', sub: 'Gemini-powered' },
-  { icon: 'bi-lightning-charge-fill', color: '#38bdf8', grad: 'rgba(56,189,248,0.10)', label: '8 Physical Tests', sub: 'DPE Thailand Norms' },
-  { icon: 'bi-phone-fill',          color: '#4ade80', grad: 'rgba(74,222,128,0.10)', label: 'QR Self-Fill',    sub: 'Mobile Friendly' },
+const HERO_CARDS = [
+  {
+    icon: 'bi-stars',
+    color: '#f59e0b',
+    bg: 'linear-gradient(135deg,rgba(245,158,11,0.13) 0%,rgba(251,146,60,0.07) 100%)',
+    border: 'rgba(245,158,11,0.28)',
+    glow: 'rgba(245,158,11,0.12)',
+    title: 'AI-Powered Analytics',
+    titleTH: 'วิเคราะห์ด้วย AI',
+    desc: 'สร้างรายงาน Scout มืออาชีพในไม่กี่วินาที',
+    badge: 'AI',
+    features: ['Scout Report + FC26 Card', 'Team Report + Dashboard', 'Compare H2H + Leaderboard'],
+  },
+  {
+    icon: 'bi-lightning-charge-fill',
+    color: '#38bdf8',
+    bg: 'linear-gradient(135deg,rgba(56,189,248,0.13) 0%,rgba(96,165,250,0.07) 100%)',
+    border: 'rgba(56,189,248,0.28)',
+    glow: 'rgba(56,189,248,0.12)',
+    title: 'Physical Performance',
+    titleTH: 'สมรรถภาพร่างกาย',
+    desc: 'ทดสอบ 8 ด้าน เทียบมาตรฐาน DPE ไทย U10–Senior',
+    badge: '8ด้าน',
+    features: ['Skill Assessment 27 ทักษะ', 'IDP แผนพัฒนา + QR Fill', 'Quick Test · Update Results'],
+  },
+  {
+    icon: 'bi-diagram-3-fill',
+    color: '#34d399',
+    bg: 'linear-gradient(135deg,rgba(52,211,153,0.13) 0%,rgba(74,222,128,0.07) 100%)',
+    border: 'rgba(52,211,153,0.28)',
+    glow: 'rgba(52,211,153,0.12)',
+    title: 'Team Management',
+    titleTH: 'จัดการทีมครบวงจร',
+    desc: 'Line-Up · Match Log · ปฏิทิน ทุกอย่างในที่เดียว',
+    badge: 'NEW',
+    features: ['Line-Up Builder Drag & Drop', 'Match Log + Calendar', 'Training Program + Video'],
+  },
+  {
+    icon: 'bi-heart-pulse-fill',
+    color: '#f472b6',
+    bg: 'linear-gradient(135deg,rgba(244,114,182,0.13) 0%,rgba(167,139,250,0.07) 100%)',
+    border: 'rgba(244,114,182,0.28)',
+    glow: 'rgba(244,114,182,0.12)',
+    title: 'Athlete Tracking',
+    titleTH: 'ติดตามนักกีฬา',
+    desc: 'Roster · Attendance QR · Wellness ครบทุกมิติ',
+    badge: 'QR',
+    features: ['Roster + Register Athlete', 'Attendance + QR Check-in', 'Wellness & RPE · Load'],
+  },
 ];
 
 const STATS = [
-  { num: '21+', label: 'โมดูล',  sub: 'All-in-one' },
-  { num: '27',  label: 'ทักษะ',  sub: 'Football Skills' },
+  { num: '20+', label: 'โมดูล',  sub: 'All-in-one' },
+  { num: '27',  label: 'ทักษะ',  sub: 'Skill Assessment' },
   { num: 'AI',  label: 'Scout',  sub: 'Gemini Powered' },
   { num: 'QR',  label: 'เช็คชื่อ', sub: 'Mobile Ready' },
 ];
@@ -90,123 +111,154 @@ export default function LoginModal({ onLogin }: Props) {
       background: '#060d1f', overflowY: 'auto',
     }}>
       <style>{`
-        @keyframes lglow   { 0%,100%{opacity:0.55} 50%{opacity:1} }
-        @keyframes lf1     { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-30px,22px)} }
-        @keyframes lf2     { 0%,100%{transform:translate(0,0)} 50%{transform:translate(24px,-20px)} }
-        @keyframes lf3     { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-16px,-26px)} }
-        @keyframes lfadeup { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes lglow    { 0%,100%{opacity:0.55} 50%{opacity:1} }
+        @keyframes lf1      { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-32px,24px)} }
+        @keyframes lf2      { 0%,100%{transform:translate(0,0)} 50%{transform:translate(26px,-22px)} }
+        @keyframes lf3      { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-18px,-28px)} }
+        @keyframes lf4      { 0%,100%{transform:translate(0,0)} 50%{transform:translate(20px,16px)} }
+        @keyframes shimmer  { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes badgepop { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
         @media (max-width:700px) {
           .lm-left  { display:none !important; }
           .lm-right { flex:1 1 100% !important; min-height:100dvh !important; border-left:none !important; padding:32px 22px !important; }
         }
-        .lm-feat:hover { background:rgba(255,255,255,0.06) !important; border-color:rgba(255,255,255,0.12) !important; }
-        .lm-hi:hover   { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,0.4) !important; }
+        .lm-card { transition:transform 0.2s ease, box-shadow 0.2s ease; }
+        .lm-card:hover { transform:translateY(-4px) !important; }
+        .lm-cap:hover { background:rgba(255,255,255,0.08) !important; }
       `}</style>
 
-      {/* ── LEFT: Brand Panel ── */}
+      {/* ══ LEFT PANEL ══════════════════════════════════════════ */}
       <div className="lm-left" style={{
         flex: '1 1 55%', minWidth: 0,
-        background: 'linear-gradient(148deg,#060d1f 0%,#0c1a3a 55%,#071428 100%)',
+        background: 'linear-gradient(148deg,#060d1f 0%,#0b1936 55%,#071428 100%)',
         position: 'relative', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         padding: 'clamp(28px,4.5vw,60px)',
       }}>
         {/* Ambient orbs */}
-        <div style={{ position:'absolute', top:'-12%', right:'-6%', width:540, height:540, borderRadius:'50%', background:'radial-gradient(circle,rgba(56,189,248,0.11) 0%,transparent 65%)', animation:'lf1 14s ease-in-out infinite', pointerEvents:'none' }}/>
-        <div style={{ position:'absolute', bottom:'-22%', left:'-6%', width:460, height:460, borderRadius:'50%', background:'radial-gradient(circle,rgba(52,211,153,0.08) 0%,transparent 65%)', animation:'lf2 17s ease-in-out infinite', pointerEvents:'none' }}/>
-        <div style={{ position:'absolute', top:'42%', left:'38%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle,rgba(167,139,250,0.07) 0%,transparent 65%)', animation:'lf3 11s ease-in-out infinite', pointerEvents:'none' }}/>
-        {/* Grid overlay */}
-        <div style={{ position:'absolute', inset:0, pointerEvents:'none', opacity:0.03, backgroundImage:'linear-gradient(rgba(56,189,248,1) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,1) 1px,transparent 1px)', backgroundSize:'52px 52px' }}/>
+        <div style={{ position:'absolute', top:'-8%', right:'-4%', width:580, height:580, borderRadius:'50%', background:'radial-gradient(circle,rgba(56,189,248,0.10) 0%,transparent 65%)', animation:'lf1 15s ease-in-out infinite', pointerEvents:'none' }}/>
+        <div style={{ position:'absolute', bottom:'-20%', left:'-5%', width:500, height:500, borderRadius:'50%', background:'radial-gradient(circle,rgba(52,211,153,0.08) 0%,transparent 65%)', animation:'lf2 19s ease-in-out infinite', pointerEvents:'none' }}/>
+        <div style={{ position:'absolute', top:'38%', left:'34%', width:340, height:340, borderRadius:'50%', background:'radial-gradient(circle,rgba(167,139,250,0.07) 0%,transparent 65%)', animation:'lf3 12s ease-in-out infinite', pointerEvents:'none' }}/>
+        <div style={{ position:'absolute', top:'8%', left:'18%', width:220, height:220, borderRadius:'50%', background:'radial-gradient(circle,rgba(245,158,11,0.06) 0%,transparent 65%)', animation:'lf4 9s ease-in-out infinite', pointerEvents:'none' }}/>
+        {/* Dot grid */}
+        <div style={{ position:'absolute', inset:0, pointerEvents:'none', opacity:0.025, backgroundImage:'radial-gradient(circle,rgba(255,255,255,0.7) 1px,transparent 1px)', backgroundSize:'28px 28px' }}/>
 
         <div style={{ position:'relative', zIndex:1, maxWidth:560 }}>
 
-          {/* Logo + Brand */}
-          <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:22 }}>
-            <div style={{ width:50, height:50, borderRadius:13, overflow:'hidden', flexShrink:0, border:'1.5px solid rgba(56,189,248,0.25)', boxShadow:'0 0 26px rgba(56,189,248,0.18)' }}>
+          {/* ── Logo + Brand */}
+          <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20 }}>
+            <div style={{ width:50, height:50, borderRadius:13, overflow:'hidden', flexShrink:0, border:'1.5px solid rgba(56,189,248,0.3)', boxShadow:'0 0 32px rgba(56,189,248,0.22)' }}>
               <img src={LOGO_URL} alt="" style={{ width:'100%', height:'100%', objectFit:'contain' }}/>
             </div>
             <div>
-              <div style={{ fontSize:'1.3rem', fontWeight:900, color:'white', letterSpacing:0.5, lineHeight:1.15 }}>
+              <div style={{ fontSize:'1.25rem', fontWeight:900, color:'white', letterSpacing:0.5, lineHeight:1.15 }}>
                 ISP{' '}
-                <span style={{ background:'linear-gradient(90deg,#38bdf8,#818cf8)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
+                <span style={{ background:'linear-gradient(90deg,#38bdf8,#818cf8,#a78bfa)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
                   Improve Sports Performance
                 </span>
               </div>
-              <div style={{ fontSize:'0.62rem', color:'rgba(255,255,255,0.28)', letterSpacing:3, textTransform:'uppercase', marginTop:3 }}>
+              <div style={{ fontSize:'0.6rem', color:'rgba(255,255,255,0.25)', letterSpacing:3, textTransform:'uppercase', marginTop:3 }}>
                 Sports Performance Platform
               </div>
             </div>
           </div>
 
-          {/* Headline */}
-          <h1 style={{ fontSize:'clamp(1.6rem,2.8vw,2.5rem)', fontWeight:900, color:'white', lineHeight:1.15, margin:'0 0 8px', letterSpacing:-0.5 }}>
-            ระบบพัฒนานักกีฬา<br/>
-            <span style={{ background:'linear-gradient(90deg,#38bdf8,#818cf8 60%,#a78bfa)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
-              ฟุตบอลครบวงจร
-            </span>
-          </h1>
-          <p style={{ fontSize:'0.85rem', color:'rgba(255,255,255,0.35)', lineHeight:1.65, margin:'0 0 20px', maxWidth:420 }}>
-            วางแผน · ทดสอบ · วิเคราะห์ · พัฒนา ·{' '}
-            <span style={{ color:'#38bdf8', fontWeight:600 }}>ข้อมูลจริง ไม่ใช่ความรู้สึก</span>
-          </p>
-
-          {/* Platform Highlights */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:18 }}>
-            {HIGHLIGHTS.map(h => (
-              <div key={h.label} className="lm-hi" style={{
-                padding:'11px 13px', borderRadius:12, cursor:'default',
-                background: h.grad, border:`1px solid ${h.color}28`,
-                backdropFilter:'blur(12px)', transition:'transform 0.18s, box-shadow 0.18s',
+          {/* ── Capability badges */}
+          <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:16 }}>
+            {[
+              { icon:'bi-stars',                color:'#f59e0b', text:'AI-Powered' },
+              { icon:'bi-lightning-charge-fill', color:'#38bdf8', text:'DPE Thailand Norms' },
+              { icon:'bi-diagram-3-fill',        color:'#34d399', text:'Football-Specific' },
+            ].map(b => (
+              <div key={b.text} className="lm-cap" style={{
+                display:'flex', alignItems:'center', gap:5,
+                padding:'4px 11px', borderRadius:20,
+                background:`${b.color}11`, border:`1px solid ${b.color}2a`,
+                cursor:'default', transition:'background 0.15s',
               }}>
-                <i className={`bi ${h.icon}`} style={{ color:h.color, fontSize:'1.05rem', display:'block', marginBottom:7 }}/>
-                <div style={{ fontSize:'0.7rem', fontWeight:800, color:'rgba(255,255,255,0.88)', lineHeight:1.2 }}>{h.label}</div>
-                <div style={{ fontSize:'0.58rem', color:'rgba(255,255,255,0.32)', marginTop:2 }}>{h.sub}</div>
+                <i className={`bi ${b.icon}`} style={{ color:b.color, fontSize:'0.62rem' }}/>
+                <span style={{ fontSize:'0.62rem', fontWeight:700, color:'rgba(255,255,255,0.62)' }}>{b.text}</span>
               </div>
             ))}
           </div>
 
-          {/* Feature Grid */}
-          <div style={{ marginBottom:20 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-              <span style={{ fontSize:'0.55rem', fontWeight:800, color:'rgba(255,255,255,0.22)', letterSpacing:2.5, textTransform:'uppercase' }}>21 MODULES</span>
-              <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.07)' }}/>
-              <span style={{ fontSize:'0.55rem', fontWeight:700, color:'#38bdf8', letterSpacing:1, textTransform:'uppercase' }}>All-in-one Platform</span>
-            </div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:5 }}>
-              {FEATURES.map(f => (
-                <div key={f.label} className="lm-feat" style={{
-                  display:'flex', alignItems:'center', gap:7,
-                  padding:'5px 9px', borderRadius:8,
-                  background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)',
-                  cursor:'default', transition:'background 0.15s, border-color 0.15s',
-                }}>
-                  <div style={{ width:20, height:20, borderRadius:5, flexShrink:0, background:`${f.color}18`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <i className={`bi ${f.icon}`} style={{ color:f.color, fontSize:'0.62rem' }}/>
+          {/* ── Headline */}
+          <h1 style={{ fontSize:'clamp(1.7rem,2.8vw,2.55rem)', fontWeight:900, color:'white', lineHeight:1.12, margin:'0 0 8px', letterSpacing:-0.5 }}>
+            ระบบพัฒนานักกีฬา<br/>
+            <span style={{
+              background:'linear-gradient(90deg,#38bdf8 0%,#818cf8 45%,#a78bfa 80%,#38bdf8 100%)',
+              backgroundSize:'200% auto',
+              WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text',
+              animation:'shimmer 6s linear infinite',
+            }}>
+              ฟุตบอลครบวงจร
+            </span>
+          </h1>
+          <p style={{ fontSize:'0.84rem', color:'rgba(255,255,255,0.33)', lineHeight:1.7, margin:'0 0 22px', maxWidth:420 }}>
+            วางแผน · ทดสอบ · วิเคราะห์ · พัฒนา ·{' '}
+            <span style={{ color:'#38bdf8', fontWeight:600 }}>ข้อมูลจริง ไม่ใช่ความรู้สึก</span>
+          </p>
+
+          {/* ── 2×2 Hero Cards */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:22 }}>
+            {HERO_CARDS.map(card => (
+              <div key={card.title} className="lm-card" style={{
+                padding:'15px 16px', borderRadius:15, cursor:'default',
+                background: card.bg,
+                border: `1px solid ${card.border}`,
+                boxShadow: `0 4px 28px ${card.glow}, inset 0 1px 0 rgba(255,255,255,0.05)`,
+              }}>
+                {/* Header */}
+                <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:9 }}>
+                  <div style={{ width:32, height:32, borderRadius:9, background:`${card.color}1e`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:`0 0 12px ${card.glow}` }}>
+                    <i className={`bi ${card.icon}`} style={{ color:card.color, fontSize:'0.92rem' }}/>
                   </div>
-                  <span style={{ fontSize:'0.63rem', fontWeight:700, color:'rgba(255,255,255,0.62)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, minWidth:0 }}>
-                    {f.label}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:'0.73rem', fontWeight:800, color:'rgba(255,255,255,0.92)', lineHeight:1.2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{card.title}</div>
+                    <div style={{ fontSize:'0.57rem', color:'rgba(255,255,255,0.35)', marginTop:1 }}>{card.titleTH}</div>
+                  </div>
+                  <span style={{
+                    fontSize:'0.47rem', fontWeight:900, letterSpacing:0.4,
+                    color:card.color, background:`${card.color}1a`,
+                    border:`1px solid ${card.color}35`,
+                    padding:'2px 7px', borderRadius:5, flexShrink:0,
+                    animation: card.badge === 'AI' || card.badge === 'NEW' ? 'badgepop 3s ease-in-out infinite' : 'none',
+                  }}>
+                    {card.badge}
                   </span>
-                  {f.badge && (
-                    <span style={{ fontSize:'0.47rem', fontWeight:800, color:f.color, background:`${f.color}20`, padding:'1px 5px', borderRadius:4, flexShrink:0, letterSpacing:0.3 }}>
-                      {f.badge}
-                    </span>
-                  )}
                 </div>
-              ))}
-            </div>
+                {/* Desc */}
+                <div style={{
+                  fontSize:'0.63rem', color:'rgba(255,255,255,0.46)',
+                  lineHeight:1.55, marginBottom:9, paddingBottom:9,
+                  borderBottom:`1px solid ${card.border}`,
+                }}>
+                  {card.desc}
+                </div>
+                {/* Features */}
+                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                  {card.features.map(f => (
+                    <div key={f} style={{ display:'flex', alignItems:'center', gap:7 }}>
+                      <div style={{ width:4, height:4, borderRadius:'50%', background:card.color, flexShrink:0, opacity:0.65 }}/>
+                      <span style={{ fontSize:'0.59rem', color:'rgba(255,255,255,0.44)', lineHeight:1.3 }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Stats Bar */}
-          <div style={{ display:'flex', gap:0, borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:18 }}>
+          {/* ── Stats Bar */}
+          <div style={{ display:'flex', borderTop:'1px solid rgba(255,255,255,0.07)', paddingTop:18 }}>
             {STATS.map((s, i) => (
               <div key={i} style={{
                 flex:1, textAlign:'center',
                 borderRight: i < STATS.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
                 padding:'0 8px',
               }}>
-                <div style={{ fontSize:'1.55rem', fontWeight:900, color:'white', lineHeight:1, letterSpacing:-0.5 }}>{s.num}</div>
-                <div style={{ fontSize:'0.65rem', fontWeight:700, color:'rgba(255,255,255,0.48)', marginTop:3 }}>{s.label}</div>
-                <div style={{ fontSize:'0.52rem', color:'rgba(255,255,255,0.18)', marginTop:2, letterSpacing:0.5 }}>{s.sub}</div>
+                <div style={{ fontSize:'1.5rem', fontWeight:900, color:'white', lineHeight:1, letterSpacing:-0.5 }}>{s.num}</div>
+                <div style={{ fontSize:'0.63rem', fontWeight:700, color:'rgba(255,255,255,0.45)', marginTop:3 }}>{s.label}</div>
+                <div style={{ fontSize:'0.5rem', color:'rgba(255,255,255,0.17)', marginTop:2, letterSpacing:0.5 }}>{s.sub}</div>
               </div>
             ))}
           </div>
@@ -214,19 +266,19 @@ export default function LoginModal({ onLogin }: Props) {
         </div>
       </div>
 
-      {/* ── RIGHT: Login Form ── */}
+      {/* ══ RIGHT PANEL ═════════════════════════════════════════ */}
       <div className="lm-right" style={{
         flex: '0 0 clamp(320px,40%,460px)',
-        background: '#0f172a',
+        background: '#0d1526',
         borderLeft: '1px solid rgba(255,255,255,0.06)',
         display: 'flex', flexDirection: 'column', justifyContent: 'center',
         padding: 'clamp(28px,5vw,56px)',
         position: 'relative', overflow: 'hidden',
       }}>
-        {/* Rainbow accent line */}
+        {/* Top accent line */}
         <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'linear-gradient(90deg,#38bdf8,#818cf8,#a78bfa,#34d399,#f59e0b)' }}/>
-        {/* Subtle glow behind form */}
-        <div style={{ position:'absolute', top:'30%', left:'50%', transform:'translateX(-50%)', width:340, height:340, borderRadius:'50%', background:'radial-gradient(circle,rgba(56,189,248,0.05) 0%,transparent 65%)', pointerEvents:'none' }}/>
+        {/* Subtle background glow */}
+        <div style={{ position:'absolute', top:'28%', left:'50%', transform:'translateX(-50%)', width:360, height:360, borderRadius:'50%', background:'radial-gradient(circle,rgba(56,189,248,0.045) 0%,transparent 65%)', pointerEvents:'none' }}/>
 
         <div style={{ position:'relative', zIndex:1 }}>
 
@@ -240,7 +292,7 @@ export default function LoginModal({ onLogin }: Props) {
               <span style={{ width:6, height:6, borderRadius:'50%', background:'#38bdf8', display:'inline-block', animation:'lglow 2s ease-in-out infinite' }}/>
               <span style={{ fontSize:'0.62rem', fontWeight:700, color:'#38bdf8', letterSpacing:1.5, textTransform:'uppercase' }}>ระบบสด</span>
             </div>
-            <h2 style={{ fontSize:'1.5rem', fontWeight:800, color:'white', margin:'0 0 6px', lineHeight:1.2 }}>เข้าสู่ระบบ</h2>
+            <h2 style={{ fontSize:'1.55rem', fontWeight:800, color:'white', margin:'0 0 7px', lineHeight:1.2 }}>เข้าสู่ระบบ</h2>
             <p style={{ fontSize:'0.8rem', color:'rgba(255,255,255,0.3)', lineHeight:1.6, margin:0 }}>
               เฉพาะโค้ชและสต๊าฟที่ได้รับอนุญาต<br/>กรุณาใช้บัญชีที่ได้รับมอบหมาย
             </p>
@@ -325,18 +377,18 @@ export default function LoginModal({ onLogin }: Props) {
           </form>
 
           {/* Footer notices */}
-          <div style={{ marginTop:26, display:'flex', flexDirection:'column', gap:7 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:9, padding:'9px 13px', borderRadius:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ marginTop:28, display:'flex', flexDirection:'column', gap:7 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:9, padding:'10px 14px', borderRadius:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
               <i className="bi bi-shield-lock-fill" style={{ color:'#34d399', fontSize:'0.82rem', flexShrink:0 }}/>
-              <span style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.27)' }}>ระบบเข้าสู่ระบบแบบปลอดภัย — ข้อมูลนักกีฬาถูกเข้ารหัสทุกครั้ง</span>
+              <span style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.27)', lineHeight:1.4 }}>ระบบเข้าสู่ระบบแบบปลอดภัย — ข้อมูลนักกีฬาถูกเข้ารหัสทุกครั้ง</span>
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:9, padding:'9px 13px', borderRadius:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:9, padding:'10px 14px', borderRadius:10, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
               <i className="bi bi-people-fill" style={{ color:'#818cf8', fontSize:'0.82rem', flexShrink:0 }}/>
-              <span style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.27)' }}>สำหรับโค้ช สต๊าฟ และผู้ดูแลระบบสโมสรเท่านั้น</span>
+              <span style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.27)', lineHeight:1.4 }}>สำหรับโค้ช สต๊าฟ และผู้ดูแลระบบสโมสรเท่านั้น</span>
             </div>
           </div>
 
-          <div style={{ marginTop:20, textAlign:'center', fontSize:'0.58rem', color:'rgba(255,255,255,0.12)', letterSpacing:0.5 }}>
+          <div style={{ marginTop:22, textAlign:'center', fontSize:'0.58rem', color:'rgba(255,255,255,0.11)', letterSpacing:0.5 }}>
             © 2026 Improve Sports Performance · All rights reserved
           </div>
         </div>
