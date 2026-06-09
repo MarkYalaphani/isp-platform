@@ -1,8 +1,13 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Athlete, User } from '@/lib/types';
 import { callGAS } from '@/lib/api';
 import { showToast } from '@/lib/toast';
+
+interface SavedEvent {
+  id: string; eventDate: string; title: string;
+  eventType: string; teamName: string; notes: string;
+}
 
 interface Props { athletes: Athlete[]; user: User; }
 
@@ -63,6 +68,9 @@ export default function TrainingProgramPage({ athletes, user }: Props) {
   );
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const teams = useMemo(() => ['ALL', ...Array.from(new Set(athletes.map(a=>a.Team).filter(Boolean))).sort()], [athletes]);
   const teamAthletes = useMemo(() => athletes.filter(a => filterTeam==='ALL' || a.Team===filterTeam), [athletes, filterTeam]);
@@ -77,6 +85,48 @@ export default function TrainingProgramPage({ athletes, user }: Props) {
 
   const weekLoad = useMemo(() => calcWeekLoad(plan), [plan]);
   const loadColor = weekLoad.total < 1500 ? '#10b981' : weekLoad.total < 2500 ? '#38bdf8' : weekLoad.total < 3500 ? '#f59e0b' : '#ef4444';
+
+  /* ── Load saved events ── */
+  const loadHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const ym = new Date().toISOString().slice(0, 7);
+      const thisMonth = await callGAS('getCalendarEvents', { yearMonth: ym, clubId: user.clubId||'' }) as SavedEvent[];
+      const prevYm = (() => { const d = new Date(); d.setMonth(d.getMonth()-1); return d.toISOString().slice(0,7); })();
+      const prevMonth = await callGAS('getCalendarEvents', { yearMonth: prevYm, clubId: user.clubId||'' }) as SavedEvent[];
+      const all = [...(Array.isArray(prevMonth)?prevMonth:[]), ...(Array.isArray(thisMonth)?thisMonth:[])]
+        .filter(e => e.eventType === 'training')
+        .sort((a,b) => b.eventDate.localeCompare(a.eventDate));
+      setSavedEvents(all);
+    } catch { /* silent */ }
+    finally { setLoadingHistory(false); }
+  }, [user.clubId]);
+
+  useEffect(() => { if (showHistory) loadHistory(); }, [showHistory, loadHistory]);
+
+  const handleDeleteEvent = async (id: string) => {
+    if (!confirm('ลบ session นี้ออกจากปฏิทิน?')) return;
+    try {
+      await callGAS('deleteCalendarEvent', { id });
+      showToast('ลบสำเร็จ', 'success');
+      setSavedEvents(prev => prev.filter(e => e.id !== id));
+    } catch { showToast('ลบไม่สำเร็จ', 'error'); }
+  };
+
+  const handleDeleteWeek = async (weekStartDate: string) => {
+    const d = new Date(weekStartDate + 'T12:00:00');
+    const dates: string[] = Array.from({length:7}, (_, i) => {
+      const dd = new Date(d); dd.setDate(dd.getDate()+i); return dd.toISOString().split('T')[0];
+    });
+    const toDelete = savedEvents.filter(e => dates.includes(e.eventDate) && (!filterTeam || filterTeam==='ALL' || !e.teamName || e.teamName===filterTeam));
+    if (!toDelete.length) { showToast('ไม่มี session ในสัปดาห์นี้', 'error'); return; }
+    if (!confirm(`ลบ ${toDelete.length} session ของสัปดาห์ ${weekStartDate}?`)) return;
+    try {
+      await Promise.all(toDelete.map(e => callGAS('deleteCalendarEvent', { id: e.id })));
+      showToast(`ลบ ${toDelete.length} session สำเร็จ`, 'success');
+      setSavedEvents(prev => prev.filter(e => !toDelete.find(d => d.id === e.id)));
+    } catch { showToast('ลบไม่สำเร็จ', 'error'); }
+  };
 
   /* ── Session helpers ── */
   const addSession = (dayIdx: number) =>
@@ -137,6 +187,9 @@ export default function TrainingProgramPage({ athletes, user }: Props) {
           </select>
           <button className="btn-outline" onClick={copyToClipboard}>
             <i className={`bi bi-${copied?'check-circle-fill':'clipboard'} me-1`}/>{copied?'Copied!':'Copy'}
+          </button>
+          <button className="btn-outline" onClick={()=>setShowHistory(h=>!h)} style={{ borderColor:'#f59e0b', color:'#f59e0b' }}>
+            <i className={`bi bi-${showHistory?'x-lg':'clock-history'} me-1`}/>{showHistory?'ซ่อน':'ประวัติโปรแกรม'}
           </button>
           <button className="btn-primary" onClick={handleSaveToCalendar} disabled={saving}>
             {saving
@@ -311,6 +364,85 @@ export default function TrainingProgramPage({ athletes, user }: Props) {
           </button>
         </div>
       </div>
+
+      {/* ── ประวัติโปรแกรมที่บันทึกไว้ ── */}
+      {showHistory && (
+        <div className="surface" style={{ marginTop:16 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
+            <div style={{ fontWeight:800, fontSize:'0.9rem' }}>
+              <i className="bi bi-clock-history me-2" style={{ color:'#f59e0b' }}/>ประวัติโปรแกรมที่บันทึกลงปฏิทิน
+            </div>
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              <button className="btn-outline btn-sm" onClick={()=>handleDeleteWeek(weekStart)} style={{ borderColor:'#ef4444', color:'#ef4444' }}>
+                <i className="bi bi-trash me-1"/>ลบสัปดาห์ที่เลือก ({weekStart})
+              </button>
+              <button className="btn-outline btn-sm" onClick={loadHistory} disabled={loadingHistory}>
+                <i className="bi bi-arrow-clockwise me-1"/>รีเฟรช
+              </button>
+            </div>
+          </div>
+
+          {loadingHistory && <div style={{ textAlign:'center', padding:32 }}><div className="spinner-ring"/></div>}
+
+          {!loadingHistory && savedEvents.length === 0 && (
+            <div style={{ textAlign:'center', padding:40, color:'var(--text-muted)', fontSize:'0.85rem' }}>
+              <i className="bi bi-calendar-x" style={{ fontSize:'2rem', display:'block', marginBottom:8, opacity:0.3 }}/>
+              ยังไม่มีโปรแกรมที่บันทึกไว้
+            </div>
+          )}
+
+          {!loadingHistory && savedEvents.length > 0 && (()=>{
+            const byWeek: Record<string, SavedEvent[]> = {};
+            savedEvents
+              .filter(e => filterTeam === 'ALL' || !e.teamName || e.teamName === filterTeam)
+              .forEach(e => {
+                const d = new Date(e.eventDate + 'T12:00:00');
+                const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay()+6)%7));
+                const wk = mon.toISOString().split('T')[0];
+                if (!byWeek[wk]) byWeek[wk] = [];
+                byWeek[wk].push(e);
+              });
+            const INT_LABEL: Record<string,{color:string;label:string}> = {
+              'เบา':{ color:'#10b981', label:'เบา' }, 'ปานกลาง':{ color:'#38bdf8', label:'ปานกลาง' }, 'หนัก':{ color:'#f59e0b', label:'หนัก' },
+            };
+            const fmtD = (s: string) => { try { return new Date(s+'T12:00:00').toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'}); } catch { return s; } };
+            return Object.keys(byWeek).sort((a,b)=>b.localeCompare(a)).map(wk => (
+              <div key={wk} style={{ marginBottom:16, border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', background:'var(--bg)', borderBottom:'1px solid var(--border)', flexWrap:'wrap', gap:8 }}>
+                  <div style={{ fontWeight:700, fontSize:'0.85rem' }}>
+                    <i className="bi bi-calendar-week me-2" style={{ color:'#38bdf8' }}/>สัปดาห์ {wk}
+                    {byWeek[wk][0]?.teamName && <span style={{ marginLeft:8, fontSize:'0.72rem', background:'#38bdf820', color:'#38bdf8', borderRadius:6, padding:'2px 8px', fontWeight:700 }}>{byWeek[wk][0].teamName}</span>}
+                    <span style={{ marginLeft:8, fontSize:'0.7rem', color:'var(--text-muted)' }}>{byWeek[wk].length} session</span>
+                  </div>
+                  <button onClick={() => handleDeleteWeek(wk)} title="ลบทั้งสัปดาห์"
+                    style={{ padding:'4px 10px', borderRadius:8, border:'1px solid #fecaca', background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:'0.75rem', fontWeight:700 }}>
+                    <i className="bi bi-trash me-1"/>ลบทั้งสัปดาห์
+                  </button>
+                </div>
+                <div style={{ padding:'8px 14px', display:'flex', flexDirection:'column', gap:6 }}>
+                  {byWeek[wk].map(ev => {
+                    const intensityKey = ev.notes?.split(' · ')[0] || '';
+                    const ic = INT_LABEL[intensityKey] || { color:'#94a3b8', label:intensityKey };
+                    return (
+                      <div key={ev.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 10px', background:'var(--bg)', borderRadius:8, border:'1px solid var(--border)' }}>
+                        <span style={{ fontSize:'0.7rem', fontWeight:700, color:ic.color, background:`${ic.color}18`, borderRadius:5, padding:'2px 7px', flexShrink:0 }}>{ic.label||'—'}</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontWeight:700, fontSize:'0.8rem' }}>{ev.title}</div>
+                          <div style={{ fontSize:'0.65rem', color:'var(--text-muted)' }}>{fmtD(ev.eventDate)} {ev.notes && `· ${ev.notes}`}</div>
+                        </div>
+                        <button onClick={() => handleDeleteEvent(ev.id)} title="ลบ session นี้"
+                          style={{ padding:'3px 7px', borderRadius:6, border:'1px solid #fecaca', background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:'0.72rem', flexShrink:0 }}>
+                          <i className="bi bi-trash"/>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+      )}
     </div>
   );
 }

@@ -91,6 +91,19 @@ export default function AttendancePage({ athletes, user }: Props) {
     setSelectedSession(key);
   }, []);
 
+  const handleDeleteSession = async (sessionDate: string, sessionName: string) => {
+    if (!confirm(`ลบ session "${sessionName}" (${fmtDate(sessionDate)})?\nจะลบการเช็คชื่อทั้งหมดใน session นี้`)) return;
+    try {
+      await callGAS('deleteAttendanceSession', { sessionDate, sessionName });
+      showToast('ลบ session สำเร็จ', 'success');
+      setSessions(prev => prev.filter(s => !(s.session_date === sessionDate && s.session_name === sessionName)));
+      if (selectedSession === `${sessionDate}|${sessionName}`) {
+        setSelectedSession(null);
+        setHistRecords([]);
+      }
+    } catch { showToast('ลบไม่สำเร็จ', 'error'); }
+  };
+
   const handleUpdateRecord = async (recId: string, newStatus: AttendanceStatus) => {
     const prev = histRecords.find(r => r.id === recId);
     if (!prev) return;
@@ -365,19 +378,27 @@ export default function AttendancePage({ athletes, user }: Props) {
                 const tc = SESSION_TYPES.find(t=>t.id===s.session_type)||SESSION_TYPES[0];
                 const active = selectedSession === key;
                 return (
-                  <div key={i} onClick={() => loadSessionRecords(key)} style={{
-                    display:'flex', alignItems:'center', gap:10, padding:'11px 16px', cursor:'pointer',
+                  <div key={i} style={{
+                    display:'flex', alignItems:'center', gap:10, padding:'11px 16px',
                     background: active ? 'rgba(56,189,248,0.08)' : 'transparent',
                     borderLeft: active ? '3px solid #38bdf8' : '3px solid transparent',
                     borderBottom:'1px solid var(--border)',
                   }}>
-                    <div style={{ width:32, height:32, borderRadius:8, background:`${tc.color}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <i className={`bi ${tc.icon}`} style={{ color:tc.color, fontSize:'0.85rem' }}/>
+                    <div onClick={() => loadSessionRecords(key)} style={{ display:'flex', alignItems:'center', gap:10, flex:1, cursor:'pointer', minWidth:0 }}>
+                      <div style={{ width:32, height:32, borderRadius:8, background:`${tc.color}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <i className={`bi ${tc.icon}`} style={{ color:tc.color, fontSize:'0.85rem' }}/>
+                      </div>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontWeight:700, fontSize:'0.82rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.session_name}</div>
+                        <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', marginTop:1 }}>{fmtDate(s.session_date)}</div>
+                      </div>
                     </div>
-                    <div style={{ minWidth:0 }}>
-                      <div style={{ fontWeight:700, fontSize:'0.82rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.session_name}</div>
-                      <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', marginTop:1 }}>{fmtDate(s.session_date)}</div>
-                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDeleteSession(s.session_date, s.session_name); }}
+                      title="ลบ session นี้"
+                      style={{ padding:'4px 7px', borderRadius:7, border:'1px solid #fecaca', background:'#fef2f2', color:'#dc2626', cursor:'pointer', fontSize:'0.72rem', flexShrink:0 }}>
+                      <i className="bi bi-trash"/>
+                    </button>
                   </div>
                 );
               })}

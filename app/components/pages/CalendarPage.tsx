@@ -43,6 +43,11 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
   const [month, setMonth] = useState(today.getMonth());
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [filterTeam, setFilterTeam] = useState('ALL');
+
+  const teamOptions = useMemo(() =>
+    ['ALL', ...Array.from(new Set(athletes.map(a=>a.Team).filter(Boolean))).sort()],
+    [athletes]);
 
   // Day panel state
   const [dayPanelDate, setDayPanelDate]   = useState<string|null>(null);
@@ -62,14 +67,18 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
 
+  const filteredEvents = useMemo(() =>
+    filterTeam === 'ALL' ? events : events.filter(e => !e.teamName || e.teamName === filterTeam),
+    [events, filterTeam]);
+
   const byDay = useMemo(() => {
     const map: Record<string, CalEvent[]> = {};
-    events.forEach(e => {
+    filteredEvents.forEach(e => {
       const d = e.eventDate?.split('T')[0]?.split('-')[2];
       if (d) { if (!map[d]) map[d] = []; map[d].push(e); }
     });
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const days = daysInMonth(year, month);
   const firstDay = firstDayOfMonth(year, month);
@@ -130,9 +139,14 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
           <h2 className="page-title">ตารางซ้อม / แข่งขัน</h2>
           <p className="page-subtitle">วางแผนกิจกรรมทีม · ฝึกซ้อม · แข่งขัน · ทดสอบ</p>
         </div>
-        <button className="btn-primary" onClick={() => openDay(today.getDate())}>
-          <i className="bi bi-plus-circle me-1"/>เพิ่มกิจกรรม
-        </button>
+        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+          <select className="form-select" style={{ width:'auto' }} value={filterTeam} onChange={e=>setFilterTeam(e.target.value)}>
+            {teamOptions.map(t=><option key={t} value={t}>{t==='ALL'?'ทุกรุ่น':t}</option>)}
+          </select>
+          <button className="btn-primary" onClick={() => openDay(today.getDate())}>
+            <i className="bi bi-plus-circle me-1"/>เพิ่มกิจกรรม
+          </button>
+        </div>
       </div>
 
       {/* Month nav */}
