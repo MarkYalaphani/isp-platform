@@ -104,6 +104,15 @@ export default function AttendancePage({ athletes, user }: Props) {
     } catch { showToast('ลบไม่สำเร็จ', 'error'); }
   };
 
+  const handleDeleteRecord = async (recId: string) => {
+    if (!confirm('ลบการเช็คชื่อรายการนี้?')) return;
+    try {
+      await callGAS('deleteAttendanceRecord', { id: recId });
+      showToast('ลบสำเร็จ', 'success');
+      setHistRecords(rs => rs.filter(r => r.id !== recId));
+    } catch { showToast('ลบไม่สำเร็จ', 'error'); }
+  };
+
   const handleUpdateRecord = async (recId: string, newStatus: AttendanceStatus) => {
     const prev = histRecords.find(r => r.id === recId);
     if (!prev) return;
@@ -465,6 +474,7 @@ export default function AttendancePage({ athletes, user }: Props) {
                           <th>ทีม/รุ่น</th>
                           <th style={{ textAlign:'center' }}>สถานะ</th>
                           <th style={{ textAlign:'center' }}>แก้ไข</th>
+                          <th style={{ textAlign:'center' }}>ลบ</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -505,6 +515,12 @@ export default function AttendancePage({ athletes, user }: Props) {
                                       <i className="bi bi-pencil-fill"/>
                                     </button>
                                   )}
+                                </td>
+                                <td style={{ textAlign:'center' }}>
+                                  <button onClick={()=>handleDeleteRecord(r.id)} title="ลบรายการนี้"
+                                    style={{ background:'none', border:'1px solid #fecaca', borderRadius:7, padding:'3px 8px', cursor:'pointer', fontSize:'0.75rem', color:'#dc2626' }}>
+                                    <i className="bi bi-trash"/>
+                                  </button>
                                 </td>
                               </tr>
                             );
@@ -582,12 +598,21 @@ export default function AttendancePage({ athletes, user }: Props) {
 function AttendanceStats({ athletes, sessions }: { athletes: Athlete[]; sessions: { session_date:string; session_name:string; session_type:string }[] }) {
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [statsView, setStatsView] = useState<'athlete'|'session'>('athlete');
+  const [dateRange, setDateRange] = useState<'7'|'30'|'90'|'all'>('30');
+
+  // Filter sessions by date range
+  const filteredSessions = sessions.filter(s => {
+    if (dateRange === 'all') return true;
+    const days = parseInt(dateRange);
+    const from = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+    return s.session_date >= from;
+  });
 
   useEffect(() => {
     if (!sessions.length) return;
     setLoading(true);
-    // Fetch all records for all sessions in parallel (limited)
-    const uniq = sessions.slice(0, 30); // last 30 sessions
+    const uniq = sessions.slice(0, 60);
     Promise.all(
       uniq.map(s => callGAS('getAttendanceBySession', { sessionDate: s.session_date, sessionName: s.session_name })
         .then(d => (Array.isArray(d) ? d : []) as AttendanceRecord[])
@@ -599,9 +624,13 @@ function AttendanceStats({ athletes, sessions }: { athletes: Athlete[]; sessions
 
   if (loading) return <div style={{ textAlign:'center', padding:40 }}><div className="spinner-ring"/></div>;
 
-  // Compute per-athlete stats
+  // Filter records to match filteredSessions
+  const filteredSessionKeys = new Set(filteredSessions.map(s => `${s.session_date}|${s.session_name}`));
+  const filteredRecords = allRecords.filter(r => filteredSessionKeys.has(`${r.sessionDate}|${r.sessionName}`));
+
+  // Compute per-athlete stats (from filtered records)
   const perAthlete = athletes.map(a => {
-    const recs = allRecords.filter(r => r.playerId === a.PlayerID);
+    const recs = filteredRecords.filter(r => r.playerId === a.PlayerID);
     const total   = recs.length;
     const present = recs.filter(r=>r.status==='present').length;
     const late    = recs.filter(r=>r.status==='late').length;
@@ -611,19 +640,55 @@ function AttendanceStats({ athletes, sessions }: { athletes: Athlete[]; sessions
     return { athlete:a, total, present, late, absence, excuse, rate };
   }).filter(x => x.total > 0).sort((a,b) => (b.rate||0) - (a.rate||0));
 
-  if (!perAthlete.length) {
+  // Compute per-session stats
+  const perSession = filteredSessions.map(s => {
+    const recs = filteredRecords.filter(r => r.sessionDate === s.session_date && r.sessionName === s.session_name);
+    const present = recs.filter(r=>r.status==='present').length;
+    const late    = recs.filter(r=>r.status==='late').length;
+    const absence = recs.filter(r=>r.status==='absent').length;
+    const excuse  = recs.filter(r=>r.status==='excuse').length;
+    const total   = recs.length;
+    const rate    = total ? Math.round((present+late)/total*100) : 0;
+    return { ...s, present, late, absence, excuse, total, rate };
+  }).sort((a,b) => b.session_date.localeCompare(a.session_date));
+
+  if (!perAthlete.length && !perSession.length) {
     return <div style={{ textAlign:'center', padding:48, color:'var(--text-muted)' }}>
       <i className="bi bi-bar-chart" style={{ fontSize:'2.5rem', display:'block', marginBottom:10, color:'#cbd5e1' }}/>
-      ยังไม่มีข้อมูลเพียงพอ กรุณาบันทึกการเช็คชื่อก่อน
+      ยังไม่มีข้อมูลในช่วงเวลาที่เลือก
     </div>;
   }
 
   return (
     <div>
+      {/* Controls */}
+      <div className="surface" style={{ marginBottom:16, padding:'12px 18px', display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+        <div className="tab-switch" style={{ marginBottom:0 }}>
+          <button className={`tab-btn${statsView==='athlete'?' active':''}`} onClick={()=>setStatsView('athlete')}>
+            <i className="bi bi-person-lines-fill me-1"/>รายนักกีฬา
+          </button>
+          <button className={`tab-btn${statsView==='session'?' active':''}`} onClick={()=>setStatsView('session')}>
+            <i className="bi bi-calendar3 me-1"/>รายวัน/Session
+          </button>
+        </div>
+        <div style={{ display:'flex', gap:6, marginLeft:'auto', flexWrap:'wrap' }}>
+          {(['7','30','90','all'] as const).map(d => (
+            <button key={d} onClick={()=>setDateRange(d)}
+              style={{ padding:'4px 12px', borderRadius:8, fontSize:'0.75rem', fontWeight:700, cursor:'pointer',
+                background: dateRange===d ? '#38bdf8' : 'var(--bg)',
+                color: dateRange===d ? 'white' : 'var(--text-muted)',
+                border: `1px solid ${dateRange===d ? 'transparent' : 'var(--border)'}`,
+              }}>
+              {d==='7'?'7 วัน':d==='30'?'30 วัน':d==='90'?'3 เดือน':'ทั้งหมด'}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Top summary cards */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:12, marginBottom:20 }}>
         {[
-          { label:'Sessions รวม', val: sessions.length, color:'#38bdf8', icon:'bi-calendar-check' },
+          { label:'Sessions', val: filteredSessions.length, color:'#38bdf8', icon:'bi-calendar-check' },
           { label:'นักกีฬามีข้อมูล', val: perAthlete.length, color:'#34d399', icon:'bi-people-fill' },
           { label:'Rate เฉลี่ย', val: perAthlete.length ? Math.round(perAthlete.reduce((s,x)=>s+(x.rate||0),0)/perAthlete.length)+'%' : '—', color:'#f59e0b', icon:'bi-percent' },
           { label:'มาน้อยสุด', val: perAthlete[perAthlete.length-1]?.rate != null ? perAthlete[perAthlete.length-1].rate+'%' : '—', color:'#f472b6', icon:'bi-exclamation-triangle-fill' },
@@ -636,8 +701,63 @@ function AttendanceStats({ athletes, sessions }: { athletes: Athlete[]; sessions
         ))}
       </div>
 
-      {/* Attendance Rate Bar Chart */}
-      {perAthlete.length > 0 && (
+      {/* ── VIEW: รายวัน/Session ── */}
+      {statsView === 'session' && (
+        <div className="surface" style={{ padding:0, overflow:'hidden', marginBottom:16 }}>
+          <div style={{ padding:'12px 18px', borderBottom:'1px solid var(--border)', fontWeight:700, fontSize:'0.85rem' }}>
+            <i className="bi bi-calendar3 me-2" style={{ color:'#38bdf8' }}/>สถิติรายวัน / Session ({filteredSessions.length} sessions)
+          </div>
+          <div style={{ overflowX:'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th style={{ paddingLeft:16 }}>วันที่</th>
+                  <th>Session</th>
+                  <th style={{ textAlign:'center' }}>มา</th>
+                  <th style={{ textAlign:'center' }}>สาย</th>
+                  <th style={{ textAlign:'center' }}>ลา</th>
+                  <th style={{ textAlign:'center' }}>ขาด</th>
+                  <th style={{ textAlign:'center' }}>Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {perSession.map((s, i) => {
+                  const rateColor = s.rate >= 90 ? '#10b981' : s.rate >= 75 ? '#38bdf8' : s.rate >= 60 ? '#f59e0b' : '#ef4444';
+                  const tc = SESSION_TYPES.find(t=>t.id===s.session_type)||SESSION_TYPES[0];
+                  return (
+                    <tr key={i}>
+                      <td style={{ paddingLeft:16 }}>
+                        <div style={{ fontWeight:700, fontSize:'0.82rem' }}>{fmtDate(s.session_date)}</div>
+                      </td>
+                      <td>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <i className={`bi ${tc.icon}`} style={{ color:tc.color, fontSize:'0.75rem' }}/>
+                          <span style={{ fontSize:'0.82rem' }}>{s.session_name}</span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign:'center', fontWeight:700, color:'#16a34a' }}>{s.present}</td>
+                      <td style={{ textAlign:'center', fontWeight:700, color:'#d97706' }}>{s.late}</td>
+                      <td style={{ textAlign:'center', fontWeight:700, color:'#2563eb' }}>{s.excuse}</td>
+                      <td style={{ textAlign:'center', fontWeight:700, color:'#dc2626' }}>{s.absence}</td>
+                      <td style={{ textAlign:'center' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
+                          <span style={{ fontWeight:800, color:rateColor, fontSize:'0.9rem' }}>{s.rate}%</span>
+                          <div style={{ width:48, height:5, borderRadius:5, background:'#f1f5f9', overflow:'hidden' }}>
+                            <div style={{ height:'100%', background:rateColor, width:`${s.rate}%`, borderRadius:5 }}/>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Attendance Rate Bar Chart — รายนักกีฬา only */}
+      {statsView === 'athlete' && perAthlete.length > 0 && (
         <div className="surface" style={{ marginBottom:16, padding:'14px 16px' }}>
           <div style={{ fontWeight:700, fontSize:'0.82rem', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
             <i className="bi bi-bar-chart-fill" style={{ color:'#38bdf8' }}/>Attendance Rate รายนักกีฬา
@@ -663,8 +783,8 @@ function AttendanceStats({ athletes, sessions }: { athletes: Athlete[]; sessions
         </div>
       )}
 
-      {/* Per-athlete table */}
-      <div className="surface" style={{ padding:0, overflow:'hidden' }}>
+      {/* Per-athlete table — รายนักกีฬา only */}
+      {statsView === 'athlete' && <div className="surface" style={{ padding:0, overflow:'hidden' }}>
         <div style={{ padding:'12px 18px', borderBottom:'1px solid var(--border)', fontWeight:700, fontSize:'0.85rem' }}>
           <i className="bi bi-person-lines-fill me-2" style={{ color:'#38bdf8' }}/>สถิติรายนักกีฬา
         </div>
@@ -709,7 +829,7 @@ function AttendanceStats({ athletes, sessions }: { athletes: Athlete[]; sessions
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

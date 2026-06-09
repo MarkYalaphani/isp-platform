@@ -813,6 +813,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'success' });
       }
 
+      case 'deleteAttendanceRecord': {
+        const { id: delRecId } = params as { id: string };
+        if (!delRecId) return NextResponse.json({ status: 'error', message: 'missing id' }, { status: 400 });
+        const { error } = await sb.from('attendance').delete().eq('id', delRecId);
+        if (error) throw error;
+        return NextResponse.json({ status: 'success' });
+      }
+
       // ── WELLNESS CHECK ────────────────────────────────────────────────────
       case 'saveWellness': {
         const { records } = params as { records: Array<{ playerId:string; checkDate:string; fatigue:number; sleepQuality:number; soreness:number; stress:number; mood:number; notes?:string; createdBy?:string }> };
