@@ -25,6 +25,17 @@ const TYPE_CFG = {
 } as const;
 
 const TEAMS = ['','U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U18','Senior'];
+
+const TEAM_COLORS: Record<string, string> = {
+  U8:'#6366f1', U9:'#8b5cf6', U10:'#a855f7', U11:'#ec4899', U12:'#f43f5e',
+  U13:'#ef4444', U14:'#f97316', U15:'#f59e0b', U16:'#84cc16', U17:'#10b981',
+  U18:'#06b6d4', Senior:'#3b82f6',
+};
+
+function evColor(ev: CalEvent): string {
+  if (ev.teamName && TEAM_COLORS[ev.teamName]) return TEAM_COLORS[ev.teamName];
+  return TYPE_CFG[ev.eventType]?.color || '#94a3b8';
+}
 const MONTH_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 const DOW = ['อา','จ','อ','พ','พฤ','ศ','ส'];
 
@@ -149,6 +160,18 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
         </div>
       </div>
 
+      {/* Team color legend */}
+      {athletes.length > 0 && (
+        <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:10, padding:'8px 4px' }}>
+          {Array.from(new Set(athletes.map(a=>a.Team).filter(Boolean))).sort().map(t => (
+            <span key={t} style={{ display:'flex', alignItems:'center', gap:4, background:(TEAM_COLORS[t]||'#94a3b8')+'18', border:`1px solid ${TEAM_COLORS[t]||'#94a3b8'}40`, borderRadius:20, padding:'3px 10px', fontSize:'0.68rem', fontWeight:800, color:TEAM_COLORS[t]||'#94a3b8' }}>
+              <span style={{ width:8, height:8, borderRadius:'50%', background:TEAM_COLORS[t]||'#94a3b8', flexShrink:0 }}/>
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Month nav */}
       <div className="surface" style={{ marginBottom:16, padding:'12px 20px', display:'flex', alignItems:'center', gap:12 }}>
         <button className="btn-outline" style={{ padding:'6px 10px' }} onClick={prevMonth}><i className="bi bi-chevron-left"/></button>
@@ -186,14 +209,14 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
                 onMouseLeave={e=>(e.currentTarget.style.background=isSelected?'rgba(56,189,248,0.10)':isToday?'rgba(56,189,248,0.04)':'var(--bg)')}>
                 <div style={{ fontWeight:isToday?900:600, fontSize:'0.8rem', color:isToday?'#38bdf8':'var(--text-main)', marginBottom:3 }}>{day}</div>
                 {dayEvs.slice(0,3).map((ev,j)=>{
-                  const tc = TYPE_CFG[ev.eventType]||TYPE_CFG.other;
+                  const c = evColor(ev);
                   return (
-                    <div key={j} style={{ background:tc.color+'22', color:tc.color, borderRadius:4, padding:'1px 5px', fontSize:'0.6rem', fontWeight:700, marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {ev.title}
+                    <div key={j} style={{ background:c+'28', color:c, borderRadius:4, padding:'1px 5px', fontSize:'0.6rem', fontWeight:700, marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', borderLeft:`2px solid ${c}` }}>
+                      {ev.teamName ? `[${ev.teamName}] ` : ''}{ev.title}
                     </div>
                   );
                 })}
-                {dayEvs.length>3&&<div style={{ fontSize:'0.58rem', color:'var(--text-muted)' }}>+{dayEvs.length-3}</div>}
+                {dayEvs.length>3&&<div style={{ fontSize:'0.58rem', color:'var(--text-muted)' }}>+{dayEvs.length-3} เพิ่มเติม</div>}
               </div>
             );
           })}
@@ -209,13 +232,14 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
         {!loading && events.length===0 && (
           <div style={{textAlign:'center',padding:32,color:'var(--text-muted)',fontSize:'0.85rem'}}>ยังไม่มีกิจกรรม — คลิกวันในปฏิทินเพื่อเพิ่ม</div>
         )}
-        {[...events].sort((a,b)=>a.eventDate.localeCompare(b.eventDate)).map(ev=>{
+        {[...filteredEvents].sort((a,b)=>a.eventDate.localeCompare(b.eventDate)).map(ev=>{
           const tc = TYPE_CFG[ev.eventType]||TYPE_CFG.other;
+          const c  = evColor(ev);
           return (
-            <div key={ev.id} style={{ display:'flex', gap:12, alignItems:'center', padding:'10px 16px', borderBottom:'1px solid var(--border)', cursor:'pointer' }}
+            <div key={ev.id} style={{ display:'flex', gap:12, alignItems:'center', padding:'10px 16px', borderBottom:'1px solid var(--border)', cursor:'pointer', borderLeft:`3px solid ${c}` }}
               onClick={()=>openDay(parseInt(ev.eventDate.split('-')[2]))}>
-              <div style={{ width:36, height:36, borderRadius:10, background:tc.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <i className={`bi ${tc.icon}`} style={{ color:tc.color }}/>
+              <div style={{ width:36, height:36, borderRadius:10, background:c+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <i className={`bi ${tc.icon}`} style={{ color:c }}/>
               </div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontWeight:700, fontSize:'0.85rem' }}>{ev.title}</div>
@@ -224,7 +248,8 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
                   {ev.teamName&&` · ${ev.teamName}`}{ev.venue&&` · ${ev.venue}`}
                 </div>
               </div>
-              <span style={{ background:tc.color+'18', color:tc.color, borderRadius:6, padding:'2px 8px', fontSize:'0.68rem', fontWeight:700 }}>{tc.label}</span>
+              {ev.teamName && <span style={{ background:c+'18', color:c, borderRadius:6, padding:'2px 8px', fontSize:'0.68rem', fontWeight:800, flexShrink:0 }}>{ev.teamName}</span>}
+              <span style={{ background:tc.color+'18', color:tc.color, borderRadius:6, padding:'2px 8px', fontSize:'0.68rem', fontWeight:700, flexShrink:0 }}>{tc.label}</span>
               <button onClick={e=>{e.stopPropagation();handleDelete(ev.id);}} style={{ padding:'4px 8px', border:'1px solid #fecaca', background:'#fef2f2', color:'#dc2626', borderRadius:6, cursor:'pointer', fontSize:'0.75rem', flexShrink:0 }}>
                 <i className="bi bi-trash"/>
               </button>
@@ -260,20 +285,21 @@ export default function CalendarPage({ athletes, user, onNavigate }: Props) {
               )}
               {dayEvents.map(ev => {
                 const tc = TYPE_CFG[ev.eventType]||TYPE_CFG.other;
+                const c  = evColor(ev);
                 return (
-                  <div key={ev.id} style={{ display:'flex', gap:12, padding:'12px 14px', marginBottom:8, background:'var(--bg)', borderRadius:12, border:`1.5px solid ${tc.color}30` }}>
-                    <div style={{ width:38, height:38, borderRadius:10, background:tc.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <i className={`bi ${tc.icon}`} style={{ color:tc.color, fontSize:'1rem' }}/>
+                  <div key={ev.id} style={{ display:'flex', gap:12, padding:'12px 14px', marginBottom:8, background:'var(--bg)', borderRadius:12, border:`1.5px solid ${c}40`, borderLeft:`4px solid ${c}` }}>
+                    <div style={{ width:38, height:38, borderRadius:10, background:c+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <i className={`bi ${tc.icon}`} style={{ color:c, fontSize:'1rem' }}/>
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontWeight:700, fontSize:'0.875rem', marginBottom:2 }}>{ev.title}</div>
                       <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:ev.notes?4:0 }}>
+                        {ev.teamName && <span style={{ background:c+'18', color:c, borderRadius:5, padding:'1px 7px', fontSize:'0.65rem', fontWeight:800 }}>{ev.teamName}</span>}
                         <span style={{ background:tc.color+'18', color:tc.color, borderRadius:5, padding:'1px 7px', fontSize:'0.65rem', fontWeight:700 }}>{tc.label}</span>
-                        {ev.teamName && <span style={{ fontSize:'0.65rem', color:'var(--text-muted)', background:'var(--border)', borderRadius:5, padding:'1px 7px' }}>{ev.teamName}</span>}
                         {ev.venue    && <span style={{ fontSize:'0.65rem', color:'var(--text-muted)' }}><i className="bi bi-geo-alt me-1"/>{ev.venue}</span>}
                         {ev.createdBy&& <span style={{ fontSize:'0.65rem', color:'var(--text-muted)' }}><i className="bi bi-person me-1"/>{ev.createdBy}</span>}
                       </div>
-                      {ev.notes && <div style={{ fontSize:'0.75rem', color:'var(--text-muted)', borderLeft:'3px solid '+tc.color+'55', paddingLeft:8, fontStyle:'italic' }}>{ev.notes}</div>}
+                      {ev.notes && <div style={{ fontSize:'0.75rem', color:'var(--text-muted)', borderLeft:`3px solid ${c}55`, paddingLeft:8, fontStyle:'italic' }}>{ev.notes}</div>}
                     </div>
                     <button onClick={()=>handleDelete(ev.id)} style={{ alignSelf:'flex-start', padding:'4px 8px', border:'1px solid #fecaca', background:'#fef2f2', color:'#dc2626', borderRadius:7, cursor:'pointer', fontSize:'0.72rem', flexShrink:0 }}>
                       <i className="bi bi-trash"/>
