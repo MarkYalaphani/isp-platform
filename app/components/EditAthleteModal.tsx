@@ -18,6 +18,7 @@ interface Props {
 interface EditForm {
   name: string; nickname: string; dob: string; team: string;
   position: string; domFoot: string; domHand: string; club: string; province: string;
+  height: string; weight: string;
 }
 
 export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
@@ -31,6 +32,8 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
     domHand:  athlete.DomHand  || 'Right',
     club:     athlete.Club     || '',
     province: athlete.Province || '',
+    height:   String(athlete.Latest?.Height  || ''),
+    weight:   String(athlete.Latest?.Weight  || ''),
   });
   const [photo, setPhoto]           = useState<{ base64: string; mime: string } | null>(null);
   const [photoPreview, setPreview]  = useState(athlete.PhotoUrl || '');
@@ -66,12 +69,30 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
         photoBase64: photo?.base64 || '', photoMimeType: photo?.mime || '',
         clearPhoto: photoCleared && !photo,
       }) as { status: string; message?: string };
-      if (res.status === 'success') {
-        showToast('บันทึกสำเร็จ', 'success');
-        setTimeout(() => { onSaved(); onClose(); }, 700);
-      } else {
+
+      if (res.status !== 'success') {
         showToast(res.message || 'เกิดข้อผิดพลาด', 'error');
+        return;
       }
+
+      // Save height/weight if provided
+      if (form.height || form.weight) {
+        const latestId = athlete.Latest?.id;
+        if (latestId) {
+          await callGAS('updateTestRecord', {
+            testId: latestId, playerId: athlete.PlayerID,
+            height: form.height, weight: form.weight,
+          });
+        } else {
+          await callGAS('saveTest', {
+            playerId: athlete.PlayerID,
+            height: form.height, weight: form.weight,
+          });
+        }
+      }
+
+      showToast('บันทึกสำเร็จ', 'success');
+      setTimeout(() => { onSaved(); onClose(); }, 700);
     } catch { showToast('เกิดข้อผิดพลาด', 'error'); }
     finally { setSaving(false); }
   };
@@ -113,6 +134,21 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
                 )}
               </div>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhoto} />
+            </div>
+          </div>
+
+          {/* Height / Weight */}
+          <div style={{ marginBottom: 16, background: 'rgba(52,211,153,0.04)', padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(52,211,153,0.2)' }}>
+            <div className="form-label" style={{ marginBottom: 10 }}><i className="bi bi-person-fill me-1" style={{ color: '#34d399' }} />ร่างกาย</div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">ส่วนสูง (cm)</label>
+                <input type="number" step="0.1" className="form-control" value={form.height} onChange={e => set('height', e.target.value)} placeholder="เช่น 170" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="form-label">น้ำหนัก (kg)</label>
+                <input type="number" step="0.1" className="form-control" value={form.weight} onChange={e => set('weight', e.target.value)} placeholder="เช่น 65" />
+              </div>
             </div>
           </div>
 
