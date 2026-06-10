@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { showToast } from '@/lib/toast';
 import {
   Chart as ChartJS, RadialLinearScale, PointElement, LineElement,
   Filler, Tooltip, Legend, CategoryScale, LinearScale,
@@ -934,7 +935,10 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
       await callGAS('deleteTestRecord', { testId: t.id });
       setDeleteTestConfirm(false);
       setViewTestIdx(-1);
+      showToast('ลบผลเทสสำเร็จ', 'success');
       onRefresh();
+    } catch {
+      showToast('ลบไม่ได้ กรุณาลองใหม่', 'error');
     } finally {
       setDeletingTest(false);
     }
