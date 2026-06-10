@@ -911,10 +911,14 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
 
   const handleSaveTestEdit = async () => {
     const t = viewTest as Record<string, unknown>;
-    if (!t.id || !athlete) return;
+    if (!athlete) return;
     setEditTestSaving(true);
     try {
-      await callGAS('updateTestRecord', { testId: t.id, playerId: athlete.PlayerID, ...editTestDraft });
+      if (t.id) {
+        await callGAS('updateTestRecord', { testId: t.id, playerId: athlete.PlayerID, ...editTestDraft });
+      } else {
+        await callGAS('saveTest', { playerId: athlete.PlayerID, ...editTestDraft });
+      }
       setShowEditTestModal(false);
       onRefresh();
     } finally {
@@ -1135,7 +1139,9 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
                 <i className="bi bi-pencil-square me-2" style={{ color: '#38bdf8' }} />
-                แก้ไขผลเทส — {fmtDateFull((viewTest as Record<string,unknown>).Timestamp as string || '')}
+                {!!(viewTest as Record<string,unknown>).id
+                  ? `แก้ไขผลเทส — ${fmtDateFull((viewTest as Record<string,unknown>).Timestamp as string || '')}`
+                  : 'เพิ่มข้อมูลร่างกาย'}
               </h3>
               <button onClick={() => setShowEditTestModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.3rem', color: '#94a3b8' }}>×</button>
             </div>
@@ -1449,14 +1455,16 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                       )).reverse()}
                     </select>
                   )}
-                  {HIST.length > 0 && !!(viewTest as Record<string,unknown>).id && (
+                  {athlete && (
                     <>
                       <button className="btn-outline btn-sm" onClick={openEditTestModal} style={{ fontSize: '0.72rem', padding: '3px 9px' }}>
                         <i className="bi bi-pencil me-1" />แก้ไข
                       </button>
-                      <button onClick={() => setDeleteTestConfirm(true)} style={{ fontSize: '0.72rem', padding: '3px 9px', borderRadius: 6, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', cursor: 'pointer' }}>
-                        <i className="bi bi-trash me-1" />ลบ
-                      </button>
+                      {HIST.length > 0 && !!(viewTest as Record<string,unknown>).id && (
+                        <button onClick={() => setDeleteTestConfirm(true)} style={{ fontSize: '0.72rem', padding: '3px 9px', borderRadius: 6, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', cursor: 'pointer' }}>
+                          <i className="bi bi-trash me-1" />ลบ
+                        </button>
+                      )}
                     </>
                   )}
                   <button className="btn-outline btn-sm" onClick={() => { setGoalDraft({...goals}); setShowGoalModal(true); }} style={{ fontSize: '0.72rem', padding: '3px 9px' }}>
