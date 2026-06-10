@@ -8,7 +8,7 @@ import { signToken, verifyToken, needsRefresh, SessionPayload } from '@/lib/sess
 // Actions that don't require a login token
 const PUBLIC_ACTIONS = new Set(['login', 'setup', 'getCheckInInfo', 'submitCheckIn']);
 // Actions that require admin role
-const ADMIN_ONLY_ACTIONS = new Set(['deleteUser', 'deleteIR', 'deleteTestRecord', 'deleteTrainingVideo']);
+const ADMIN_ONLY_ACTIONS = new Set(['deleteUser', 'deleteIR', 'deleteTrainingVideo']);
 
 function getSession(req: NextRequest): SessionPayload | null {
   const auth = req.headers.get('Authorization') ?? '';
@@ -1165,6 +1165,15 @@ export async function POST(req: NextRequest) {
       case 'deleteTestRecord': {
         const { testId } = params as { testId: string };
         if (!testId) return NextResponse.json({ status: 'error', message: 'ไม่พบ testId' });
+        // Non-admin: verify the athlete belongs to the coach's club
+        if (session!.role !== 'admin') {
+          const { data: rec } = await sb.from('test_records').select('player_id').eq('id', testId).maybeSingle();
+          if (!rec) return NextResponse.json({ status: 'error', message: 'ไม่พบ record' });
+          const { data: ath } = await sb.from('athletes').select('club_id').eq('player_id', rec.player_id).maybeSingle();
+          if (!ath || ath.club_id !== session!.clubId) {
+            return NextResponse.json({ status: 'error', message: 'ไม่มีสิทธิ์ลบ' }, { status: 403 });
+          }
+        }
         const { error } = await sb.from('test_records').delete().eq('id', testId);
         if (error) throw error;
         return NextResponse.json({ status: 'success', message: 'ลบผลเทสสำเร็จ' });
