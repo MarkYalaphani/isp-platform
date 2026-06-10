@@ -26,9 +26,12 @@ function CheckInContent() {
   const [error,     setError]     = useState('');
   const [search,    setSearch]    = useState('');
 
-  const loadInfo = useCallback(async () => {
-    if (!sessionDate || !sessionName || !clubId) { setError('QR Code ไม่ถูกต้อง'); setLoading(false); return; }
-    setLoading(true);
+  // Synchronous lock — prevents double-tap before React state update propagates
+  const inFlight = useRef<Set<string>>(new Set());
+
+  const loadInfo = useCallback(async (silent = false) => {
+    if (!sessionDate || !sessionName || !clubId) { setError('QR Code ไม่ถูกต้อง'); if (!silent) setLoading(false); return; }
+    if (!silent) setLoading(true);
     try {
       const res = await fetch('/api/db', {
         method: 'POST',
@@ -36,25 +39,33 @@ function CheckInContent() {
         body: JSON.stringify({ action: 'getCheckInInfo', params: { clubId, sessionDate, sessionName } }),
       });
       const d = await res.json() as { athletes?: AthleteInfo[]; checkedIn?: string[] };
-      setAthletes(d.athletes || []);
-      setCheckedIn(new Set(d.checkedIn || []));
+      if (!silent) setAthletes(d.athletes || []);
+      setCheckedIn(prev => {
+        const fromServer = new Set<string>(d.checkedIn || []);
+        // Never remove players already confirmed locally or still in-flight
+        for (const id of prev) fromServer.add(id);
+        for (const id of inFlight.current) fromServer.add(id);
+        return fromServer;
+      });
     } catch {
-      setError('ไม่สามารถโหลดข้อมูลได้');
+      if (!silent) setError('ไม่สามารถโหลดข้อมูลได้');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [sessionDate, sessionName, clubId]);
 
   useEffect(() => { loadInfo(); }, [loadInfo]);
 
-  // Poll every 8s to show live check-ins from others
+  // Poll every 8s silently — merges server state, never reverts local check-ins
   useEffect(() => {
-    const id = setInterval(loadInfo, 8000);
+    const id = setInterval(() => loadInfo(true), 8000);
     return () => clearInterval(id);
   }, [loadInfo]);
 
   const handleCheckIn = async (a: AthleteInfo) => {
-    if (checkedIn.has(a.playerId) || checking) return;
+    // Synchronous guard first (before React state update) — blocks double-tap race
+    if (checkedIn.has(a.playerId) || inFlight.current.has(a.playerId)) return;
+    inFlight.current.add(a.playerId);
     setChecking(a.playerId);
     try {
       const res = await fetch('/api/db', {
@@ -69,6 +80,7 @@ function CheckInContent() {
         setTimeout(() => setDone(null), 3000);
       }
     } finally {
+      inFlight.current.delete(a.playerId);
       setChecking(null);
     }
   };

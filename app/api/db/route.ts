@@ -1171,14 +1171,22 @@ export async function POST(req: NextRequest) {
 
       case 'submitCheckIn': {
         const { playerId, sessionDate, sessionName, sessionType, clubId } = params as { playerId:string; sessionDate:string; sessionName:string; sessionType:string; clubId:string };
-        // Verify athlete belongs to this club (basic guard)
+        // Verify athlete belongs to this club
         const { data: ath } = await sb.from('athletes').select('player_id').eq('player_id', playerId).eq('club_id', clubId).maybeSingle();
         if (!ath) return NextResponse.json({ status: 'error', message: 'ไม่พบนักกีฬา' });
-        const { error } = await sb.from('attendance').upsert({
+        // Idempotency guard: if already checked in, return success without inserting
+        const { data: existing } = await sb.from('attendance')
+          .select('id')
+          .eq('session_date', sessionDate)
+          .eq('session_name', sessionName)
+          .eq('player_id', playerId)
+          .maybeSingle();
+        if (existing) return NextResponse.json({ status: 'success', message: 'เช็คอินแล้ว' });
+        const { error } = await sb.from('attendance').insert({
           session_date: sessionDate, session_name: sessionName,
           session_type: sessionType || 'training', player_id: playerId,
           status: 'present', notes: 'QR Check-in', created_by: 'QR',
-        }, { onConflict: 'session_date,session_name,player_id' });
+        });
         if (error) throw error;
         return NextResponse.json({ status: 'success' });
       }
