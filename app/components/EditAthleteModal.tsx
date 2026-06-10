@@ -22,6 +22,9 @@ interface EditForm {
 }
 
 export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
+  const initHeight = String(athlete.Latest?.Height || '');
+  const initWeight = String(athlete.Latest?.Weight || '');
+
   const [form, setForm] = useState<EditForm>({
     name:     athlete.Name     || '',
     nickname: athlete.Nickname || '',
@@ -32,8 +35,8 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
     domHand:  athlete.DomHand  || 'Right',
     club:     athlete.Club     || '',
     province: athlete.Province || '',
-    height:   String(athlete.Latest?.Height  || ''),
-    weight:   String(athlete.Latest?.Weight  || ''),
+    height:   initHeight,
+    weight:   initWeight,
   });
   const [photo, setPhoto]           = useState<{ base64: string; mime: string } | null>(null);
   const [photoPreview, setPreview]  = useState(athlete.PhotoUrl || '');
@@ -75,15 +78,18 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
         return;
       }
 
-      // Save height/weight if provided
-      if (form.height || form.weight) {
+      // Save height/weight only when changed
+      const bodyChanged = form.height !== initHeight || form.weight !== initWeight;
+      if (bodyChanged && (form.height || form.weight)) {
         const latestId = athlete.Latest?.id;
         if (latestId) {
-          await callGAS('updateTestRecord', {
+          // Update existing record — only height/weight, don't touch other test fields
+          await callGAS('updateBodyComp', {
             testId: latestId, playerId: athlete.PlayerID,
             height: form.height, weight: form.weight,
           });
         } else {
+          // No test record yet → create first one
           await callGAS('saveTest', {
             playerId: athlete.PlayerID,
             height: form.height, weight: form.weight,

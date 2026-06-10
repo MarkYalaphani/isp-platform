@@ -1109,6 +1109,21 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status: 'success', message: 'เปลี่ยนรหัสผ่านสำเร็จ' });
       }
 
+      // ── UPDATE BODY COMP (height/weight only, preserves all other fields) ──
+      case 'updateBodyComp': {
+        const { testId, playerId, height, weight } = params as Record<string, string>;
+        if (!testId) return NextResponse.json({ status: 'error', message: 'ไม่พบ testId' });
+        const upd: Record<string, string> = {};
+        if (height !== undefined) upd.height = height;
+        if (weight !== undefined) upd.weight = weight;
+        if (height && weight) {
+          upd.bmi = (parseFloat(weight) / Math.pow(parseFloat(height) / 100, 2)).toFixed(2);
+        }
+        const { error } = await sb.from('test_records').update(upd).eq('id', testId).eq('player_id', playerId);
+        if (error) throw error;
+        return NextResponse.json({ status: 'success' });
+      }
+
       // ── UPDATE TEST RECORD ─────────────────────────────────────────────────
       case 'updateTestRecord': {
         const f = params as Record<string, string>;
