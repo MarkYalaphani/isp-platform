@@ -115,6 +115,7 @@ export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpe
         {link('skill',      'bi-bullseye',          t('Skill Assessment'))}
         {link('attendance', 'bi-check2-square',     t('เช็คชื่อซ้อม'))}
         {link('wellness',   'bi-heart-pulse-fill',  t('Wellness & Load'))}
+        {link('nutrition',  'bi-egg-fried',          t('Nutrition Check-in'))}
         {link('ir',         'bi-clipboard2-check',  t('IDP'))}
         {link('compare',    'bi-intersect',         t('Compare'))}
         {link('lineup',     'bi-diagram-3-fill',    t('Line Up'))}

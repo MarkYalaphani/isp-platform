@@ -36,6 +36,7 @@ const MATCH_TYPES = ['ลีก','ถ้วย','กระชับมิตร'
 const TEAMS = ['U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U18','Senior'];
 const POSITIONS = ['Goalkeeper','Defender','Midfielder','Forward'];
 const TEAM_COLORS: Record<string,string> = { U8:'#6366f1',U9:'#38bdf8',U10:'#10b981',U11:'#f59e0b',U12:'#ef4444',U13:'#8b5cf6',U14:'#06b6d4',U15:'#f97316',U16:'#ec4899',U17:'#14b8a6',U18:'#84cc16',Senior:'#1d4ed8' };
+const RESULT_COLOR: Record<string,string> = { W:'#10b981', D:'#6366f1', L:'#ef4444' };
 
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 function fmtDate(d: string) {
@@ -55,33 +56,27 @@ export default function MatchLogPage({ athletes, user }: Props) {
   const [selectedMatch, setSelectedMatch] = useState<Match|null>(null);
   const [matchStats, setMatchStats] = useState<MatchStat[]>([]);
 
-  // Match form
   const blankForm = () => ({ matchDate: todayStr(), opponent: '', venue: '', matchType: 'ลีก', teamName: '', scoreFor: '0', scoreAgainst: '0', notes: '' });
   const [form, setForm] = useState(blankForm);
 
-  // Step 2 – player selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQ, setSearchQ] = useState('');
   const [filterPos, setFilterPos] = useState('');
-
-  // Step 3 – per-player stats
   const [statVals, setStatVals] = useState<Record<string, Partial<MatchStat>>>({});
-
   const [filterTeam, setFilterTeam] = useState('ALL');
   const teamOptions = useMemo(() => ['ALL', ...TEAMS], []);
 
-  // Edit mode for detail view
   const [isEditingMatch, setIsEditingMatch] = useState(false);
   const [editMatchForm, setEditMatchForm] = useState<typeof form>(blankForm());
   const [editStatVals, setEditStatVals] = useState<Record<string, Partial<MatchStat>>>({});
   const [savingEdit, setSavingEdit] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  // Athletes available for selection: filtered by match team if set
   const poolAthletes = useMemo(() =>
     athletes.filter(a => !form.teamName || a.Team === form.teamName),
     [athletes, form.teamName]);
 
-  // Displayed in step 2 with search + position filter
   const displayAthletes = useMemo(() => {
     let list = poolAthletes;
     if (filterPos) list = list.filter(a => a.Position === filterPos);
@@ -99,29 +94,16 @@ export default function MatchLogPage({ athletes, user }: Props) {
 
   const toggleSelectAll = () => {
     if (allDisplaySelected) {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        displayAthletes.forEach(a => next.delete(a.PlayerID));
-        return next;
-      });
+      setSelectedIds(prev => { const n = new Set(prev); displayAthletes.forEach(a => n.delete(a.PlayerID)); return n; });
     } else {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        displayAthletes.forEach(a => next.add(a.PlayerID));
-        return next;
-      });
+      setSelectedIds(prev => { const n = new Set(prev); displayAthletes.forEach(a => n.add(a.PlayerID)); return n; });
     }
   };
 
-  const togglePlayer = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
+  const togglePlayer = (id: string) => setSelectedIds(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
 
-  // Athletes in step 3 (only selected)
   const selectedAthletes = useMemo(() =>
     athletes.filter(a => selectedIds.has(a.PlayerID)),
     [athletes, selectedIds]);
@@ -145,6 +127,8 @@ export default function MatchLogPage({ athletes, user }: Props) {
 
   const setStat = (pid: string, k: keyof MatchStat, v: number) =>
     setStatVals(p => ({ ...p, [pid]: { ...(p[pid]||{}), [k]: v } }));
+  const setEditStat = (pid: string, k: keyof MatchStat, v: number) =>
+    setEditStatVals(p => ({ ...p, [pid]: { ...(p[pid]||{}), [k]: v } }));
 
   const handleSave = async () => {
     if (!form.opponent.trim()) { showToast('กรุณากรอกชื่อทีมคู่แข่ง', 'error'); return; }
@@ -164,40 +148,16 @@ export default function MatchLogPage({ athletes, user }: Props) {
       }) as { status: string; message: string };
       if (res.status === 'success') {
         showToast('บันทึกผลแข่งขันสำเร็จ', 'success');
-        setForm(blankForm());
-        setStatVals({});
-        setSelectedIds(new Set());
-        setAddStep(1);
-        setTab('list');
+        setForm(blankForm()); setStatVals({}); setSelectedIds(new Set()); setAddStep(1); setTab('list');
         loadMatches();
       } else showToast(res.message, 'error');
     } catch { showToast('Connection error', 'error'); }
     finally { setSaving(false); }
   };
 
-  const resultBadge = (r: Match['result']) => {
-    const cfg = { W: { bg:'#f0fdf4',color:'#166534',label:'ชนะ' }, D: { bg:'#eff6ff',color:'#1e40af',label:'เสมอ' }, L: { bg:'#fef2f2',color:'#dc2626',label:'แพ้' } };
-    const c = cfg[r];
-    return <span style={{ background:c.bg, color:c.color, borderRadius:6, padding:'2px 8px', fontSize:'0.7rem', fontWeight:800, border:`1px solid ${c.color}40` }}>{c.label}</span>;
-  };
-
-  const summary = useMemo(() => {
-    const w = matches.filter(m=>m.result==='W').length;
-    const d = matches.filter(m=>m.result==='D').length;
-    const l = matches.filter(m=>m.result==='L').length;
-    const gf = matches.reduce((s,m)=>s+m.scoreFor,0);
-    const ga = matches.reduce((s,m)=>s+m.scoreAgainst,0);
-    return { w, d, l, gf, ga, total: matches.length };
-  }, [matches]);
-
   const startAdd = () => {
-    setForm(blankForm());
-    setStatVals({});
-    setSelectedIds(new Set());
-    setSearchQ('');
-    setFilterPos('');
-    setAddStep(1);
-    setTab('add');
+    setForm(blankForm()); setStatVals({}); setSelectedIds(new Set());
+    setSearchQ(''); setFilterPos(''); setAddStep(1); setTab('add');
   };
 
   const startEditMatch = () => {
@@ -222,7 +182,6 @@ export default function MatchLogPage({ athletes, user }: Props) {
       const res = await callGAS('updateMatch', { id: selectedMatch.id, ...editMatchForm, scoreFor: sf, scoreAgainst: sa }) as { status: string; result?: Match['result'] };
       if (res.status !== 'success') { showToast('บันทึกไม่สำเร็จ', 'error'); return; }
 
-      // update per-player stats in parallel
       await Promise.all(matchStats.map(s => {
         const ev = editStatVals[s.playerId];
         if (!ev) return Promise.resolve();
@@ -235,8 +194,7 @@ export default function MatchLogPage({ athletes, user }: Props) {
       setMatches(ms => ms.map(m => m.id === updated.id ? updated : m));
       setMatchStats(prev => prev.map(s => {
         const ev = editStatVals[s.playerId];
-        if (!ev) return s;
-        return { ...s, minutesPlayed: ev.minutesPlayed||0, goals: ev.goals||0, assists: ev.assists||0, yellowCards: ev.yellowCards||0, redCards: ev.redCards||0, rating: ev.rating||0, notes: ev.notes||'' };
+        return ev ? { ...s, minutesPlayed: ev.minutesPlayed||0, goals: ev.goals||0, assists: ev.assists||0, yellowCards: ev.yellowCards||0, redCards: ev.redCards||0, rating: ev.rating||0, notes: ev.notes||'' } : s;
       }));
       showToast('แก้ไขสำเร็จ', 'success');
       setIsEditingMatch(false);
@@ -244,24 +202,44 @@ export default function MatchLogPage({ athletes, user }: Props) {
     finally { setSavingEdit(false); }
   };
 
-  const setEditStat = (pid: string, k: keyof MatchStat, v: number) =>
-    setEditStatVals(p => ({ ...p, [pid]: { ...(p[pid]||{}), [k]: v } }));
+  const handleDelete = async () => {
+    if (!selectedMatch) return;
+    setDeleting(true);
+    try {
+      const res = await callGAS('deleteMatch', { id: selectedMatch.id }) as { status: string };
+      if (res.status === 'success') {
+        showToast('ลบแมทช์สำเร็จ', 'success');
+        setMatches(ms => ms.filter(m => m.id !== selectedMatch.id));
+        setSelectedMatch(null); setConfirmingDelete(false); setTab('list');
+      } else showToast('ลบไม่สำเร็จ', 'error');
+    } catch { showToast('Connection error', 'error'); }
+    finally { setDeleting(false); }
+  };
 
-  // ── Step indicator ──
+  const resultBadge = (r: Match['result']) => {
+    const cfg = { W:{bg:'#f0fdf4',color:'#166534',label:'ชนะ'}, D:{bg:'#eff6ff',color:'#1e40af',label:'เสมอ'}, L:{bg:'#fef2f2',color:'#dc2626',label:'แพ้'} };
+    const c = cfg[r];
+    return <span style={{background:c.bg,color:c.color,borderRadius:6,padding:'2px 10px',fontSize:'0.72rem',fontWeight:800,border:`1px solid ${c.color}40`}}>{c.label}</span>;
+  };
+
+  const summary = useMemo(() => {
+    const w = matches.filter(m=>m.result==='W').length;
+    const d = matches.filter(m=>m.result==='D').length;
+    const l = matches.filter(m=>m.result==='L').length;
+    const gf = matches.reduce((s,m)=>s+m.scoreFor,0);
+    const ga = matches.reduce((s,m)=>s+m.scoreAgainst,0);
+    return { w, d, l, gf, ga, total: matches.length };
+  }, [matches]);
+
   const StepBar = () => (
-    <div style={{ display:'flex', alignItems:'center', gap:0, marginBottom:20, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'10px 16px', overflow:'hidden' }}>
+    <div style={{display:'flex',alignItems:'center',marginBottom:20,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 16px',overflow:'hidden'}}>
       {[{n:1,label:'ข้อมูลแมทช์'},{n:2,label:'เลือกผู้เล่น'},{n:3,label:'กรอกสถิติ'}].map((s,i)=>(
-        <div key={s.n} style={{ display:'flex', alignItems:'center', flex:1 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-            <div style={{
-              width:26, height:26, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
-              fontWeight:800, fontSize:'0.75rem',
-              background: addStep >= s.n ? '#38bdf8' : 'var(--border)',
-              color: addStep >= s.n ? 'white' : 'var(--text-muted)',
-            }}>{s.n}</div>
-            <span style={{ fontSize:'0.75rem', fontWeight:600, color: addStep === s.n ? '#38bdf8' : addStep > s.n ? 'var(--text-main)' : 'var(--text-muted)', whiteSpace:'nowrap' }}>{s.label}</span>
+        <div key={s.n} style={{display:'flex',alignItems:'center',flex:1}}>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <div style={{width:26,height:26,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:'0.75rem',background:addStep>=s.n?'#38bdf8':'var(--border)',color:addStep>=s.n?'white':'var(--text-muted)'}}>{s.n}</div>
+            <span style={{fontSize:'0.75rem',fontWeight:600,color:addStep===s.n?'#38bdf8':addStep>s.n?'var(--text-main)':'var(--text-muted)',whiteSpace:'nowrap'}}>{s.label}</span>
           </div>
-          {i < 2 && <div style={{ flex:1, height:2, background: addStep > s.n ? '#38bdf8' : 'var(--border)', margin:'0 8px', minWidth:12 }}/>}
+          {i < 2 && <div style={{flex:1,height:2,background:addStep>s.n?'#38bdf8':'var(--border)',margin:'0 8px',minWidth:12}}/>}
         </div>
       ))}
     </div>
@@ -274,30 +252,28 @@ export default function MatchLogPage({ athletes, user }: Props) {
           <h2 className="page-title">Match Log</h2>
           <p className="page-subtitle">บันทึกผลการแข่งขัน · สถิตินักกีฬาต่อแมทช์</p>
         </div>
-        <div style={{ display:'flex', gap:8 }}>
-          <select className="form-select" style={{ width:'auto' }} value={filterTeam} onChange={e=>setFilterTeam(e.target.value)}>
+        <div style={{display:'flex',gap:8}}>
+          <select className="form-select" style={{width:'auto'}} value={filterTeam} onChange={e=>setFilterTeam(e.target.value)}>
             {teamOptions.map(t=><option key={t} value={t}>{t==='ALL'?'ทุกรุ่น':t}</option>)}
           </select>
-          <button className="btn-primary" onClick={startAdd}>
-            <i className="bi bi-plus-circle me-1"/>บันทึกผลแข่ง
-          </button>
+          <button className="btn-primary" onClick={startAdd}><i className="bi bi-plus-circle me-1"/>บันทึกผลแข่ง</button>
         </div>
       </div>
 
-      {/* Summary */}
+      {/* ── SUMMARY ── */}
       {summary.total > 0 && tab === 'list' && (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:10, marginBottom:18 }}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(110px,1fr))',gap:10,marginBottom:18}}>
           {[
-            { l:'แมทช์', v:summary.total, c:'#38bdf8' },
-            { l:'ชนะ',   v:summary.w,     c:'#10b981' },
-            { l:'เสมอ',  v:summary.d,     c:'#6366f1' },
-            { l:'แพ้',   v:summary.l,     c:'#ef4444' },
-            { l:'ยิงได้', v:summary.gf,   c:'#f59e0b' },
-            { l:'เสียประตู', v:summary.ga, c:'#f97316' },
+            {l:'แมทช์',       v:summary.total, c:'#38bdf8'},
+            {l:'ชนะ',         v:summary.w,     c:'#10b981'},
+            {l:'เสมอ',        v:summary.d,     c:'#6366f1'},
+            {l:'แพ้',         v:summary.l,     c:'#ef4444'},
+            {l:'ยิงได้',      v:summary.gf,    c:'#f59e0b'},
+            {l:'เสียประตู',   v:summary.ga,    c:'#f97316'},
           ].map(k=>(
-            <div key={k.l} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'10px 14px', borderLeft:`3px solid ${k.c}` }}>
-              <div style={{ fontWeight:900, fontSize:'1.4rem', color:k.c }}>{k.v}</div>
-              <div style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:600 }}>{k.l}</div>
+            <div key={k.l} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 14px',borderLeft:`3px solid ${k.c}`}}>
+              <div style={{fontWeight:900,fontSize:'1.4rem',color:k.c}}>{k.v}</div>
+              <div style={{fontSize:'0.65rem',color:'var(--text-muted)',fontWeight:600}}>{k.l}</div>
             </div>
           ))}
         </div>
@@ -314,24 +290,45 @@ export default function MatchLogPage({ athletes, user }: Props) {
               <button className="btn-primary" style={{marginTop:12}} onClick={startAdd}><i className="bi bi-plus-circle me-1"/>บันทึกผลแข่งแรก</button>
             </div>
           )}
-          {!loading && matches.map(m => (
-            <div key={m.id} className="surface" style={{ marginBottom:10, padding:'14px 18px', cursor:'pointer' }}
-              onClick={async()=>{ setSelectedMatch(m); await loadMatchStats(m.id); setTab('detail'); }}>
-              <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-                <div style={{ minWidth:80 }}>
-                  <div style={{ fontWeight:700, fontSize:'0.8rem' }}>{fmtDate(m.matchDate)}</div>
-                  <div style={{ fontSize:'0.65rem', color:'var(--text-muted)' }}>{m.matchType} {m.teamName && `· ${m.teamName}`}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {!loading && matches.map(m => (
+              <div key={m.id} className="surface" style={{
+                padding:'14px 18px',cursor:'pointer',
+                borderLeft:`4px solid ${RESULT_COLOR[m.result]||'#6366f1'}`,
+              }}
+                onClick={async()=>{ setSelectedMatch(m); await loadMatchStats(m.id); setTab('detail'); }}>
+                <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                  {/* Date */}
+                  <div style={{minWidth:72}}>
+                    <div style={{fontWeight:700,fontSize:'0.8rem'}}>{fmtDate(m.matchDate)}</div>
+                    <div style={{fontSize:'0.65rem',color:'var(--text-muted)',marginTop:2}}>{m.matchType}</div>
+                  </div>
+                  {resultBadge(m.result)}
+                  {/* Score */}
+                  <div style={{flex:1,textAlign:'center'}}>
+                    <div style={{fontWeight:900,fontSize:'1.35rem',letterSpacing:2,lineHeight:1}}>
+                      <span style={{color:m.scoreFor>m.scoreAgainst?'#10b981':m.scoreFor<m.scoreAgainst?'#ef4444':'inherit'}}>{m.scoreFor}</span>
+                      <span style={{color:'var(--text-muted)',fontSize:'0.8rem',margin:'0 6px'}}>–</span>
+                      <span style={{color:m.scoreAgainst>m.scoreFor?'#10b981':m.scoreAgainst<m.scoreFor?'#ef4444':'inherit'}}>{m.scoreAgainst}</span>
+                    </div>
+                    <div style={{fontSize:'0.73rem',color:'var(--text-muted)',marginTop:2}}>vs {m.opponent}</div>
+                  </div>
+                  {/* Team + venue */}
+                  <div style={{textAlign:'right',flexShrink:0}}>
+                    {m.teamName && (
+                      <span style={{
+                        background:`${TEAM_COLORS[m.teamName]||'#6366f1'}20`,color:TEAM_COLORS[m.teamName]||'#6366f1',
+                        borderRadius:6,padding:'2px 8px',fontSize:'0.7rem',fontWeight:800,
+                        border:`1px solid ${TEAM_COLORS[m.teamName]||'#6366f1'}40`,display:'inline-block',
+                      }}>{m.teamName}</span>
+                    )}
+                    {m.venue && <div style={{fontSize:'0.68rem',color:'var(--text-muted)',marginTop:3}}><i className="bi bi-geo-alt me-1"/>{m.venue}</div>}
+                  </div>
+                  <i className="bi bi-chevron-right" style={{color:'var(--text-muted)',flexShrink:0}}/>
                 </div>
-                {resultBadge(m.result)}
-                <div style={{ flex:1, textAlign:'center' }}>
-                  <div style={{ fontWeight:900, fontSize:'1.4rem', letterSpacing:2 }}>{m.scoreFor} <span style={{color:'var(--text-muted)',fontSize:'0.8rem'}}>vs</span> {m.scoreAgainst}</div>
-                  <div style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>vs {m.opponent}</div>
-                </div>
-                {m.venue && <div style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}><i className="bi bi-geo-alt me-1"/>{m.venue}</div>}
-                <i className="bi bi-chevron-right" style={{ color:'var(--text-muted)' }}/>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </>
       )}
 
@@ -341,73 +338,45 @@ export default function MatchLogPage({ athletes, user }: Props) {
           <button className="btn-outline btn-sm" onClick={()=>{setTab('list');setAddStep(1);}} style={{marginBottom:16}}>
             <i className="bi bi-arrow-left me-1"/>กลับ
           </button>
-
           <StepBar />
 
-          {/* ── STEP 1: Match Info ── */}
+          {/* STEP 1 */}
           {addStep === 1 && (
             <div>
               <div className="surface" style={{padding:'16px 20px',marginBottom:16}}>
                 <div className="section-hd" style={{marginBottom:14}}><i className="bi bi-shield-check me-2" style={{color:'#38bdf8'}}/>ข้อมูลการแข่งขัน</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:12}}>
-                  <div style={{flex:'1 1 140px'}}>
-                    <label className="form-label">วันที่</label>
-                    <input type="date" className="form-control" value={form.matchDate} onChange={e=>setForm(f=>({...f,matchDate:e.target.value}))}/>
-                  </div>
-                  <div style={{flex:'2 1 200px'}}>
-                    <label className="form-label">ทีมคู่แข่ง *</label>
-                    <input className="form-control" value={form.opponent} placeholder="ชื่อทีมคู่แข่ง" onChange={e=>setForm(f=>({...f,opponent:e.target.value}))}/>
-                  </div>
-                  <div style={{flex:'1 1 120px'}}>
-                    <label className="form-label">รุ่นทีม</label>
+                  <div style={{flex:'1 1 140px'}}><label className="form-label">วันที่</label><input type="date" className="form-control" value={form.matchDate} onChange={e=>setForm(f=>({...f,matchDate:e.target.value}))}/></div>
+                  <div style={{flex:'2 1 200px'}}><label className="form-label">ทีมคู่แข่ง *</label><input className="form-control" value={form.opponent} placeholder="ชื่อทีมคู่แข่ง" onChange={e=>setForm(f=>({...f,opponent:e.target.value}))}/></div>
+                  <div style={{flex:'1 1 120px'}}><label className="form-label">รุ่นทีม</label>
                     <select className="form-select" value={form.teamName} onChange={e=>setForm(f=>({...f,teamName:e.target.value}))}>
                       <option value="">— ทั้งหมด —</option>
                       {TEAMS.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  <div style={{flex:'1 1 120px'}}>
-                    <label className="form-label">ประเภท</label>
+                  <div style={{flex:'1 1 120px'}}><label className="form-label">ประเภท</label>
                     <select className="form-select" value={form.matchType} onChange={e=>setForm(f=>({...f,matchType:e.target.value}))}>
                       {MATCH_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  <div style={{flex:'1 1 80px'}}>
-                    <label className="form-label">ประตูได้</label>
-                    <input type="number" min={0} className="form-control" value={form.scoreFor} onChange={e=>setForm(f=>({...f,scoreFor:e.target.value}))}/>
-                  </div>
-                  <div style={{flex:'1 1 80px'}}>
-                    <label className="form-label">ประตูเสีย</label>
-                    <input type="number" min={0} className="form-control" value={form.scoreAgainst} onChange={e=>setForm(f=>({...f,scoreAgainst:e.target.value}))}/>
-                  </div>
-                  <div style={{flex:'2 1 200px'}}>
-                    <label className="form-label">สนาม</label>
-                    <input className="form-control" value={form.venue} placeholder="สนามแข่งขัน" onChange={e=>setForm(f=>({...f,venue:e.target.value}))}/>
-                  </div>
-                  <div style={{flex:'100% 1 100%'}}>
-                    <label className="form-label">หมายเหตุ</label>
-                    <input className="form-control" value={form.notes} placeholder="บันทึกเพิ่มเติม..." onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/>
-                  </div>
+                  <div style={{flex:'1 1 80px'}}><label className="form-label">ประตูได้</label><input type="number" min={0} className="form-control" value={form.scoreFor} onChange={e=>setForm(f=>({...f,scoreFor:e.target.value}))}/></div>
+                  <div style={{flex:'1 1 80px'}}><label className="form-label">ประตูเสีย</label><input type="number" min={0} className="form-control" value={form.scoreAgainst} onChange={e=>setForm(f=>({...f,scoreAgainst:e.target.value}))}/></div>
+                  <div style={{flex:'2 1 200px'}}><label className="form-label">สนาม</label><input className="form-control" value={form.venue} placeholder="สนามแข่งขัน" onChange={e=>setForm(f=>({...f,venue:e.target.value}))}/></div>
+                  <div style={{flex:'100% 1 100%'}}><label className="form-label">หมายเหตุ</label><input className="form-control" value={form.notes} placeholder="บันทึกเพิ่มเติม..." onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/></div>
                 </div>
               </div>
               <button className="btn-primary w-100" style={{justifyContent:'center',padding:14}} onClick={()=>{
                 if (!form.opponent.trim()) { showToast('กรุณากรอกชื่อทีมคู่แข่ง','error'); return; }
                 setAddStep(2);
-              }}>
-                ถัดไป: เลือกผู้เล่น <i className="bi bi-arrow-right ms-1"/>
-              </button>
+              }}>ถัดไป: เลือกผู้เล่น <i className="bi bi-arrow-right ms-1"/></button>
             </div>
           )}
 
-          {/* ── STEP 2: Player Selection ── */}
+          {/* STEP 2 */}
           {addStep === 2 && (
             <div>
-              {/* Header */}
               <div className="surface" style={{padding:'14px 16px',marginBottom:12}}>
-                <div style={{fontWeight:700,fontSize:'0.9rem',marginBottom:10}}>
-                  <i className="bi bi-people-fill me-2" style={{color:'#38bdf8'}}/>
-                  เลือกนักกีฬาที่ลงเล่น
-                </div>
-                {/* Filters */}
+                <div style={{fontWeight:700,fontSize:'0.9rem',marginBottom:10}}><i className="bi bi-people-fill me-2" style={{color:'#38bdf8'}}/>เลือกนักกีฬาที่ลงเล่น</div>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                   <select className="form-select" style={{flex:'1 1 120px'}} value={form.teamName} onChange={e=>setForm(f=>({...f,teamName:e.target.value}))}>
                     <option value="">— รุ่นทั้งหมด —</option>
@@ -424,109 +393,65 @@ export default function MatchLogPage({ athletes, user }: Props) {
                 </div>
               </div>
 
-              {/* Select all row */}
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 16px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:8,marginBottom:8}}>
                 <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',fontWeight:600,fontSize:'0.82rem'}}>
-                  <input type="checkbox" checked={allDisplaySelected} onChange={toggleSelectAll}
-                    style={{width:16,height:16,accentColor:'#38bdf8',cursor:'pointer'}}/>
+                  <input type="checkbox" checked={allDisplaySelected} onChange={toggleSelectAll} style={{width:16,height:16,accentColor:'#38bdf8',cursor:'pointer'}}/>
                   เลือกทั้งหมด ({displayAthletes.length} คน)
                 </label>
                 <span style={{fontSize:'0.75rem',color:'var(--text-muted)'}}>แสดง {displayAthletes.length} คน</span>
               </div>
 
-              {/* Athlete list */}
               <div style={{marginBottom:80}}>
                 {displayAthletes.length === 0 && (
                   <div style={{textAlign:'center',padding:40,color:'var(--text-muted)',fontSize:'0.85rem'}}>
-                    <i className="bi bi-search" style={{display:'block',fontSize:'2rem',marginBottom:8,color:'#cbd5e1'}}/>
-                    ไม่พบนักกีฬา
+                    <i className="bi bi-search" style={{display:'block',fontSize:'2rem',marginBottom:8,color:'#cbd5e1'}}/>ไม่พบนักกีฬา
                   </div>
                 )}
                 {displayAthletes.map(a => {
                   const checked = selectedIds.has(a.PlayerID);
                   const teamColor = TEAM_COLORS[a.Team] || '#6366f1';
                   return (
-                    <div key={a.PlayerID}
-                      onClick={()=>togglePlayer(a.PlayerID)}
-                      style={{
-                        display:'flex', alignItems:'center', gap:12,
-                        padding:'10px 16px', cursor:'pointer',
-                        borderBottom:'1px solid var(--border)',
-                        background: checked ? 'rgba(56,189,248,0.06)' : 'var(--surface)',
-                        transition:'background 0.15s',
-                      }}>
-                      <input type="checkbox" checked={checked} onChange={()=>togglePlayer(a.PlayerID)}
-                        onClick={e=>e.stopPropagation()}
-                        style={{width:16,height:16,accentColor:'#38bdf8',cursor:'pointer',flexShrink:0}}/>
-                      {/* Avatar */}
-                      <div style={{
-                        width:40,height:40,borderRadius:'50%',flexShrink:0,overflow:'hidden',
-                        background: a.PhotoUrl ? 'transparent' : teamColor,
-                        display:'flex',alignItems:'center',justifyContent:'center',
-                        fontSize:'0.75rem',fontWeight:800,color:'white',
-                        border: checked ? `2px solid #38bdf8` : '2px solid transparent',
-                      }}>
-                        {a.PhotoUrl
-                          ? <img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                          : initials(a.Name)
-                        }
+                    <div key={a.PlayerID} onClick={()=>togglePlayer(a.PlayerID)} style={{
+                      display:'flex',alignItems:'center',gap:12,padding:'10px 16px',cursor:'pointer',
+                      borderBottom:'1px solid var(--border)',
+                      background: checked ? 'rgba(56,189,248,0.06)' : 'var(--surface)',transition:'background 0.15s',
+                    }}>
+                      <input type="checkbox" checked={checked} onChange={()=>togglePlayer(a.PlayerID)} onClick={e=>e.stopPropagation()} style={{width:16,height:16,accentColor:'#38bdf8',cursor:'pointer',flexShrink:0}}/>
+                      <div style={{width:40,height:40,borderRadius:'50%',flexShrink:0,overflow:'hidden',background:a.PhotoUrl?'transparent':teamColor,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.75rem',fontWeight:800,color:'white',border:checked?`2px solid #38bdf8`:'2px solid transparent'}}>
+                        {a.PhotoUrl ? <img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : initials(a.Name)}
                       </div>
-                      {/* Name */}
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:700,fontSize:'0.85rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Name}</div>
                         {a.Nickname && <div style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>{a.Nickname}</div>}
                       </div>
-                      {/* Team badge */}
-                      {a.Team && (
-                        <span style={{
-                          background:`${teamColor}20`,color:teamColor,
-                          borderRadius:6,padding:'2px 8px',fontSize:'0.7rem',fontWeight:800,
-                          border:`1px solid ${teamColor}40`,flexShrink:0,
-                        }}>{a.Team}</span>
-                      )}
-                      {/* Position */}
-                      {a.Position && (
-                        <span style={{fontSize:'0.72rem',color:'var(--text-muted)',flexShrink:0,minWidth:60,textAlign:'right'}}>{a.Position}</span>
-                      )}
+                      {a.Team && <span style={{background:`${teamColor}20`,color:teamColor,borderRadius:6,padding:'2px 8px',fontSize:'0.7rem',fontWeight:800,border:`1px solid ${teamColor}40`,flexShrink:0}}>{a.Team}</span>}
+                      {a.Position && <span style={{fontSize:'0.72rem',color:'var(--text-muted)',flexShrink:0,minWidth:60,textAlign:'right'}}>{a.Position}</span>}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Sticky bottom bar */}
-              <div style={{
-                position:'sticky',bottom:0,left:0,right:0,
-                background:'var(--bg)',borderTop:'1px solid var(--border)',
-                padding:'12px 16px',display:'flex',gap:10,alignItems:'center',
-                backdropFilter:'blur(8px)',
-              }}>
-                <button className="btn-outline" style={{flexShrink:0}} onClick={()=>setAddStep(1)}>
-                  <i className="bi bi-arrow-left me-1"/>ก่อนหน้า
-                </button>
-                <div style={{flex:1,fontSize:'0.82rem',color:'var(--text-muted)'}}>
-                  เลือกแล้ว <strong style={{color:'#38bdf8'}}>{selectedIds.size} คน</strong>
-                </div>
+              <div style={{position:'sticky',bottom:0,background:'var(--bg)',borderTop:'1px solid var(--border)',padding:'12px 16px',display:'flex',gap:10,alignItems:'center',backdropFilter:'blur(8px)'}}>
+                <button className="btn-outline" style={{flexShrink:0}} onClick={()=>setAddStep(1)}><i className="bi bi-arrow-left me-1"/>ก่อนหน้า</button>
+                <div style={{flex:1,fontSize:'0.82rem',color:'var(--text-muted)'}}>เลือกแล้ว <strong style={{color:'#38bdf8'}}>{selectedIds.size} คน</strong></div>
                 <button className="btn-primary" style={{flexShrink:0}} onClick={()=>{
                   if (selectedIds.size === 0) { showToast('กรุณาเลือกผู้เล่นอย่างน้อย 1 คน','error'); return; }
                   setAddStep(3);
-                }}>
-                  <i className="bi bi-people-fill me-1"/>เพิ่มเข้าตาราง ({selectedIds.size} คน)
-                </button>
+                }}><i className="bi bi-people-fill me-1"/>เพิ่มเข้าตาราง ({selectedIds.size} คน)</button>
               </div>
             </div>
           )}
 
-          {/* ── STEP 3: Stats ── */}
+          {/* STEP 3 */}
           {addStep === 3 && (
             <div>
-              {/* Match summary */}
               <div style={{background:'linear-gradient(135deg,#0f172a,#1e293b)',borderRadius:12,padding:'14px 18px',marginBottom:16,color:'white',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
                 <div>
                   <div style={{fontWeight:900,fontSize:'1.6rem',letterSpacing:2}}>{form.scoreFor} <span style={{color:'#7dd3fc',fontSize:'0.9rem'}}>vs</span> {form.scoreAgainst}</div>
                   <div style={{fontSize:'0.78rem',color:'#7dd3fc'}}>vs {form.opponent}</div>
                 </div>
                 <div style={{flex:1,fontSize:'0.75rem',color:'#94a3b8'}}>
-                  <div>{fmtDate(form.matchDate)} · {form.matchType} {form.teamName && `· ${form.teamName}`}</div>
+                  <div>{fmtDate(form.matchDate)} · {form.matchType}{form.teamName&&` · ${form.teamName}`}</div>
                   {form.venue && <div><i className="bi bi-geo-alt me-1"/>{form.venue}</div>}
                 </div>
                 <button style={{background:'transparent',border:'1px solid #334155',borderRadius:8,color:'#94a3b8',padding:'4px 12px',fontSize:'0.75rem',cursor:'pointer'}} onClick={()=>setAddStep(2)}>
@@ -558,11 +483,7 @@ export default function MatchLogPage({ athletes, user }: Props) {
                           <tr key={a.PlayerID} style={{borderBottom:'1px solid var(--border)'}}>
                             <td style={{padding:'8px 12px'}}>
                               <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                <div style={{
-                                  width:28,height:28,borderRadius:'50%',overflow:'hidden',flexShrink:0,
-                                  background:TEAM_COLORS[a.Team]||'#6366f1',display:'flex',alignItems:'center',justifyContent:'center',
-                                  fontSize:'0.65rem',fontWeight:800,color:'white',
-                                }}>
+                                <div style={{width:28,height:28,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:TEAM_COLORS[a.Team]||'#6366f1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,color:'white'}}>
                                   {a.PhotoUrl ? <img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : initials(a.Name)}
                                 </div>
                                 <div>
@@ -586,9 +507,7 @@ export default function MatchLogPage({ athletes, user }: Props) {
               </div>
 
               <div style={{display:'flex',gap:10}}>
-                <button className="btn-outline" onClick={()=>setAddStep(2)}>
-                  <i className="bi bi-arrow-left me-1"/>ก่อนหน้า
-                </button>
+                <button className="btn-outline" onClick={()=>setAddStep(2)}><i className="bi bi-arrow-left me-1"/>ก่อนหน้า</button>
                 <button className="btn-primary" style={{flex:1,justifyContent:'center',padding:14}} onClick={handleSave} disabled={saving}>
                   {saving ? <><span className="spinner-ring" style={{width:18,height:18,borderWidth:2,margin:0}}/> บันทึก...</> : <><i className="bi bi-floppy me-1"/>บันทึกผลการแข่งขัน</>}
                 </button>
@@ -601,14 +520,36 @@ export default function MatchLogPage({ athletes, user }: Props) {
       {/* ── DETAIL TAB ── */}
       {tab === 'detail' && selectedMatch && (
         <div>
-          <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center'}}>
-            <button className="btn-outline btn-sm" onClick={()=>{setTab('list');setIsEditingMatch(false);}}><i className="bi bi-arrow-left me-1"/>กลับ</button>
+          {/* Action bar */}
+          <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center',flexWrap:'wrap'}}>
+            <button className="btn-outline btn-sm" onClick={()=>{setTab('list');setIsEditingMatch(false);setConfirmingDelete(false);}}>
+              <i className="bi bi-arrow-left me-1"/>กลับ
+            </button>
             <div style={{flex:1}}/>
-            {!isEditingMatch ? (
-              <button className="btn-outline btn-sm" onClick={startEditMatch} style={{borderColor:'#f59e0b',color:'#f59e0b'}}>
-                <i className="bi bi-pencil-fill me-1"/>แก้ไข
-              </button>
-            ) : (
+
+            {!isEditingMatch && !confirmingDelete && (
+              <>
+                <button className="btn-outline btn-sm" style={{borderColor:'#ef4444',color:'#ef4444'}} onClick={()=>setConfirmingDelete(true)}>
+                  <i className="bi bi-trash me-1"/>ลบ
+                </button>
+                <button className="btn-outline btn-sm" style={{borderColor:'#f59e0b',color:'#f59e0b'}} onClick={startEditMatch}>
+                  <i className="bi bi-pencil-fill me-1"/>แก้ไข
+                </button>
+              </>
+            )}
+
+            {!isEditingMatch && confirmingDelete && (
+              <>
+                <span style={{fontSize:'0.82rem',color:'#ef4444',fontWeight:700}}>ยืนยันลบแมทช์นี้?</span>
+                <button className="btn-outline btn-sm" onClick={()=>setConfirmingDelete(false)}>ยกเลิก</button>
+                <button onClick={handleDelete} disabled={deleting}
+                  style={{background:'#ef4444',color:'white',border:'none',borderRadius:8,padding:'5px 14px',fontWeight:700,cursor:'pointer',fontSize:'0.8rem',display:'flex',alignItems:'center',gap:6,opacity:deleting?0.7:1}}>
+                  {deleting ? <span className="spinner-ring" style={{width:14,height:14,borderWidth:2,margin:0}}/> : <i className="bi bi-trash-fill"/>} ลบ
+                </button>
+              </>
+            )}
+
+            {isEditingMatch && (
               <>
                 <button className="btn-outline btn-sm" onClick={()=>setIsEditingMatch(false)}>ยกเลิก</button>
                 <button className="btn-primary btn-sm" onClick={handleSaveEdit} disabled={savingEdit}>
@@ -618,19 +559,20 @@ export default function MatchLogPage({ athletes, user }: Props) {
             )}
           </div>
 
-          {/* Match header — view or edit */}
+          {/* Match header */}
           {!isEditingMatch ? (
-            <div className="surface" style={{marginBottom:16,padding:'20px 24px',background:'linear-gradient(135deg,#0f172a,#1e293b)',color:'white'}}>
+            <div className="surface" style={{marginBottom:16,padding:'20px 24px',background:'linear-gradient(135deg,#0f172a,#1e293b)',color:'white',borderLeft:`4px solid ${RESULT_COLOR[selectedMatch.result]||'#6366f1'}`}}>
               <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                 {resultBadge(selectedMatch.result)}
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:900,fontSize:'1.8rem',letterSpacing:3}}>{selectedMatch.scoreFor} – {selectedMatch.scoreAgainst}</div>
-                  <div style={{fontSize:'0.85rem',color:'#7dd3fc'}}>vs {selectedMatch.opponent}</div>
+                  <div style={{fontWeight:900,fontSize:'1.8rem',letterSpacing:3,lineHeight:1}}>{selectedMatch.scoreFor} – {selectedMatch.scoreAgainst}</div>
+                  <div style={{fontSize:'0.85rem',color:'#7dd3fc',marginTop:4}}>vs {selectedMatch.opponent}</div>
                 </div>
-                <div style={{textAlign:'right',fontSize:'0.78rem',color:'#94a3b8'}}>
+                <div style={{textAlign:'right',fontSize:'0.78rem',color:'#94a3b8',lineHeight:1.7}}>
                   <div>{fmtDate(selectedMatch.matchDate)}</div>
-                  <div>{selectedMatch.matchType} {selectedMatch.teamName&&`· ${selectedMatch.teamName}`}</div>
-                  {selectedMatch.venue&&<div><i className="bi bi-geo-alt me-1"/>{selectedMatch.venue}</div>}
+                  <div>{selectedMatch.matchType}{selectedMatch.teamName&&` · ${selectedMatch.teamName}`}</div>
+                  {selectedMatch.venue && <div><i className="bi bi-geo-alt me-1"/>{selectedMatch.venue}</div>}
+                  {selectedMatch.notes && <div style={{color:'#7dd3fc',fontStyle:'italic',marginTop:4}}>{selectedMatch.notes}</div>}
                 </div>
               </div>
             </div>
@@ -654,42 +596,72 @@ export default function MatchLogPage({ athletes, user }: Props) {
                 <div style={{flex:'1 1 70px'}}><label className="form-label">ทำประตู</label><input type="number" min={0} className="form-control" value={editMatchForm.scoreFor} onChange={e=>setEditMatchForm(f=>({...f,scoreFor:e.target.value}))}/></div>
                 <div style={{flex:'1 1 70px'}}><label className="form-label">เสียประตู</label><input type="number" min={0} className="form-control" value={editMatchForm.scoreAgainst} onChange={e=>setEditMatchForm(f=>({...f,scoreAgainst:e.target.value}))}/></div>
                 <div style={{flex:'2 1 200px'}}><label className="form-label">สนาม</label><input className="form-control" value={editMatchForm.venue} onChange={e=>setEditMatchForm(f=>({...f,venue:e.target.value}))}/></div>
+                <div style={{flex:'100%'}}><label className="form-label">หมายเหตุ</label><input className="form-control" value={editMatchForm.notes} placeholder="บันทึกเพิ่มเติม..." onChange={e=>setEditMatchForm(f=>({...f,notes:e.target.value}))}/></div>
               </div>
             </div>
           )}
 
-          {/* Stats — view or edit */}
-          {matchStats.length > 0 && (
+          {/* Stats table */}
+          {matchStats.length > 0 ? (
             <div className="surface" style={{padding:0,overflow:'hidden'}}>
-              <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:'0.85rem'}}>สถิตินักกีฬา {isEditingMatch&&<span style={{fontSize:'0.72rem',fontWeight:400,color:'#f59e0b',marginLeft:8}}>(แก้ไขได้)</span>}</div>
+              <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:'0.85rem',display:'flex',alignItems:'center',gap:8}}>
+                <i className="bi bi-bar-chart-fill" style={{color:'#38bdf8'}}/>
+                สถิตินักกีฬา
+                <span style={{fontWeight:400,color:'var(--text-muted)',fontSize:'0.75rem'}}>({matchStats.length} คน)</span>
+                {isEditingMatch && <span style={{fontSize:'0.72rem',fontWeight:400,color:'#f59e0b',marginLeft:4}}>(แก้ไขได้)</span>}
+              </div>
               <div style={{overflowX:'auto'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.8rem'}}>
                   <thead><tr style={{background:'var(--bg)'}}>
                     {['นักกีฬา','นาที','⚽','🅰️','🟨','🟥','Rating'].map(h=>(
-                      <th key={h} style={{padding:'8px 12px',fontWeight:700,color:'var(--text-muted)',borderBottom:'1px solid var(--border)',textAlign:'center'}}>{h}</th>
+                      <th key={h} style={{padding:'8px 12px',fontWeight:700,color:'var(--text-muted)',borderBottom:'1px solid var(--border)',textAlign: h==='นักกีฬา' ? 'left' : 'center'}}>{h}</th>
                     ))}
                   </tr></thead>
                   <tbody>
                     {matchStats.map(s=>{
                       const a = athletes.find(x=>x.PlayerID===s.playerId);
                       const ev = editStatVals[s.playerId] || s;
-                      const numInp = (k: keyof MatchStat, max: number, col?: string) => isEditingMatch ? (
-                        <input type="number" min={0} max={max} style={{width:52,textAlign:'center',border:'1px solid var(--border)',borderRadius:6,padding:'3px',background:'var(--bg)',color:col||'var(--text-main)',fontWeight:700}} value={ev[k] as number||''} placeholder="0" onChange={e=>setEditStat(s.playerId, k, Number(e.target.value))}/>
-                      ) : null;
+                      const numInp = (k: keyof MatchStat, max: number, col?: string) => (
+                        <input type="number" min={0} max={max}
+                          style={{width:52,textAlign:'center',border:'1px solid var(--border)',borderRadius:6,padding:'3px',background:'var(--bg)',color:col||'var(--text-main)',fontWeight:700}}
+                          value={ev[k] as number ?? ''} placeholder="0"
+                          onChange={e=>setEditStat(s.playerId, k, Number(e.target.value))}/>
+                      );
                       return (
                         <tr key={s.id} style={{borderBottom:'1px solid var(--border)'}}>
                           <td style={{padding:'8px 12px'}}>
                             <div style={{display:'flex',alignItems:'center',gap:8}}>
-                              {a && <div style={{width:28,height:28,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:TEAM_COLORS[a.Team]||'#6366f1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,color:'white'}}>{a.PhotoUrl?<img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:initials(a.Name)}</div>}
-                              <span style={{fontWeight:700}}>{a?.Name||s.playerId}</span>
+                              <div style={{width:30,height:30,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:TEAM_COLORS[a?.Team||'']||'#6366f1',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.65rem',fontWeight:800,color:'white'}}>
+                                {a?.PhotoUrl ? <img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/> : initials(a?.Name||s.playerId)}
+                              </div>
+                              <div>
+                                <div style={{fontWeight:700}}>{a?.Name||s.playerId}</div>
+                                {a?.Position && <div style={{fontSize:'0.65rem',color:'var(--text-muted)'}}>{a.Position}</div>}
+                              </div>
                             </div>
                           </td>
-                          <td style={{textAlign:'center'}}>{isEditingMatch ? numInp('minutesPlayed',200) : `${s.minutesPlayed}'`}</td>
-                          <td style={{textAlign:'center',color:'#10b981',fontWeight:700}}>{isEditingMatch ? numInp('goals',20,'#10b981') : (s.goals||'—')}</td>
-                          <td style={{textAlign:'center',color:'#38bdf8',fontWeight:700}}>{isEditingMatch ? numInp('assists',20,'#38bdf8') : (s.assists||'—')}</td>
-                          <td style={{textAlign:'center'}}>{isEditingMatch ? numInp('yellowCards',2,'#f59e0b') : (s.yellowCards>0?<span style={{color:'#f59e0b',fontWeight:900}}>{'🟨'.repeat(s.yellowCards)}</span>:'—')}</td>
-                          <td style={{textAlign:'center'}}>{isEditingMatch ? numInp('redCards',1,'#ef4444') : (s.redCards>0?<span style={{color:'#ef4444',fontWeight:900}}>🟥</span>:'—')}</td>
-                          <td style={{textAlign:'center',fontWeight:900,color:'#6366f1'}}>{isEditingMatch ? numInp('rating',10,'#6366f1') : (s.rating||'—')}</td>
+                          <td style={{textAlign:'center'}}>
+                            {isEditingMatch ? numInp('minutesPlayed',200) : <span style={{fontWeight:600}}>{s.minutesPlayed}<span style={{color:'var(--text-muted)',fontSize:'0.7rem'}}>′</span></span>}
+                          </td>
+                          <td style={{textAlign:'center',color:'#10b981',fontWeight:800}}>
+                            {isEditingMatch ? numInp('goals',20,'#10b981') : (s.goals > 0 ? s.goals : <span style={{color:'var(--text-muted)'}}>—</span>)}
+                          </td>
+                          <td style={{textAlign:'center',color:'#38bdf8',fontWeight:800}}>
+                            {isEditingMatch ? numInp('assists',20,'#38bdf8') : (s.assists > 0 ? s.assists : <span style={{color:'var(--text-muted)'}}>—</span>)}
+                          </td>
+                          <td style={{textAlign:'center'}}>
+                            {isEditingMatch ? numInp('yellowCards',2,'#f59e0b') : (s.yellowCards > 0 ? <span style={{color:'#f59e0b',fontWeight:900}}>{'🟨'.repeat(s.yellowCards)}</span> : <span style={{color:'var(--text-muted)'}}>—</span>)}
+                          </td>
+                          <td style={{textAlign:'center'}}>
+                            {isEditingMatch ? numInp('redCards',1,'#ef4444') : (s.redCards > 0 ? <span>🟥</span> : <span style={{color:'var(--text-muted)'}}>—</span>)}
+                          </td>
+                          <td style={{textAlign:'center'}}>
+                            {isEditingMatch ? numInp('rating',10,'#6366f1') : (
+                              s.rating > 0
+                                ? <span style={{fontWeight:900,color:s.rating>=8?'#10b981':s.rating>=6?'#f59e0b':'#ef4444'}}>{s.rating}</span>
+                                : <span style={{color:'var(--text-muted)'}}>—</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -697,8 +669,7 @@ export default function MatchLogPage({ athletes, user }: Props) {
                 </table>
               </div>
             </div>
-          )}
-          {matchStats.length === 0 && (
+          ) : (
             <div style={{textAlign:'center',padding:40,color:'var(--text-muted)',fontSize:'0.85rem'}}>
               <i className="bi bi-bar-chart" style={{display:'block',fontSize:'2rem',marginBottom:8,color:'#cbd5e1'}}/>
               ไม่มีสถิตินักกีฬาในแมทช์นี้

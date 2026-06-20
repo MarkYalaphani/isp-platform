@@ -105,7 +105,7 @@ export interface UserRecord {
   LogoUrl: string;
 }
 
-export type Page = 'home' | 'dashboard' | 'roster' | 'scout' | 'ir' | 'skill' | 'attendance' | 'training' | 'performance' | 'register' | 'adminUsers' | 'teamreport' | 'compare' | 'quicktest' | 'migrate' | 'lineup' | 'wellness' | 'tester' | 'help' | 'leaderboard' | 'batchadd' | 'matchlog' | 'calendar' | 'goals' | 'monitor';
+export type Page = 'home' | 'dashboard' | 'roster' | 'scout' | 'ir' | 'skill' | 'attendance' | 'training' | 'performance' | 'register' | 'adminUsers' | 'teamreport' | 'compare' | 'quicktest' | 'migrate' | 'lineup' | 'wellness' | 'tester' | 'help' | 'leaderboard' | 'batchadd' | 'matchlog' | 'calendar' | 'goals' | 'monitor' | 'nutrition';
 
 export interface WellnessRecord {
   id: string;

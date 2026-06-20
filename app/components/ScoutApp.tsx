@@ -35,6 +35,7 @@ import MatchLogPage from './pages/MatchLogPage';
 import CalendarPage from './pages/CalendarPage';
 import TrainingProgramPage from './pages/TrainingProgramPage';
 import MonitorPage from './pages/MonitorPage';
+import NutritionPage from './pages/NutritionPage';
 import { useLang } from '@/lib/lang';
 
 export default function ScoutApp() {
@@ -63,7 +64,7 @@ export default function ScoutApp() {
     document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
   };
 
-  const ALL_PAGE_IDS = ['dashboard','roster','scout','skill','attendance','wellness','ir','compare','lineup','teamreport','performance','quicktest','register','training'];
+  const ALL_PAGE_IDS = ['dashboard','roster','scout','skill','attendance','wellness','nutrition','ir','compare','lineup','teamreport','performance','quicktest','register','training'];
 
   useEffect(() => {
     const saved = sessionStorage.getItem('scoutUser') || localStorage.getItem('scoutUser');
@@ -231,6 +232,7 @@ export default function ScoutApp() {
             {currentPage === 'calendar'     && <CalendarPage athletes={athletes} user={user} onNavigate={navigate} />}
             {currentPage === 'goals'        && <TrainingProgramPage athletes={athletes} user={user} />}
             {currentPage === 'monitor'      && user.role === 'admin' && <MonitorPage />}
+            {currentPage === 'nutrition'    && <NutritionPage athletes={athletes} user={user} />}
           </>
         )}
         <BottomNav currentPage={currentPage} onNavigate={navigate} onOpenMenu={() => setSidebarOpen(true)} />

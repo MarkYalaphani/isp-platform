@@ -6,7 +6,7 @@ import { calcYoyoDist, calcVo2 } from '@/lib/devData';
 import { signToken, verifyToken, needsRefresh, SessionPayload } from '@/lib/session';
 
 // Actions that don't require a login token
-const PUBLIC_ACTIONS = new Set(['login', 'setup', 'getCheckInInfo', 'submitCheckIn']);
+const PUBLIC_ACTIONS = new Set(['login', 'setup', 'getCheckInInfo', 'submitCheckIn', 'getNutritionSession', 'submitNutritionCheckin']);
 // Actions that require admin role
 const ADMIN_ONLY_ACTIONS = new Set(['deleteUser', 'deleteIR', 'deleteTrainingVideo']);
 
@@ -990,6 +990,109 @@ export async function POST(req: NextRequest) {
         });
         rows.sort((a, b) => String(b.matchDate).localeCompare(String(a.matchDate)));
         return NextResponse.json(rows);
+      }
+
+      // ── NUTRITION CHECK-IN ────────────────────────────────────────────────
+      // Tables required (run in Supabase SQL editor):
+      // CREATE TABLE nutrition_sessions (
+      //   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      //   club_id TEXT NOT NULL, team_name TEXT NOT NULL,
+      //   session_date DATE NOT NULL, created_by TEXT DEFAULT '',
+      //   created_at TIMESTAMPTZ DEFAULT NOW()
+      // );
+      // CREATE TABLE nutrition_checkins (
+      //   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      //   session_id UUID NOT NULL REFERENCES nutrition_sessions(id) ON DELETE CASCADE,
+      //   player_id TEXT NOT NULL, player_name TEXT NOT NULL,
+      //   day_type TEXT NOT NULL, training_type TEXT DEFAULT '',
+      //   core_checks JSONB NOT NULL DEFAULT '[]',
+      //   extra_checks JSONB NOT NULL DEFAULT '[]',
+      //   score INTEGER DEFAULT 0, max_score INTEGER DEFAULT 0,
+      //   submitted_at TIMESTAMPTZ DEFAULT NOW()
+      // );
+      case 'createNutritionSession': {
+        const { teamName: nsTeam, sessionDate: nsDate } = params as { teamName: string; sessionDate: string };
+        const nsClub = session!.clubId;
+        const { data: nsExist } = await sb.from('nutrition_sessions')
+          .select('id').eq('club_id', nsClub).eq('team_name', nsTeam).eq('session_date', nsDate).maybeSingle();
+        if (nsExist) return withRefresh(NextResponse.json({ status:'success', sessionId: nsExist.id }));
+        const { data: nsNew, error: nsErr } = await sb.from('nutrition_sessions')
+          .insert({ club_id: nsClub, team_name: nsTeam, session_date: nsDate, created_by: session!.username })
+          .select('id').single();
+        if (nsErr) throw nsErr;
+        return withRefresh(NextResponse.json({ status:'success', sessionId: nsNew.id }));
+      }
+      case 'getNutritionSessions': {
+        const { teamName: gnsTeam } = params as { teamName?: string };
+        const gnsClub = session!.clubId;
+        let gnsQ = sb.from('nutrition_sessions')
+          .select('id,team_name,session_date,created_by')
+          .eq('club_id', gnsClub).order('session_date', { ascending: false }).limit(30);
+        if (gnsTeam) gnsQ = gnsQ.eq('team_name', gnsTeam);
+        const { data: gnsSessions, error: gnsErr } = await gnsQ;
+        if (gnsErr) throw gnsErr;
+        return withRefresh(NextResponse.json((gnsSessions||[]).map(r => ({
+          id: r.id, teamName: r.team_name, sessionDate: r.session_date, createdBy: r.created_by,
+        }))));
+      }
+      case 'getNutritionCheckins': {
+        const { sessionId: ncSid } = params as { sessionId: string };
+        const { data: ncData, error: ncErr } = await sb.from('nutrition_checkins')
+          .select('*').eq('session_id', ncSid).order('submitted_at', { ascending: false });
+        if (ncErr) throw ncErr;
+        return withRefresh(NextResponse.json((ncData||[]).map(r => ({
+          id: r.id, playerId: r.player_id, playerName: r.player_name,
+          dayType: r.day_type, trainingType: r.training_type || '',
+          coreChecks: r.core_checks, extraChecks: r.extra_checks || [],
+          score: r.score, maxScore: r.max_score, submittedAt: r.submitted_at,
+        }))));
+      }
+      // PUBLIC: no auth required
+      case 'getNutritionSession': {
+        const { token: nsToken } = params as { token: string };
+        const { data: nsSess } = await sb.from('nutrition_sessions')
+          .select('id,club_id,team_name,session_date').eq('id', nsToken).maybeSingle();
+        if (!nsSess) return NextResponse.json({ error:'session_not_found' }, { status:404 });
+        const { data: nsAthletes } = await sb.from('athletes')
+          .select('player_id,name,nickname,team,photo_url')
+          .eq('club_id', nsSess.club_id).eq('team', nsSess.team_name).order('name');
+        const { data: nsSubmitted } = await sb.from('nutrition_checkins')
+          .select('player_id').eq('session_id', nsSess.id);
+        return NextResponse.json({
+          session: { id: nsSess.id, teamName: nsSess.team_name, sessionDate: nsSess.session_date },
+          athletes: (nsAthletes||[]).map(a => ({
+            playerId: a.player_id, name: a.name, nickname: a.nickname||'',
+            team: a.team||'', photoUrl: a.photo_url||'',
+          })),
+          submittedIds: (nsSubmitted||[]).map(r => r.player_id),
+        });
+      }
+      case 'submitNutritionCheckin': {
+        const snc = params as { token:string; playerId:string; playerName:string; dayType:string; trainingType:string; coreChecks:boolean[]; extraChecks:boolean[] };
+        const { data: sncSess } = await sb.from('nutrition_sessions').select('id').eq('id', snc.token).maybeSingle();
+        if (!sncSess) return NextResponse.json({ status:'error', message:'session_not_found' }, { status:404 });
+        const { data: sncDup } = await sb.from('nutrition_checkins')
+          .select('id').eq('session_id', sncSess.id).eq('player_id', snc.playerId).maybeSingle();
+        if (sncDup) return NextResponse.json({ status:'error', message:'already_submitted' });
+        const sncScore = [...(snc.coreChecks||[]), ...(snc.extraChecks||[])].filter(Boolean).length;
+        const sncMax = (snc.coreChecks||[]).length + (snc.extraChecks||[]).length;
+        const { error: sncErr } = await sb.from('nutrition_checkins').insert({
+          session_id: sncSess.id, player_id: snc.playerId, player_name: snc.playerName,
+          day_type: snc.dayType, training_type: snc.trainingType||'',
+          core_checks: snc.coreChecks||[], extra_checks: snc.extraChecks||[],
+          score: sncScore, max_score: sncMax,
+        });
+        if (sncErr) throw sncErr;
+        return NextResponse.json({ status:'success', score: sncScore, maxScore: sncMax });
+      }
+
+      case 'deleteMatch': {
+        const { id: delMatchId } = params as { id: string };
+        if (!delMatchId) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
+        await sb.from('match_stats').delete().eq('match_id', delMatchId);
+        const { error: delErr } = await sb.from('matches').delete().eq('id', delMatchId);
+        if (delErr) throw delErr;
+        return NextResponse.json({ status:'success' });
       }
 
       // ── CALENDAR ──────────────────────────────────────────────────────────
