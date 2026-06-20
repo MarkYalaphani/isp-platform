@@ -29,6 +29,20 @@ interface Props {
 
 type MetricDef = { key: string; field: keyof TestRecord; label: string; labelTH: string; unit: string; icon: string; color: string };
 
+interface NutritionCheckin {
+  id: string;
+  playerId: string;
+  dayType: string;
+  trainingType: string;
+  coreChecks: boolean[];
+  extraChecks: boolean[];
+  score: number;
+  maxScore: number;
+  submittedAt: string;
+  sessionDate: string;
+  teamName: string;
+}
+
 interface PlayerMatchPerf {
   id: string;
   matchId: string;
@@ -346,6 +360,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
   const [wellnessRecs,   setWellnessRecs]   = useState<import('@/lib/types').WellnessRecord[]>([]);
   const [rpeRecs,        setRpeRecs]        = useState<import('@/lib/types').RPERecord[]>([]);
   const [matchPerf,      setMatchPerf]      = useState<PlayerMatchPerf[]>([]);
+  const [nutritionRecs,  setNutritionRecs]  = useState<NutritionCheckin[]>([]);
   const [dateRange, setDateRange] = useState<'all'|'1y'|'6m'|'3m'>('all');
   const [chartView, setChartView] = useState<'score'|'raw'>('score');
   const [aiInsights, setAiInsights] = useState<{summary:string;strengths:string[];priorities:string[];training:string[];parentNote:string}|null>(null);
@@ -706,7 +721,7 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
 
   useEffect(() => {
     setAiInsights(null); setAiError('');
-    if (!selectedId) { setIrHistory([]); setLatestSkill(null); return; }
+    if (!selectedId) { setIrHistory([]); setLatestSkill(null); setNutritionRecs([]); return; }
     setIrLoading(true);
     callGAS('getIRHistory', { playerId: selectedId })
       .then(d => setIrHistory(Array.isArray(d) ? d as IRReport[] : []))
@@ -735,6 +750,10 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
     callGAS('getMatchStatsByPlayer', { playerId: selectedId })
       .then(d => setMatchPerf(Array.isArray(d) ? d as PlayerMatchPerf[] : []))
       .catch(() => setMatchPerf([]));
+    // Load nutrition check-in history
+    callGAS('getNutritionByPlayer', { playerId: selectedId })
+      .then(d => setNutritionRecs(Array.isArray(d) ? d as NutritionCheckin[] : []))
+      .catch(() => setNutritionRecs([]));
   }, [selectedId]);
 
   useEffect(() => {
@@ -2473,6 +2492,104 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                               {rt > 0 ? (
                                 <span style={{ width:30, height:30, borderRadius:8, background:ratingColor(rt)+'22', border:`1.5px solid ${ratingColor(rt)}`, display:'inline-flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.78rem', color:ratingColor(rt) }}>{rt.toFixed(1)}</span>
                               ) : <span style={{ color:'#cbd5e1', fontSize:'0.7rem' }}>—</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── NUTRITION CHECK-IN ── */}
+          {nutritionRecs.length > 0 && (() => {
+            const recent = nutritionRecs.slice(0, 20);
+            const pctArr = recent.map(r => r.maxScore > 0 ? Math.round(r.score / r.maxScore * 100) : 0);
+            const avgPct = Math.round(pctArr.reduce((s, v) => s + v, 0) / pctArr.length);
+            const green  = pctArr.filter(p => p >= 82).length;
+            const yellow = pctArr.filter(p => p >= 55 && p < 82).length;
+            const red    = pctArr.filter(p => p < 55).length;
+            const sc = avgPct >= 82 ? '#10b981' : avgPct >= 55 ? '#f59e0b' : '#ef4444';
+            const stLabel = avgPct >= 82 ? 'Nutrition Ready' : avgPct >= 55 ? 'ปรับปรุงได้' : 'ต้องดูแล';
+            const stEmoji = avgPct >= 82 ? '🟢' : avgPct >= 55 ? '🟡' : '🔴';
+            const fmtNd = (d: string) => { try { return new Date(d).toLocaleDateString('th-TH', { day:'numeric', month:'short', year:'2-digit' }); } catch { return d; } };
+            return (
+              <div id="scoutNutritionSection" className="surface mb-4">
+                <div className="section-hd" style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span><i className="bi bi-egg-fried me-2" style={{ color:'#a3e635' }}/>Nutrition Check-in <span style={{ fontSize:'0.7rem', fontWeight:400, color:'#94a3b8', marginLeft:4 }}>โภชนาการรายวัน</span></span>
+                  <span style={{ fontSize:'0.78rem', fontWeight:900, color:sc }}>{stEmoji} เฉลี่ย {avgPct}%</span>
+                </div>
+                {/* KPI summary */}
+                <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+                  {[
+                    { label:'Check-in ทั้งหมด', val:recent.length, icon:'bi-calendar-check-fill', color:'#38bdf8' },
+                    { label:'เฉลี่ย %',          val:`${avgPct}%`,  icon:'bi-percent',             color:sc },
+                    { label:'🟢 พร้อม',           val:green,         icon:'bi-circle-fill',         color:'#10b981' },
+                    { label:'🟡 ปรับปรุง',        val:yellow,        icon:'bi-circle-fill',         color:'#f59e0b' },
+                    { label:'🔴 ต้องดูแล',        val:red,           icon:'bi-circle-fill',         color:'#ef4444' },
+                  ].map(s => (
+                    <div key={s.label} style={{ flex:1, minWidth:70, background:'var(--bg)', borderRadius:10, padding:'10px 8px', textAlign:'center', border:`1px solid ${s.color}22` }}>
+                      <i className={`bi ${s.icon}`} style={{ color:s.color, fontSize:'0.9rem', display:'block', marginBottom:4 }}/>
+                      <div style={{ fontWeight:900, fontSize:'1.3rem', color:s.color, lineHeight:1 }}>{s.val}</div>
+                      <div style={{ fontSize:'0.58rem', color:'var(--text-muted)', fontWeight:700, marginTop:2 }}>{s.label}</div>
+                    </div>
+                  ))}
+                  <div style={{ flex:2, minWidth:120, background:'var(--bg)', borderRadius:10, padding:'10px 14px', border:`2px solid ${sc}33`, display:'flex', flexDirection:'column', justifyContent:'center' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                      <span style={{ fontSize:'0.68rem', fontWeight:700, color:'var(--text-muted)' }}>สถานะโภชนาการ</span>
+                      <span style={{ fontWeight:900, fontSize:'0.82rem', color:sc }}>{stLabel}</span>
+                    </div>
+                    <div style={{ height:8, borderRadius:6, background:'#f1f5f9', overflow:'hidden' }}>
+                      <div style={{ height:'100%', borderRadius:6, background:sc, width:`${avgPct}%`, transition:'width 0.6s' }}/>
+                    </div>
+                  </div>
+                </div>
+                {/* Trend mini-bars */}
+                <div style={{ marginBottom:16 }}>
+                  <div style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--text-muted)', marginBottom:8 }}>แนวโน้มคะแนน ({recent.length} ครั้งล่าสุด)</div>
+                  <div style={{ display:'flex', gap:4, alignItems:'flex-end', height:50 }}>
+                    {[...recent].reverse().map((r, i) => {
+                      const pct = r.maxScore > 0 ? Math.round(r.score / r.maxScore * 100) : 0;
+                      const h = Math.max(4, pct / 100 * 44);
+                      const c = pct >= 82 ? '#10b981' : pct >= 55 ? '#f59e0b' : '#ef4444';
+                      return (
+                        <div key={i} title={`${fmtNd(r.sessionDate)}: ${pct}% (${r.score}/${r.maxScore})`} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                          <div style={{ width:'100%', height:h, borderRadius:4, background:c }}/>
+                          <span style={{ fontSize:'0.5rem', color:'var(--text-muted)' }}>{pct}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* History table */}
+                <div style={{ overflowX:'auto' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th style={{ paddingLeft:14 }}>วันที่</th>
+                        <th>ประเภทวัน</th>
+                        <th>ประเภทซ้อม</th>
+                        <th style={{ textAlign:'center' }}>คะแนน</th>
+                        <th style={{ textAlign:'center' }}>%</th>
+                        <th style={{ textAlign:'center' }}>สถานะ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recent.slice(0, 15).map((r, i) => {
+                        const pct = r.maxScore > 0 ? Math.round(r.score / r.maxScore * 100) : 0;
+                        const c = pct >= 82 ? '#10b981' : pct >= 55 ? '#f59e0b' : '#ef4444';
+                        const stTH = pct >= 82 ? 'พร้อม' : pct >= 55 ? 'ปรับปรุง' : 'ต้องดูแล';
+                        return (
+                          <tr key={i}>
+                            <td style={{ paddingLeft:14, fontSize:'0.78rem' }}>{fmtNd(r.sessionDate)}</td>
+                            <td style={{ fontSize:'0.8rem' }}>{r.dayType === 'match' ? '🏟️ แข่ง' : '🏃 ซ้อม'}</td>
+                            <td style={{ fontSize:'0.78rem', color:'#64748b' }}>{r.trainingType || '—'}</td>
+                            <td style={{ textAlign:'center', fontWeight:700 }}>{r.score}/{r.maxScore}</td>
+                            <td style={{ textAlign:'center', fontWeight:900, color:c }}>{pct}%</td>
+                            <td style={{ textAlign:'center' }}>
+                              <span style={{ background:c+'22', color:c, borderRadius:12, padding:'2px 10px', fontSize:'0.72rem', fontWeight:700 }}>{stTH}</span>
                             </td>
                           </tr>
                         );

@@ -1086,6 +1086,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status:'success', score: sncScore, maxScore: sncMax });
       }
 
+      case 'getNutritionByPlayer': {
+        const { playerId: nbpId } = params as { playerId: string };
+        const { data: nbpCheckins, error: nbpErr } = await sb.from('nutrition_checkins')
+          .select('*').eq('player_id', nbpId).order('submitted_at', { ascending: false }).limit(30);
+        if (nbpErr) throw nbpErr;
+        if (!nbpCheckins || nbpCheckins.length === 0) return NextResponse.json([]);
+        const sessionIds = [...new Set(nbpCheckins.map((r: { session_id: string }) => r.session_id))];
+        const { data: nbpSessions } = await sb.from('nutrition_sessions')
+          .select('id,session_date,team_name').in('id', sessionIds);
+        const sessMap: Record<string, { sessionDate: string; teamName: string }> = {};
+        for (const s of nbpSessions || []) sessMap[s.id] = { sessionDate: s.session_date, teamName: s.team_name };
+        return withRefresh(NextResponse.json(nbpCheckins.map((r: Record<string,unknown>) => ({
+          id: r.id, playerId: r.player_id, dayType: r.day_type,
+          trainingType: r.training_type || '', coreChecks: r.core_checks,
+          extraChecks: r.extra_checks || [], score: r.score, maxScore: r.max_score,
+          submittedAt: r.submitted_at,
+          sessionDate: sessMap[r.session_id as string]?.sessionDate || '',
+          teamName:    sessMap[r.session_id as string]?.teamName    || '',
+        }))));
+      }
+
       case 'deleteMatch': {
         const { id: delMatchId } = params as { id: string };
         if (!delMatchId) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
