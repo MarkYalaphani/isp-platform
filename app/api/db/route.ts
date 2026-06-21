@@ -1086,6 +1086,57 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ status:'success', score: sncScore, maxScore: sncMax });
       }
 
+      case 'deleteNutritionSession': {
+        const { id: dnsId } = params as { id: string };
+        if (!dnsId) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
+        await sb.from('nutrition_checkins').delete().eq('session_id', dnsId);
+        const { error: dnsErr } = await sb.from('nutrition_sessions').delete().eq('id', dnsId);
+        if (dnsErr) throw dnsErr;
+        return withRefresh(NextResponse.json({ status:'success' }));
+      }
+      case 'deleteNutritionCheckin': {
+        const { id: dncId } = params as { id: string };
+        if (!dncId) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
+        const { error: dncErr } = await sb.from('nutrition_checkins').delete().eq('id', dncId);
+        if (dncErr) throw dncErr;
+        return withRefresh(NextResponse.json({ status:'success' }));
+      }
+      case 'updateNutritionCheckin': {
+        const unc = params as { id:string; dayType:string; trainingType:string; coreChecks:boolean[]; extraChecks:boolean[] };
+        if (!unc.id) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
+        const uncScore = [...(unc.coreChecks||[]), ...(unc.extraChecks||[])].filter(Boolean).length;
+        const uncMax = (unc.coreChecks||[]).length + (unc.extraChecks||[]).length;
+        const { error: uncErr } = await sb.from('nutrition_checkins').update({
+          day_type: unc.dayType, training_type: unc.trainingType || '',
+          core_checks: unc.coreChecks||[], extra_checks: unc.extraChecks||[],
+          score: uncScore, max_score: uncMax,
+        }).eq('id', unc.id);
+        if (uncErr) throw uncErr;
+        return withRefresh(NextResponse.json({ status:'success', score: uncScore, maxScore: uncMax }));
+      }
+      case 'getNutritionOverview': {
+        const noCl = session!.clubId;
+        const { data: noSessions, error: noErr } = await sb.from('nutrition_sessions')
+          .select('id,team_name,session_date').eq('club_id', noCl)
+          .order('session_date', { ascending: false }).limit(90);
+        if (noErr) throw noErr;
+        if (!noSessions?.length) return withRefresh(NextResponse.json([]));
+        const noIds = noSessions.map((s: { id: string }) => s.id);
+        const { data: noCk } = await sb.from('nutrition_checkins')
+          .select('session_id,score,max_score').in('session_id', noIds);
+        const ckMap: Record<string, { count:number; totalScore:number; totalMax:number; green:number; yellow:number; red:number }> = {};
+        for (const c of (noCk || []) as { session_id:string; score:number; max_score:number }[]) {
+          if (!ckMap[c.session_id]) ckMap[c.session_id] = { count:0, totalScore:0, totalMax:0, green:0, yellow:0, red:0 };
+          const m = ckMap[c.session_id];
+          m.count++; m.totalScore += c.score; m.totalMax += c.max_score;
+          const pct = c.max_score > 0 ? c.score / c.max_score : 0;
+          if (pct >= 0.82) m.green++; else if (pct >= 0.55) m.yellow++; else m.red++;
+        }
+        return withRefresh(NextResponse.json((noSessions as { id:string; team_name:string; session_date:string }[]).map(s => ({
+          id: s.id, teamName: s.team_name, sessionDate: s.session_date,
+          ...(ckMap[s.id] || { count:0, totalScore:0, totalMax:0, green:0, yellow:0, red:0 }),
+        }))));
+      }
       case 'getNutritionByPlayer': {
         const { playerId: nbpId } = params as { playerId: string };
         const { data: nbpCheckins, error: nbpErr } = await sb.from('nutrition_checkins')
