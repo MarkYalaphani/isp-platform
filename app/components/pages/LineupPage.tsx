@@ -6,7 +6,8 @@ import { getScorePoint } from '@/lib/score';
 
 interface Props { athletes: Athlete[]; onNavigate: (page: Page) => void; user?: User; }
 type Role = 'GK' | 'DEF' | 'MID' | 'FWD';
-type Mode = '11' | '7';
+type Mode = '11' | '8' | '7' | '3';
+const MODE_LABEL: Record<string,string> = {'11':'11v11','8':'8v8','7':'7v7','3':'3v3'};
 interface FPos { id: string; label: string; role: Role; x: number; y: number; }
 interface Formation { id: string; name: string; positions: FPos[]; }
 interface SavedLineup { id: string; name: string; formation: string; mode?: Mode; assignments: Record<string, string>; }
@@ -186,7 +187,73 @@ const FORMATIONS_7: Formation[] = [
     {id:'GK',label:'GK',role:'GK',x:50,y:91},{id:'LB',label:'LB',role:'DEF',x:17,y:69},{id:'LCB',label:'CB',role:'DEF',x:34,y:72},{id:'RCB',label:'CB',role:'DEF',x:66,y:72},{id:'RB',label:'RB',role:'DEF',x:83,y:69},
     {id:'LS',label:'ST',role:'FWD',x:34,y:18},{id:'RS',label:'ST',role:'FWD',x:66,y:18}]},
 ];
-const ALL_FORMATIONS: Record<Mode, Formation[]> = { '11': FORMATIONS_11, '7': FORMATIONS_7 };
+const FORMATIONS_8: Formation[] = [
+  { id:'8-3-3-1', name:'3-3-1', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:20,y:72},{id:'CB',label:'CB',role:'DEF',x:50,y:75},{id:'RB',label:'RB',role:'DEF',x:80,y:72},
+    {id:'LM',label:'LM',role:'MID',x:21,y:47},{id:'CM',label:'CM',role:'MID',x:50,y:44},{id:'RM',label:'RM',role:'MID',x:79,y:47},
+    {id:'ST',label:'ST',role:'FWD',x:50,y:16},
+  ]},
+  { id:'8-3-2-2', name:'3-2-2', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:20,y:72},{id:'CB',label:'CB',role:'DEF',x:50,y:75},{id:'RB',label:'RB',role:'DEF',x:80,y:72},
+    {id:'LM',label:'MF',role:'MID',x:35,y:49},{id:'RM',label:'MF',role:'MID',x:65,y:49},
+    {id:'LW',label:'LW',role:'FWD',x:30,y:18},{id:'RW',label:'RW',role:'FWD',x:70,y:18},
+  ]},
+  { id:'8-2-4-1', name:'2-4-1', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:30,y:73},{id:'RB',label:'RB',role:'DEF',x:70,y:73},
+    {id:'LM',label:'LM',role:'MID',x:17,y:48},{id:'LCM',label:'CM',role:'MID',x:38,y:44},{id:'RCM',label:'CM',role:'MID',x:62,y:44},{id:'RM',label:'RM',role:'MID',x:83,y:48},
+    {id:'ST',label:'ST',role:'FWD',x:50,y:16},
+  ]},
+  { id:'8-2-3-2', name:'2-3-2', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:30,y:73},{id:'RB',label:'RB',role:'DEF',x:70,y:73},
+    {id:'LM',label:'LM',role:'MID',x:21,y:47},{id:'CM',label:'CM',role:'MID',x:50,y:44},{id:'RM',label:'RM',role:'MID',x:79,y:47},
+    {id:'LS',label:'ST',role:'FWD',x:33,y:17},{id:'RS',label:'ST',role:'FWD',x:67,y:17},
+  ]},
+  { id:'8-4-2-1', name:'4-2-1', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:14,y:70},{id:'LCB',label:'CB',role:'DEF',x:35,y:73},{id:'RCB',label:'CB',role:'DEF',x:65,y:73},{id:'RB',label:'RB',role:'DEF',x:86,y:70},
+    {id:'LM',label:'MF',role:'MID',x:35,y:49},{id:'RM',label:'MF',role:'MID',x:65,y:49},
+    {id:'ST',label:'ST',role:'FWD',x:50,y:16},
+  ]},
+  { id:'8-3-1-3', name:'3-1-3', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'LB',label:'LB',role:'DEF',x:20,y:72},{id:'CB',label:'CB',role:'DEF',x:50,y:75},{id:'RB',label:'RB',role:'DEF',x:80,y:72},
+    {id:'CM',label:'MF',role:'MID',x:50,y:49},
+    {id:'LW',label:'LW',role:'FWD',x:16,y:18},{id:'ST',label:'ST',role:'FWD',x:50,y:12},{id:'RW',label:'RW',role:'FWD',x:84,y:18},
+  ]},
+  { id:'8-1-4-2', name:'1-4-2', positions:[
+    {id:'GK',label:'GK',role:'GK',x:50,y:91},
+    {id:'CB',label:'CB',role:'DEF',x:50,y:74},
+    {id:'LM',label:'LM',role:'MID',x:14,y:48},{id:'LCM',label:'CM',role:'MID',x:36,y:45},{id:'RCM',label:'CM',role:'MID',x:64,y:45},{id:'RM',label:'RM',role:'MID',x:86,y:48},
+    {id:'LS',label:'ST',role:'FWD',x:33,y:17},{id:'RS',label:'ST',role:'FWD',x:67,y:17},
+  ]},
+];
+const FORMATIONS_3: Formation[] = [
+  { id:'3-1-2', name:'1-2', positions:[
+    {id:'DEF',label:'DEF',role:'DEF',x:50,y:78},
+    {id:'LW',label:'FW',role:'FWD',x:28,y:18},{id:'RW',label:'FW',role:'FWD',x:72,y:18},
+  ]},
+  { id:'3-2-1', name:'2-1', positions:[
+    {id:'LB',label:'DEF',role:'DEF',x:30,y:75},{id:'RB',label:'DEF',role:'DEF',x:70,y:75},
+    {id:'ST',label:'ST',role:'FWD',x:50,y:18},
+  ]},
+  { id:'3-0-2-1', name:'0-2-1', positions:[
+    {id:'LM',label:'MF',role:'MID',x:30,y:50},{id:'RM',label:'MF',role:'MID',x:70,y:50},
+    {id:'ST',label:'ST',role:'FWD',x:50,y:16},
+  ]},
+  { id:'3-1-1-1', name:'1-1-1', positions:[
+    {id:'DEF',label:'DEF',role:'DEF',x:50,y:78},
+    {id:'MF',label:'MF',role:'MID',x:50,y:47},
+    {id:'ST',label:'ST',role:'FWD',x:50,y:16},
+  ]},
+  { id:'3-flat', name:'Flat 3', positions:[
+    {id:'L',label:'MF',role:'MID',x:22,y:48},{id:'C',label:'MF',role:'MID',x:50,y:48},{id:'R',label:'MF',role:'MID',x:78,y:48},
+  ]},
+];
+const ALL_FORMATIONS: Record<Mode, Formation[]> = { '11': FORMATIONS_11, '8': FORMATIONS_8, '7': FORMATIONS_7, '3': FORMATIONS_3 };
 
 /* ── helpers ── */
 function loadLineups(): SavedLineup[] { try { return JSON.parse(localStorage.getItem('pj_lineups') || '[]'); } catch { return []; } }
@@ -592,7 +659,7 @@ export default function LineupPage({ athletes, user }: Props) {
     const u=[lu,...saved];setSaved(u);saveLineups(u);setLname('');notify(`บันทึก "${name}" สำเร็จ`);
   };
   const handleLoad=(lu:SavedLineup)=>{
-    const m=lu.mode??(FORMATIONS_7.some(f=>f.id===lu.formation)?'7':'11');
+    const m=lu.mode??(FORMATIONS_8.some(f=>f.id===lu.formation)?'8':FORMATIONS_7.some(f=>f.id===lu.formation)?'7':FORMATIONS_3.some(f=>f.id===lu.formation)?'3':'11') as Mode;
     setMode(m);setFormId(lu.formation);setAssign(lu.assignments);setSelAth(null);setShowSaved(false);notify(`โหลด "${lu.name}" สำเร็จ`);
   };
 
@@ -611,7 +678,7 @@ export default function LineupPage({ athletes, user }: Props) {
     const u=[t,...shadowTeams];setShadowTeams(u);saveShadowTeams(u);setShadowName('');notify(`บันทึก "${name}" สำเร็จ`);
   };
   const handleLoadShadow=(t:ShadowTeamData)=>{
-    const m=t.mode??(FORMATIONS_7.some(f=>f.id===t.formation)?'7':'11');
+    const m=t.mode??(FORMATIONS_8.some(f=>f.id===t.formation)?'8':FORMATIONS_7.some(f=>f.id===t.formation)?'7':FORMATIONS_3.some(f=>f.id===t.formation)?'3':'11') as Mode;
     setMode(m);setFormId(t.formation);setShadowCandidates(t.candidates);setShadowGrades(t.grades||{});setShowShadowSaved(false);notify(`โหลด "${t.name}" สำเร็จ`);
   };
 
@@ -761,7 +828,7 @@ export default function LineupPage({ athletes, user }: Props) {
         <div className="page-header">
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <i className="bi bi-diagram-3-fill" style={{fontSize:'1.3rem',color:'#38bdf8'}}/>
-            <div><h2 className="page-title" style={{margin:0}}>Line Up</h2><p className="page-subtitle" style={{margin:0}}>{formation.name} · {mode==='11'?'11v11':'7v7'} · {Object.keys(assign).length}/{formation.positions.length}</p></div>
+            <div><h2 className="page-title" style={{margin:0}}>Line Up</h2><p className="page-subtitle" style={{margin:0}}>{formation.name} · {MODE_LABEL[mode]} · {Object.keys(assign).length}/{formation.positions.length}</p></div>
           </div>
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
             <button className={`btn-sm ${shadowMode?'btn-primary':'btn-outline'}`} onClick={()=>setShadowMode(v=>!v)} style={{background:shadowMode?'#7c3aed':undefined,borderColor:shadowMode?'#7c3aed':undefined}}><i className="bi bi-people-fill me-1"/>Shadow Team</button>
@@ -775,9 +842,9 @@ export default function LineupPage({ athletes, user }: Props) {
 
         {/* Mode + Formation */}
         <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
-          {([['11','⚽ 11 คน'],['7','🏃 7 คน']] as [Mode,string][]).map(([m,label])=>(
-            <button key={m} onClick={()=>changeMode(m)} style={{padding:'6px 16px',borderRadius:8,fontWeight:700,fontSize:'0.82rem',cursor:'pointer',background:mode===m?'#1e3a5f':'var(--surface)',color:mode===m?'#38bdf8':'var(--text-muted)',border:`2px solid ${mode===m?'#38bdf8':'var(--border)'}`}}>
-              {label} <span style={{marginLeft:6,background:mode===m?'#38bdf8':'var(--border)',color:'white',borderRadius:4,padding:'1px 6px',fontSize:'0.65rem',fontWeight:800}}>{m==='11'?'11v11':'7v7'}</span>
+          {([['11','⚽ 11 คน'],['8','🏃 8 คน'],['7','⚡ 7 คน'],['3','🎯 3 คน']] as [Mode,string][]).map(([m,label])=>(
+            <button key={m} onClick={()=>changeMode(m)} style={{padding:'6px 14px',borderRadius:8,fontWeight:700,fontSize:'0.8rem',cursor:'pointer',background:mode===m?'#1e3a5f':'var(--surface)',color:mode===m?'#38bdf8':'var(--text-muted)',border:`2px solid ${mode===m?'#38bdf8':'var(--border)'}`}}>
+              {label} <span style={{marginLeft:5,background:mode===m?'#38bdf8':'var(--border)',color:'white',borderRadius:4,padding:'1px 5px',fontSize:'0.62rem',fontWeight:800}}>{MODE_LABEL[m]}</span>
             </button>
           ))}
           <div style={{width:1,height:24,background:'var(--border)'}}/>
@@ -815,7 +882,7 @@ export default function LineupPage({ athletes, user }: Props) {
             <div>
               <div style={{fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Formation</div>
               <div style={{fontSize:'1.1rem',fontWeight:900,color:'#7c3aed',letterSpacing:1}}>{formation.name}</div>
-              <div style={{fontSize:'0.65rem',color:'var(--text-muted)',marginTop:1}}>{mode==='11'?'11v11':'7v7'}</div>
+              <div style={{fontSize:'0.65rem',color:'var(--text-muted)',marginTop:1}}>{MODE_LABEL[mode]}</div>
             </div>
             <div style={{height:1,background:'var(--border)'}}/>
             {/* Field color */}
@@ -890,7 +957,7 @@ export default function LineupPage({ athletes, user }: Props) {
               <div>
                 <span style={{fontWeight:900,fontSize:'1.1rem',letterSpacing:2,textTransform:'uppercase',color:'#0f172a'}}>SHADOW TEAM</span>
                 <span style={{marginLeft:10,fontSize:'0.7rem',fontWeight:700,color:'#7c3aed',letterSpacing:1}}>
-                  {formation.name} · {mode==='11'?'11v11':'7v7'}
+                  {formation.name} · {MODE_LABEL[mode]}
                 </span>
               </div>
               <span style={{fontSize:'0.6rem',color:'#94a3b8',fontWeight:600}}>
@@ -957,7 +1024,7 @@ export default function LineupPage({ athletes, user }: Props) {
               <div>
                 <span style={{fontWeight:900,fontSize:'1.1rem',letterSpacing:2,textTransform:'uppercase',color:'#0f172a'}}>FORMATION</span>
                 <span style={{marginLeft:10,fontSize:'0.7rem',fontWeight:700,color:'#7c3aed',letterSpacing:1}}>
-                  {formation.name} · {mode==='11'?'11v11':'7v7'}
+                  {formation.name} · {MODE_LABEL[mode]}
                 </span>
               </div>
               <span style={{fontSize:'0.6rem',color:'#94a3b8',fontWeight:600}}>
@@ -1039,7 +1106,7 @@ export default function LineupPage({ athletes, user }: Props) {
                 </div>
               </div>
               <div style={{textAlign:'center',marginTop:10,fontSize:'0.65rem',fontWeight:700,color:'rgba(255,255,255,0.3)',letterSpacing:3,textTransform:'uppercase'}}>
-                {formation.name} · {mode==='11'?'11v11':'7v7'}
+                {formation.name} · {MODE_LABEL[mode]}
               </div>
             </div>
           </div>
@@ -1107,7 +1174,7 @@ export default function LineupPage({ athletes, user }: Props) {
 
             {/* Bottom: formation label */}
             <div style={{textAlign:'center',marginTop:12,fontSize:'0.75rem',fontWeight:700,color:'rgba(255,255,255,0.4)',letterSpacing:3,textTransform:'uppercase'}}>
-              {formation.name} · {mode==='11'?'11v11':'7v7'}
+              {formation.name} · {MODE_LABEL[mode]}
             </div>
           </div>
         </div>
@@ -1119,7 +1186,7 @@ export default function LineupPage({ athletes, user }: Props) {
             paddingBottom:5,marginBottom:6,borderBottom:'2pt solid #0f172a',color:'#0f172a'}}>
             {teamName||'LINE-UP'}
             <span style={{marginLeft:8,fontSize:'0.58rem',fontWeight:600,color:'#64748b',letterSpacing:1}}>
-              {formation.name} · {mode==='11'?'11v11':'7v7'}
+              {formation.name} · {MODE_LABEL[mode]}
             </span>
           </div>
           {/* Roster table: POS | ชื่อจริง | ชื่อเล่น | อายุ | OVR */}
