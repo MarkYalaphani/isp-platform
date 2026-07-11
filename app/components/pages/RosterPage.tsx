@@ -57,6 +57,16 @@ function lastTestLabel(days: number) {
   return { label: `${days} วันที่แล้ว`, color: '#ef4444' };
 }
 
+function squadColor(s: string) {
+  const map: Record<string, { bg: string; color: string }> = {
+    A: { bg: 'rgba(59,130,246,0.15)',  color: '#3b82f6' },
+    B: { bg: 'rgba(16,185,129,0.15)', color: '#10b981' },
+    C: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' },
+    D: { bg: 'rgba(239,68,68,0.15)',  color: '#ef4444' },
+  };
+  return map[s] || { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' };
+}
+
 type SortKey = 'name' | 'rating' | 'age' | 'lastTest' | 'speed' | 'team';
 type ViewMode = 'table' | 'grid';
 
@@ -126,8 +136,11 @@ function AthleteCard({ a, onView, onEdit, onDelete, canDelete, canEdit, deleting
           </div>
           <RatingRing rating={Number(a.Latest?.Rating) || 0} size={40} />
         </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {a.Team && <span><i className="bi bi-shield-fill me-1" />{a.Team}</span>}
+          {a.Squad && (() => { const sc = squadColor(a.Squad); return (
+            <span style={{ background: sc.bg, color: sc.color, borderRadius: 5, padding: '1px 6px', fontWeight: 800, fontSize: '0.62rem' }}>ชุด {a.Squad}</span>
+          ); })()}
           {age !== null && <span><i className="bi bi-person me-1" />{age} ปี</span>}
         </div>
         {/* Key stats */}
@@ -167,11 +180,12 @@ function AthleteCard({ a, onView, onEdit, onDelete, canDelete, canEdit, deleting
 
 /* ── Main ────────────────────────────────────────────────── */
 export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Props) {
-  const [search,      setSearch]      = useState('');
-  const [filterTeam,  setFilterTeam]  = useState('ALL');
-  const [filterPos,   setFilterPos]   = useState('ALL');
-  const [filterAge,   setFilterAge]   = useState('ALL');
-  const [filterClub,  setFilterClub]  = useState('ALL'); // admin: filter by clubId
+  const [search,       setSearch]       = useState('');
+  const [filterTeam,   setFilterTeam]   = useState('ALL');
+  const [filterSquad,  setFilterSquad]  = useState('ALL');
+  const [filterPos,    setFilterPos]    = useState('ALL');
+  const [filterAge,    setFilterAge]    = useState('ALL');
+  const [filterClub,   setFilterClub]   = useState('ALL'); // admin: filter by clubId
   const [sortKey,     setSortKey]     = useState<SortKey>('rating');
   const [sortDir,     setSortDir]     = useState<'asc' | 'desc'>('desc');
   const [viewMode,    setViewMode]    = useState<ViewMode>('table');
@@ -197,7 +211,8 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
   }, [athletes, user.role]);
 
   /* options */
-  const teams = useMemo(() => ['ALL', ...Array.from(new Set(athletes.map(a => a.Team).filter(Boolean))).sort()], [athletes]);
+  const teams    = useMemo(() => ['ALL', ...Array.from(new Set(athletes.map(a => a.Team).filter(Boolean))).sort()], [athletes]);
+  const squads   = useMemo(() => ['ALL', ...Array.from(new Set(athletes.map(a => a.Squad).filter(Boolean))).sort() as string[]], [athletes]);
   const positions = useMemo(() => ['ALL', ...Array.from(new Set(athletes.map(a => a.Position).filter(Boolean))).sort()], [athletes]);
 
   /* filter + sort */
@@ -208,8 +223,9 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
         const id = a.ClubID || '(ไม่มี Club)';
         if (id !== filterClub) return false;
       }
-      if (filterTeam !== 'ALL' && a.Team !== filterTeam) return false;
-      if (filterPos  !== 'ALL' && a.Position !== filterPos) return false;
+      if (filterTeam  !== 'ALL' && a.Team  !== filterTeam)  return false;
+      if (filterSquad !== 'ALL' && (a.Squad || '') !== filterSquad) return false;
+      if (filterPos   !== 'ALL' && a.Position !== filterPos) return false;
       if (filterAge  !== 'ALL' && ageGroup(calcAge(a.DOB)) !== filterAge) return false;
       if (q) {
         const hay = `${a.Name} ${a.Nickname} ${a.Team} ${a.Position} ${a.Club} ${a.PlayerID}`.toLowerCase();
@@ -249,8 +265,8 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
     resetPage();
   };
 
-  const clearFilters = () => { setSearch(''); setFilterTeam('ALL'); setFilterPos('ALL'); setFilterAge('ALL'); resetPage(); };
-  const hasFilter = search || filterTeam !== 'ALL' || filterPos !== 'ALL' || filterAge !== 'ALL';
+  const clearFilters = () => { setSearch(''); setFilterTeam('ALL'); setFilterSquad('ALL'); setFilterPos('ALL'); setFilterAge('ALL'); resetPage(); };
+  const hasFilter = search || filterTeam !== 'ALL' || filterSquad !== 'ALL' || filterPos !== 'ALL' || filterAge !== 'ALL';
 
   const handleDelete = async (a: Athlete) => {
     if (!confirm(`ลบข้อมูลของ "${a.Name}"?\n\nประวัติทั้งหมดจะถูกลบด้วย`)) return;
@@ -278,9 +294,9 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
   }, [athletes]);
 
   const exportCSV = () => {
-    const headers = ['PlayerID','ชื่อ','ชื่อเล่น','ทีม','ตำแหน่ง','วันเกิด','สโมสร','จังหวัด','Rating','Speed30','CMJ','Agility','Situp','Pushup','LongJump','YoYo','SitReach','ส่วนสูง','น้ำหนัก'];
+    const headers = ['PlayerID','ชื่อ','ชื่อเล่น','รุ่น','ชุด','ตำแหน่ง','วันเกิด','สโมสร','จังหวัด','Rating','Speed30','CMJ','Agility','Situp','Pushup','LongJump','YoYo','SitReach','ส่วนสูง','น้ำหนัก'];
     const rows = sorted.map(a => [
-      a.PlayerID, a.Name, a.Nickname||'', a.Team||'', a.Position||'', a.DOB||'', a.Club||'', a.Province||'',
+      a.PlayerID, a.Name, a.Nickname||'', a.Team||'', a.Squad||'', a.Position||'', a.DOB||'', a.Club||'', a.Province||'',
       a.Latest?.Rating||'', a.Latest?.Speed30||'', a.Latest?.CMJ||'', a.Latest?.Agility||'',
       a.Latest?.Situp||'', a.Latest?.Pushup||'', a.Latest?.LongJump||'', a.Latest?.YoYo||'', a.Latest?.SitAndReach||'',
       a.Latest?.Height||'', a.Latest?.Weight||'',
@@ -377,8 +393,14 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
         </div>
         {/* Team */}
         <select className="form-select" style={{ width: 'auto', minWidth: 110 }} value={filterTeam} onChange={e => { setFilterTeam(e.target.value); resetPage(); }}>
-          {teams.map(t => <option key={t} value={t}>{t === 'ALL' ? 'ทุกทีม' : t}</option>)}
+          {teams.map(t => <option key={t} value={t}>{t === 'ALL' ? 'ทุกรุ่น' : t}</option>)}
         </select>
+        {/* Squad */}
+        {squads.length > 1 && (
+          <select className="form-select" style={{ width: 'auto', minWidth: 100 }} value={filterSquad} onChange={e => { setFilterSquad(e.target.value); resetPage(); }}>
+            {squads.map(s => <option key={s} value={s}>{s === 'ALL' ? 'ทุกชุด' : `ชุด ${s}`}</option>)}
+          </select>
+        )}
         {/* Position */}
         <select className="form-select" style={{ width: 'auto', minWidth: 100 }} value={filterPos} onChange={e => { setFilterPos(e.target.value); resetPage(); }}>
           <option value="ALL">ทุกตำแหน่ง</option>
@@ -461,7 +483,12 @@ export default function RosterPage({ athletes, onRefresh, user, onNavigate }: Pr
                           </div>
                         </div>
                       </td>
-                      <td style={{ fontWeight: 700, fontSize: '0.82rem' }}>{a.Team || '—'}</td>
+                      <td>
+                        <div style={{ fontWeight: 700, fontSize: '0.82rem' }}>{a.Team || '—'}</div>
+                        {a.Squad && (() => { const sc = squadColor(a.Squad); return (
+                          <span style={{ background: sc.bg, color: sc.color, borderRadius: 5, padding: '1px 7px', fontWeight: 800, fontSize: '0.6rem', marginTop: 2, display: 'inline-block' }}>ชุด {a.Squad}</span>
+                        ); })()}
+                      </td>
                       <td><RatingRing rating={rating} size={36} /></td>
                       <td style={{ fontSize: '0.8rem' }}>
                         {age !== null ? (

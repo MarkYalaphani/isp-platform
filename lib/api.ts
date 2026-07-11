@@ -55,6 +55,18 @@ export async function callGAS(action: string, params: Record<string, unknown> = 
   const refreshed = res.headers.get('X-Refreshed-Token');
   if (refreshed) storeToken(refreshed);
 
+  if (res.status === 403) {
+    let body: { code?: string; expiresAt?: string | null; message?: string } | null = null;
+    try { body = await res.json(); } catch { /* ignore */ }
+    if (body?.code === 'ACCOUNT_EXPIRED') {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('account-expired', { detail: { expiresAt: body.expiresAt ?? null } }));
+      }
+      throw new Error('ACCOUNT_EXPIRED');
+    }
+    throw new Error(body?.message || 'Forbidden');
+  }
+
   if (res.status === 401) {
     // Try to refresh once, then retry the original call
     const ok = await tryRefreshToken();

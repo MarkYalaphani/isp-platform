@@ -4,6 +4,7 @@ export interface User {
   displayName: string;
   clubId: string;
   logoUrl?: string;
+  expiresAt?: string | null;
 }
 
 export interface TestRecord {
@@ -104,6 +105,7 @@ export interface UserRecord {
   CreatedAt: string;
   ClubID: string;
   LogoUrl: string;
+  ExpiresAt: string;
 }
 
 export type Page = 'home' | 'dashboard' | 'roster' | 'scout' | 'ir' | 'skill' | 'attendance' | 'training' | 'performance' | 'register' | 'adminUsers' | 'teamreport' | 'compare' | 'quicktest' | 'migrate' | 'lineup' | 'wellness' | 'tester' | 'help' | 'leaderboard' | 'batchadd' | 'matchlog' | 'calendar' | 'goals' | 'monitor' | 'nutrition' | 'nutritionPlanner';

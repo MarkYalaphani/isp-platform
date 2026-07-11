@@ -411,19 +411,20 @@ function FC26Card({ pos, athlete, isOver, teamLogo, onDragStart, onDragOver, onD
           </div>
         </div>
       ) : (
-        /* ── Empty slot ── */
-        <div style={{ width:W, height:H, clipPath:shield,
-          border:`2px dashed ${isOver?'rgba(255,240,80,0.9)':'rgba(255,255,255,0.25)'}`,
-          background: isOver ? 'rgba(255,240,80,0.12)' : 'rgba(0,0,0,0.3)',
+        /* ── Empty slot — tap to open picker ── */
+        <div className="lineup-empty-slot" style={{ width:W, height:H, clipPath:shield,
+          border:`2px dashed ${isOver?'rgba(255,240,80,0.9)':'rgba(56,189,248,0.5)'}`,
+          background: isOver ? 'rgba(255,240,80,0.12)' : 'rgba(56,189,248,0.08)',
           display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:5,
-          transition:'all 0.12s', backdropFilter:'blur(4px)',
+          transition:'all 0.12s',
         }}>
-          <div style={{ width:30, height:30, borderRadius:'50%', border:'2px solid rgba(255,255,255,0.3)',
+          <div style={{ width:34, height:34, borderRadius:'50%', background:'rgba(56,189,248,0.2)',
             display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <i className="bi bi-plus" style={{ color:'rgba(255,255,255,0.5)', fontSize:'1.1rem' }}/>
+            <i className="bi bi-person-plus-fill" style={{ color:'rgba(56,189,248,0.9)', fontSize:'1rem' }}/>
           </div>
-          <div style={{ fontSize:'0.65rem', fontWeight:900, color:'rgba(255,255,255,0.5)',
-            textTransform:'uppercase', letterSpacing:1.5 }}>{pos.label}</div>
+          <div style={{ fontSize:'0.62rem', fontWeight:900, color:'rgba(56,189,248,0.8)',
+            textTransform:'uppercase', letterSpacing:1 }}>{pos.label}</div>
+          <div style={{ fontSize:'0.44rem', fontWeight:700, color:'rgba(56,189,248,0.5)', letterSpacing:0.5 }}>แตะเพื่อเลือก</div>
         </div>
       )}
     </div>
@@ -594,6 +595,8 @@ export default function LineupPage({ athletes, user }: Props) {
   const [assign, setAssign]       = useState<Record<string,string>>({});
   const [over, setOver]           = useState<string|null>(null);
   const [selAth, setSelAth]       = useState<string|null>(null);
+  const [pickerPos, setPickerPos] = useState<string|null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
   const [search, setSearch]       = useState('');
   const [rf, setRf]               = useState<'ALL'|Role>('ALL');
   const [rtf, setRtf]             = useState('ALL'); // team/รุ่น filter
@@ -649,10 +652,19 @@ export default function LineupPage({ athletes, user }: Props) {
   },[]);
   const onSlotClick=(posId:string)=>{
     if(selAth){setAssign(prev=>{const n={...prev};const ex=Object.keys(n).find(k=>n[k]===selAth);if(ex)delete n[ex];n[posId]=selAth;return n;});setSelAth(null);}
-    else if(assign[posId])setAssign(prev=>{const n={...prev};delete n[posId];return n;});
+    else{setPickerPos(posId);setPickerSearch('');}
   };
-  const changeMode=(m:Mode)=>{setMode(m);setFormId(ALL_FORMATIONS[m][0].id);setAssign({});setSelAth(null);};
-  const changeFormation=(id:string)=>{setFormId(id);setAssign({});setSelAth(null);};
+  const closePicker = () => setPickerPos(null);
+  const pickPlayer = (athleteId: string) => {
+    setAssign(prev=>{const n={...prev};const ex=Object.keys(n).find(k=>n[k]===athleteId);if(ex)delete n[ex];n[pickerPos!]=athleteId;return n;});
+    closePicker();
+  };
+  const clearSlot = (posId: string) => {
+    setAssign(prev=>{const n={...prev};delete n[posId];return n;});
+    closePicker();
+  };
+  const changeMode=(m:Mode)=>{setMode(m);setFormId(ALL_FORMATIONS[m][0].id);setAssign({});setSelAth(null);setPickerPos(null);};
+  const changeFormation=(id:string)=>{setFormId(id);setAssign({});setSelAth(null);setPickerPos(null);};
   const handleSave=()=>{
     const name=lname.trim()||`Lineup ${new Date().toLocaleDateString('th-TH')}`;
     const lu:SavedLineup={id:Date.now().toString(),name,formation:formId,mode,assignments:{...assign}};
@@ -821,6 +833,21 @@ export default function LineupPage({ athletes, user }: Props) {
             overflow:hidden!important;
           }
         }
+        @media (max-width: 768px) {
+          /* Lineup scene: pitch full width, roster below */
+          #lineupScene { flex-direction: column !important; }
+          #lineupScene > div:first-child { min-width: 0 !important; flex: none !important; width: 100% !important; }
+          #shadowScene { flex-direction: column !important; }
+          #shadowScene > div:first-child { flex: none !important; width: 100% !important; order: 2; }
+          #shadowScene > div:nth-child(2) { flex: none !important; width: 100% !important; order: 1; }
+          /* Roster panel: full width below pitch */
+          #lineupScene > div:last-child { flex: none !important; width: 100% !important; position: static !important; }
+          /* Mode buttons: bigger tap targets */
+          .lineup-mode-btn { padding: 10px 18px !important; font-size: 0.88rem !important; }
+        }
+        /* Empty slot pulse */
+        .lineup-empty-slot { animation: slotPulse 2s ease-in-out infinite; }
+        @keyframes slotPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
       `}</style>
 
       {/* ── Controls (screen only) ── */}
@@ -843,7 +870,7 @@ export default function LineupPage({ athletes, user }: Props) {
         {/* Mode + Formation */}
         <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
           {([['11','⚽ 11 คน'],['8','🏃 8 คน'],['7','⚡ 7 คน'],['3','🎯 3 คน']] as [Mode,string][]).map(([m,label])=>(
-            <button key={m} onClick={()=>changeMode(m)} style={{padding:'6px 14px',borderRadius:8,fontWeight:700,fontSize:'0.8rem',cursor:'pointer',background:mode===m?'#1e3a5f':'var(--surface)',color:mode===m?'#38bdf8':'var(--text-muted)',border:`2px solid ${mode===m?'#38bdf8':'var(--border)'}`}}>
+            <button key={m} className="lineup-mode-btn" onClick={()=>changeMode(m)} style={{padding:'6px 14px',borderRadius:8,fontWeight:700,fontSize:'0.8rem',cursor:'pointer',background:mode===m?'#1e3a5f':'var(--surface)',color:mode===m?'#38bdf8':'var(--text-muted)',border:`2px solid ${mode===m?'#38bdf8':'var(--border)'}`}}>
               {label} <span style={{marginLeft:5,background:mode===m?'#38bdf8':'var(--border)',color:'white',borderRadius:4,padding:'1px 5px',fontSize:'0.62rem',fontWeight:800}}>{MODE_LABEL[m]}</span>
             </button>
           ))}
@@ -1322,6 +1349,117 @@ export default function LineupPage({ athletes, user }: Props) {
           </div>
         )}
       </div>}
+
+      {/* ── Player Picker Modal ── */}
+      {pickerPos && (() => {
+        const pos = formation.positions.find(p=>p.id===pickerPos);
+        const q = pickerSearch.toLowerCase();
+        const pickerRoster = athletes.filter(a =>
+          !q || `${a.Name} ${a.Nickname}`.toLowerCase().includes(q)
+        );
+        const currentAthId = assign[pickerPos];
+        return (
+          <>
+            {/* Backdrop */}
+            <div onClick={closePicker} style={{
+              position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:1100,
+              backdropFilter:'blur(2px)',
+            }}/>
+            {/* Sheet */}
+            <div style={{
+              position:'fixed',bottom:0,left:0,right:0,zIndex:1101,
+              background:'var(--surface)',borderRadius:'20px 20px 0 0',
+              boxShadow:'0 -8px 40px rgba(0,0,0,0.25)',
+              maxHeight:'80vh',display:'flex',flexDirection:'column',
+              padding:'0 0 env(safe-area-inset-bottom,0px)',
+            }}>
+              {/* Header */}
+              <div style={{display:'flex',alignItems:'center',gap:10,padding:'16px 18px 12px',borderBottom:'1px solid var(--border)'}}>
+                <div style={{
+                  background:'linear-gradient(135deg,#0f172a,#1e3a5f)',
+                  color:'white',borderRadius:8,padding:'4px 10px',
+                  fontWeight:900,fontSize:'0.82rem',letterSpacing:1,
+                }}>{pos?.label || pickerPos}</div>
+                <div style={{flex:1,fontWeight:700,fontSize:'0.88rem'}}>เลือกนักกีฬา</div>
+                {currentAthId && (
+                  <button onClick={()=>clearSlot(pickerPos)} style={{
+                    padding:'5px 10px',borderRadius:7,border:'1.5px solid #ef4444',
+                    background:'transparent',color:'#ef4444',fontSize:'0.72rem',fontWeight:700,cursor:'pointer',
+                  }}>ถอดออก</button>
+                )}
+                <button onClick={closePicker} style={{
+                  width:32,height:32,borderRadius:8,border:'1px solid var(--border)',
+                  background:'var(--bg)',cursor:'pointer',color:'var(--text-muted)',fontSize:'1rem',
+                  display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+                }}>✕</button>
+              </div>
+              {/* Search */}
+              <div style={{padding:'10px 16px 8px'}}>
+                <div className="search-wrap">
+                  <i className="bi bi-search"/>
+                  <input
+                    className="form-control"
+                    placeholder="ค้นหาชื่อ / ชื่อเล่น..."
+                    value={pickerSearch}
+                    onChange={e=>setPickerSearch(e.target.value)}
+                    autoFocus
+                    style={{fontSize:'0.85rem'}}
+                  />
+                </div>
+              </div>
+              {/* Athlete list */}
+              <div style={{overflowY:'auto',flex:1,padding:'4px 12px 16px'}}>
+                {pickerRoster.length===0&&(
+                  <div style={{textAlign:'center',padding:32,color:'var(--text-muted)'}}>ไม่พบนักกีฬา</div>
+                )}
+                {pickerRoster.map(a=>{
+                  const isCurrent = a.PlayerID===currentAthId;
+                  const inOtherSlot = !isCurrent && assignedIds.has(a.PlayerID);
+                  const rating = Number(a.Latest?.Rating)||0;
+                  return (
+                    <button
+                      key={a.PlayerID}
+                      onClick={()=>!inOtherSlot&&pickPlayer(a.PlayerID)}
+                      style={{
+                        display:'flex',alignItems:'center',gap:12,width:'100%',
+                        padding:'10px 10px',borderRadius:12,marginBottom:4,
+                        border:`2px solid ${isCurrent?'#38bdf8':'var(--border)'}`,
+                        background:isCurrent?'rgba(56,189,248,0.08)':inOtherSlot?'var(--bg)':'var(--surface)',
+                        cursor:inOtherSlot?'default':'pointer',
+                        opacity:inOtherSlot?0.4:1,
+                        textAlign:'left',
+                        transition:'all 0.1s',
+                      }}
+                    >
+                      {/* Mini card */}
+                      <div style={{width:40,height:56,borderRadius:6,flexShrink:0,overflow:'hidden',position:'relative',
+                        background:'linear-gradient(160deg,#a06a00,#f0d050,#c89020)',boxShadow:'0 2px 8px rgba(0,0,0,0.3)'}}>
+                        {a.PhotoUrl
+                          ?<img src={a.PhotoUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top'}}/>
+                          :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            <span style={{fontSize:'0.75rem',fontWeight:900,color:'rgba(0,0,0,0.45)'}}>{ini(a.Name)}</span>
+                          </div>}
+                        {rating>0&&<div style={{position:'absolute',top:1,left:2,fontSize:'0.48rem',fontWeight:900,color:'rgba(0,0,0,0.6)',lineHeight:1}}>{rating}</div>}
+                      </div>
+                      {/* Name + info */}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:700,fontSize:'0.9rem',color:'var(--text-main)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.Name}</div>
+                        {a.Nickname&&<div style={{fontSize:'0.78rem',color:'#64748b',fontWeight:600}}>ชื่อเล่น: {a.Nickname}</div>}
+                        <div style={{display:'flex',gap:5,marginTop:3,flexWrap:'wrap'}}>
+                          {a.Position&&<span style={{fontSize:'0.62rem',fontWeight:700,background:'rgba(56,189,248,0.12)',color:'#38bdf8',borderRadius:4,padding:'1px 5px'}}>{a.Position}</span>}
+                          {a.Team&&<span style={{fontSize:'0.62rem',color:'var(--text-muted)'}}>{a.Team}</span>}
+                        </div>
+                      </div>
+                      {isCurrent&&<i className="bi bi-check-circle-fill" style={{color:'#38bdf8',fontSize:'1.1rem',flexShrink:0}}/>}
+                      {inOtherSlot&&<i className="bi bi-person-check-fill" style={{color:'#10b981',fontSize:'1rem',flexShrink:0}}/>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
     </div>
   );

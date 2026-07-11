@@ -7,6 +7,7 @@ import { showToast } from '@/lib/toast';
 
 const POSITIONS = ['Forward', 'Midfielder', 'Defender', 'Goalkeeper'];
 const TEAMS = ['U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U18','Senior'];
+const SQUADS = ['A', 'B', 'C', 'D'];
 const PROVINCES = ['กรุงเทพมหานคร','กระบี่','กาญจนบุรี','กาฬสินธุ์','กำแพงเพชร','ขอนแก่น','จันทบุรี','ฉะเชิงเทรา','ชลบุรี','ชัยนาท','ชัยภูมิ','ชุมพร','เชียงราย','เชียงใหม่','ตรัง','ตราด','ตาก','นครนายก','นครปฐม','นครพนม','นครราชสีมา','นครศรีธรรมราช','นครสวรรค์','นนทบุรี','นราธิวาส','น่าน','บึงกาฬ','บุรีรัมย์','ปทุมธานี','ประจวบคีรีขันธ์','ปราจีนบุรี','ปัตตานี','พระนครศรีอยุธยา','พะเยา','พังงา','พัทลุง','พิจิตร','พิษณุโลก','เพชรบุรี','เพชรบูรณ์','แพร่','ภูเก็ต','มหาสารคาม','มุกดาหาร','แม่ฮ่องสอน','ยโสธร','ยะลา','ร้อยเอ็ด','ระนอง','ระยอง','ราชบุรี','ลพบุรี','ลำปาง','ลำพูน','เลย','ศรีสะเกษ','สกลนคร','สงขลา','สตูล','สมุทรปราการ','สมุทรสงคราม','สมุทรสาคร','สระแก้ว','สระบุรี','สิงห์บุรี','สุโขทัย','สุพรรณบุรี','สุราษฎร์ธานี','สุรินทร์','หนองคาย','หนองบัวลำภู','อ่างทอง','อำนาจเจริญ','อุดรธานี','อุตรดิตถ์','อุทัยธานี','อุบลราชธานี'];
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
 }
 
 interface EditForm {
-  name: string; nickname: string; dob: string; team: string;
+  name: string; nickname: string; dob: string; team: string; squad: string;
   position: string; domFoot: string; domHand: string; club: string; province: string;
   height: string; weight: string;
 }
@@ -30,6 +31,7 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
     nickname: athlete.Nickname || '',
     dob:      athlete.DOB      || '',
     team:     athlete.Team     || '',
+    squad:    athlete.Squad    || '',
     position: athlete.Position || '',
     domFoot:  athlete.DomFoot  || 'Right',
     domHand:  athlete.DomHand  || 'Right',
@@ -67,7 +69,7 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
       const res = await callGAS('updateAthlete', {
         playerId: athlete.PlayerID,
         name: form.name, nickname: form.nickname, dob: form.dob,
-        team: form.team, domHand: form.domHand, domFoot: form.domFoot,
+        team: form.team, squad: form.squad, domHand: form.domHand, domFoot: form.domFoot,
         position: form.position, club: form.club, province: form.province,
         photoBase64: photo?.base64 || '', photoMimeType: photo?.mime || '',
         clearPhoto: photoCleared && !photo,
@@ -177,6 +179,13 @@ export default function EditAthleteModal({ athlete, onClose, onSaved }: Props) {
               <select className="form-select" value={form.team} onChange={e => set('team', e.target.value)}>
                 <option value="">- เลือก -</option>
                 {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: '0 0 110px' }}>
+              <label className="form-label">ชุด</label>
+              <select className="form-select" value={form.squad} onChange={e => set('squad', e.target.value)}>
+                <option value="">- ทุกชุด -</option>
+                {SQUADS.map(s => <option key={s} value={s}>ชุด {s}</option>)}
               </select>
             </div>
             <div style={{ flex: 1, minWidth: 150 }}>

@@ -11,13 +11,17 @@ CREATE TABLE IF NOT EXISTS users (
   role        TEXT DEFAULT 'club' CHECK (role IN ('admin','club','club_pro')),
   display_name TEXT NOT NULL DEFAULT '',
   club_id     TEXT DEFAULT '',
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  expires_at  TIMESTAMPTZ
 );
 
 -- อัพเดท constraint ถ้ามีฐานข้อมูลเก่าที่ยังไม่มี club_pro
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD CONSTRAINT users_role_check
   CHECK (role IN ('admin','club','club_pro'));
+
+-- วันหมดอายุการใช้งานต่อบัญชี (แอดมินเป็นผู้กำหนด) — NULL = ไม่มีวันหมดอายุ
+ALTER TABLE users ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
 
 -- 2. Athletes (ข้อมูลนักกีฬา)
 CREATE TABLE IF NOT EXISTS athletes (

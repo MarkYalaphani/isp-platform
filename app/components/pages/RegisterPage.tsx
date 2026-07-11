@@ -9,13 +9,14 @@ interface Props { onSuccess: () => void | Promise<void>; user: User; }
 
 const POSITIONS = ['Forward', 'Midfielder', 'Defender', 'Goalkeeper'];
 const TEAMS = ['U8','U9','U10','U11','U12','U13','U14','U15','U16','U17','U18','Senior'];
+const SQUADS = ['A', 'B', 'C', 'D'];
 const PROVINCES = ['กรุงเทพมหานคร','กระบี่','กาญจนบุรี','กาฬสินธุ์','กำแพงเพชร','ขอนแก่น','จันทบุรี','ฉะเชิงเทรา','ชลบุรี','ชัยนาท','ชัยภูมิ','ชุมพร','เชียงราย','เชียงใหม่','ตรัง','ตราด','ตาก','นครนายก','นครปฐม','นครพนม','นครราชสีมา','นครศรีธรรมราช','นครสวรรค์','นนทบุรี','นราธิวาส','น่าน','บึงกาฬ','บุรีรัมย์','ปทุมธานี','ประจวบคีรีขันธ์','ปราจีนบุรี','ปัตตานี','พระนครศรีอยุธยา','พะเยา','พังงา','พัทลุง','พิจิตร','พิษณุโลก','เพชรบุรี','เพชรบูรณ์','แพร่','ภูเก็ต','มหาสารคาม','มุกดาหาร','แม่ฮ่องสอน','ยโสธร','ยะลา','ร้อยเอ็ด','ระนอง','ระยอง','ราชบุรี','ลพบุรี','ลำปาง','ลำพูน','เลย','ศรีสะเกษ','สกลนคร','สงขลา','สตูล','สมุทรปราการ','สมุทรสงคราม','สมุทรสาคร','สระแก้ว','สระบุรี','สิงห์บุรี','สุโขทัย','สุพรรณบุรี','สุราษฎร์ธานี','สุรินทร์','หนองคาย','หนองบัวลำภู','อ่างทอง','อำนาจเจริญ','อุดรธานี','อุตรดิตถ์','อุทัยธานี','อุบลราชธานี'];
 const TODAY = new Date().toISOString().split('T')[0];
 
 // ── Single Tab ──────────────────────────────────────────────────────────────
 function SingleTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: User }) {
   const [form, setForm] = useState({
-    name: '', nickname: '', dob: '', team: '', position: 'Forward',
+    name: '', nickname: '', dob: '', team: '', squad: '', position: 'Forward',
     club: '', province: '', domHand: 'Right', domFoot: 'Right',
     height: '', weight: '',
   });
@@ -37,7 +38,7 @@ function SingleTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: U
   };
 
   const resetForm = () => {
-    setForm({ name: '', nickname: '', dob: '', team: '', position: 'Forward', club: '', province: '', domHand: 'Right', domFoot: 'Right', height: '', weight: '' });
+    setForm({ name: '', nickname: '', dob: '', team: '', squad: '', position: 'Forward', club: '', province: '', domHand: 'Right', domFoot: 'Right', height: '', weight: '' });
     setPhoto(null); setPhotoPreview('');
     if (fileRef.current) fileRef.current.value = '';
   };
@@ -49,7 +50,7 @@ function SingleTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: U
     setSaving(true);
     try {
       const res = await callGAS('saveAthlete', {
-        name: form.name, nickname: form.nickname, dob: form.dob, team: form.team,
+        name: form.name, nickname: form.nickname, dob: form.dob, team: form.team, squad: form.squad,
         position: form.position, club: form.club, province: form.province,
         domHand: form.domHand, domFoot: form.domFoot,
         clubId: user.role !== 'admin' ? (user.clubId || '') : '',
@@ -115,6 +116,13 @@ function SingleTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: U
               {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
+          <div style={{ flex: '0 0 110px' }}>
+            <label className="form-label">ชุด</label>
+            <select className="form-select" value={form.squad} onChange={e => set('squad', e.target.value)}>
+              <option value="">- เลือก -</option>
+              {SQUADS.map(s => <option key={s} value={s}>ชุด {s}</option>)}
+            </select>
+          </div>
           <div style={{ flex: 1, minWidth: 200 }}>
             <label className="form-label">ตำแหน่ง</label>
             <select className="form-select" value={form.position} onChange={e => set('position', e.target.value)}>
@@ -172,14 +180,15 @@ function SingleTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: U
 }
 
 // ── Batch Tab ───────────────────────────────────────────────────────────────
-type Row = { name: string; nickname: string; dob: string; team: string; position: string; club: string; province: string; domFoot: string; domHand: string; height: string; weight: string; photo: string; photoMime: string; };
-const blankRow = (): Row => ({ name: '', nickname: '', dob: '', team: '', position: 'Forward', club: '', province: '', domFoot: 'Right', domHand: 'Right', height: '', weight: '', photo: '', photoMime: '' });
+type Row = { name: string; nickname: string; dob: string; team: string; squad: string; position: string; club: string; province: string; domFoot: string; domHand: string; height: string; weight: string; photo: string; photoMime: string; };
+const blankRow = (): Row => ({ name: '', nickname: '', dob: '', team: '', squad: '', position: 'Forward', club: '', province: '', domFoot: 'Right', domHand: 'Right', height: '', weight: '', photo: '', photoMime: '' });
 
 const BATCH_COLS: { key: keyof Row; label: string; width: number; type?: string; options?: string[] }[] = [
   { key: 'name',     label: 'ชื่อ-นามสกุล *', width: 160 },
   { key: 'nickname', label: 'ชื่อเล่น',        width: 100 },
   { key: 'dob',      label: 'วันเกิด',          width: 140, type: 'date' },
   { key: 'team',     label: 'รุ่น',             width: 90,  options: TEAMS },
+  { key: 'squad',    label: 'ชุด',              width: 70,  options: SQUADS },
   { key: 'position', label: 'ตำแหน่ง',          width: 110, options: POSITIONS },
   { key: 'club',     label: 'สโมสร/รร.',        width: 120 },
   { key: 'province', label: 'จังหวัด',           width: 130, options: PROVINCES },
@@ -240,7 +249,7 @@ function BatchTab({ onSuccess, user }: { onSuccess: Props['onSuccess']; user: Us
     for (const row of valid) {
       try {
         const r = await callGAS('saveAthlete', {
-          name: row.name, nickname: row.nickname, dob: row.dob, team: row.team,
+          name: row.name, nickname: row.nickname, dob: row.dob, team: row.team, squad: row.squad,
           position: row.position, club: row.club, province: row.province,
           domFoot: row.domFoot, domHand: row.domHand,
           clubId: user.role !== 'admin' ? (user.clubId || '') : '',

@@ -77,20 +77,15 @@ function dotColor(v: number) {
 /* ── Wellness table header ───────────────────────────────── */
 export function WellnessTableHeader() {
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'160px repeat(5,1fr) 56px', gap:0, padding:'6px 14px', background:'var(--surface)', borderRadius:'10px 10px 0 0', border:'1px solid var(--border)', borderBottom:'none' }}>
-      <div style={{ fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1 }}>นักกีฬา</div>
-      {WELLNESS_FIELDS.map(f => (
-        <div key={f.key} style={{ textAlign:'center' }}>
-          <div style={{ fontSize:'1.1rem', lineHeight:1 }}>{f.icon}</div>
-          <div style={{ fontSize:'0.58rem', fontWeight:700, color:'var(--text-muted)', marginTop:2, lineHeight:1.2 }}>{f.label}</div>
-        </div>
-      ))}
-      <div style={{ textAlign:'center', fontSize:'0.58rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:0.5 }}>SCORE</div>
+    <div style={{ padding:'10px 16px', background:'var(--surface)', borderRadius:'12px 12px 0 0', border:'1px solid var(--border)', borderBottom:'none', display:'flex', alignItems:'center', gap:8 }}>
+      <i className="bi bi-heart-pulse-fill" style={{ color:'#10b981', fontSize:'0.85rem' }}/>
+      <span style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1 }}>Wellness ก่อนซ้อม</span>
+      <span style={{ marginLeft:'auto', fontSize:'0.6rem', color:'var(--text-muted)' }}>1 = แย่มาก &nbsp;·&nbsp; 5 = ดีมาก</span>
     </div>
   );
 }
 
-/* ── Wellness score row ──────────────────────────────────── */
+/* ── Wellness score row — vertical card, works on all screen sizes ── */
 function WellnessRow({ a, vals, onChange, isLast }: {
   a: Athlete;
   vals: Partial<Record<WellnessKey, number>>;
@@ -104,70 +99,66 @@ function WellnessRow({ a, vals, onChange, isLast }: {
 
   return (
     <div style={{
-      display:'grid', gridTemplateColumns:'160px repeat(5,1fr) 56px', gap:0,
-      padding:'10px 14px', alignItems:'center',
+      padding:'12px 14px',
       background:'white',
       border:'1px solid var(--border)',
       borderTop:'none',
-      borderRadius: isLast ? '0 0 10px 10px' : 0,
-      transition:'background 0.12s',
-    }}
-      onMouseEnter={e=>(e.currentTarget.style.background='#f8fafc')}
-      onMouseLeave={e=>(e.currentTarget.style.background='white')}
-    >
-      {/* Avatar + name */}
-      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <div style={{ width:34, height:34, borderRadius:9, overflow:'hidden', background:'#e2e8f0', flexShrink:0 }}>
+      borderRadius: isLast ? '0 0 12px 12px' : 0,
+    }}>
+      {/* Name + Score row */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+        <div style={{ width:40, height:40, borderRadius:10, overflow:'hidden', background:'#e2e8f0', flexShrink:0 }}>
           {a.PhotoUrl
             ? <img src={a.PhotoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top' }}/>
-            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.85rem', color:'#94a3b8' }}>{(a.Name||'?')[0]}</div>
+            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.9rem', color:'#94a3b8' }}>{(a.Name||'?')[0]}</div>
           }
         </div>
-        <div style={{ minWidth:0 }}>
-          <div style={{ fontWeight:700, fontSize:'0.8rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:100 }}>{a.Name}</div>
-          {a.Nickname && <div style={{ fontSize:'0.6rem', color:'#94a3b8' }}>{a.Nickname}</div>}
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontWeight:700, fontSize:'0.88rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{a.Name}</div>
+          {a.Nickname && <div style={{ fontSize:'0.72rem', color:'#94a3b8', fontWeight:600 }}>({a.Nickname})</div>}
         </div>
+        {avg > 0 ? (
+          <div style={{ textAlign:'center', background:wc+'18', borderRadius:10, padding:'5px 10px', flexShrink:0 }}>
+            <div style={{ fontSize:'1.25rem', fontWeight:900, color:wc, lineHeight:1 }}>{avg}</div>
+            <div style={{ fontSize:'0.5rem', color:'#94a3b8', fontWeight:700 }}>%</div>
+          </div>
+        ) : (
+          <div style={{ fontSize:'0.72rem', color:'#cbd5e1', fontWeight:700 }}>—</div>
+        )}
       </div>
 
-      {/* 5 metric columns */}
-      {WELLNESS_FIELDS.map(f => {
-        const v = vals[f.key] || 0;
-        return (
-          <div key={f.key} style={{ display:'flex', justifyContent:'center', gap:3 }}>
-            {[1,2,3,4,5].map(n => {
-              const active = v >= n;
-              const col = active ? dotColor(v) : '#e2e8f0';
-              return (
-                <button
-                  key={n}
-                  onClick={() => onChange(f.key, v === n ? 0 : n)}
-                  title={`${f.label} = ${n}`}
-                  style={{
-                    width:28, height:28, borderRadius:7, border:'none', cursor:'pointer',
-                    background: active ? col : '#f1f5f9',
-                    color: active ? 'white' : '#94a3b8',
-                    fontWeight:900, fontSize:'0.72rem',
-                    boxShadow: active ? `0 2px 6px ${col}60` : 'none',
-                    transform: v === n ? 'scale(1.15)' : 'scale(1)',
-                    transition:'all 0.12s',
-                  }}
-                >{n}</button>
-              );
-            })}
-          </div>
-        );
-      })}
-
-      {/* Score */}
-      <div style={{ textAlign:'center' }}>
-        {avg > 0 ? (
-          <>
-            <div style={{ fontSize:'1.15rem', fontWeight:900, color:wc, lineHeight:1 }}>{avg}</div>
-            <div style={{ fontSize:'0.52rem', color:'#94a3b8', fontWeight:700, letterSpacing:0.5 }}>%</div>
-          </>
-        ) : (
-          <div style={{ fontSize:'0.75rem', color:'#cbd5e1', fontWeight:700 }}>—</div>
-        )}
+      {/* One row per metric — works at ANY screen width */}
+      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+        {WELLNESS_FIELDS.map(f => {
+          const v = vals[f.key] || 0;
+          return (
+            <div key={f.key} style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <div style={{ fontSize:'1.1rem', width:26, textAlign:'center', flexShrink:0 }}>{f.icon}</div>
+              <div style={{ width:68, fontSize:'0.68rem', fontWeight:600, color:'#64748b', flexShrink:0, lineHeight:1.2 }}>{f.label}</div>
+              <div style={{ display:'flex', gap:5, flex:1 }}>
+                {[1,2,3,4,5].map(n => {
+                  const active = v >= n;
+                  const col = active ? dotColor(v) : '#e2e8f0';
+                  return (
+                    <button
+                      key={n}
+                      onClick={() => onChange(f.key, v === n ? 0 : n)}
+                      style={{
+                        flex:1, height:44, borderRadius:9, border:'none', cursor:'pointer',
+                        background: active ? col : '#f1f5f9',
+                        color: active ? 'white' : '#94a3b8',
+                        fontWeight:900, fontSize:'0.85rem',
+                        boxShadow: active ? `0 2px 8px ${col}55` : 'none',
+                        transform: v === n ? 'scale(1.08)' : 'scale(1)',
+                        transition:'all 0.12s',
+                      }}
+                    >{n}</button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -176,15 +167,15 @@ function WellnessRow({ a, vals, onChange, isLast }: {
 /* ── RPE table header ────────────────────────────────────── */
 export function RPETableHeader() {
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'160px 1fr 100px', gap:0, padding:'8px 14px', background:'var(--surface)', borderRadius:'10px 10px 0 0', border:'1px solid var(--border)', borderBottom:'none' }}>
-      <div style={{ fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1, display:'flex', alignItems:'center' }}>นักกีฬา</div>
-      <div style={{ fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1, display:'flex', alignItems:'center' }}>RPE (1 = พักผ่อน → 10 = สุดแรง)</div>
-      <div style={{ fontSize:'0.62rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1, textAlign:'center', display:'flex', alignItems:'center', justifyContent:'center' }}>Training Load</div>
+    <div style={{ padding:'10px 16px', background:'var(--surface)', borderRadius:'12px 12px 0 0', border:'1px solid var(--border)', borderBottom:'none', display:'flex', alignItems:'center', gap:8 }}>
+      <i className="bi bi-speedometer2" style={{ color:'#f59e0b', fontSize:'0.85rem' }}/>
+      <span style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:1 }}>Training Load (RPE)</span>
+      <span style={{ marginLeft:'auto', fontSize:'0.6rem', color:'var(--text-muted)' }}>1 = พักผ่อน &nbsp;→&nbsp; 10 = สุดแรง</span>
     </div>
   );
 }
 
-/* ── RPE row ──────────────────────────────────────────────── */
+/* ── RPE row — 5-column grid, 2 rows of 5 on all screens ── */
 function RPERow({ a, rpe, duration, onChange, isLast }: {
   a: Athlete; rpe: number; duration: number;
   onChange: (v: number) => void;
@@ -197,31 +188,34 @@ function RPERow({ a, rpe, duration, onChange, isLast }: {
 
   return (
     <div style={{
-      display:'grid', gridTemplateColumns:'160px 1fr 100px', gap:0, alignItems:'center',
-      padding:'10px 14px', background:'white',
+      padding:'12px 14px', background:'white',
       border:'1px solid var(--border)', borderTop:'none',
-      borderRadius: isLast ? '0 0 10px 10px' : 0,
-      transition:'background 0.12s',
-    }}
-      onMouseEnter={e=>(e.currentTarget.style.background='#f8fafc')}
-      onMouseLeave={e=>(e.currentTarget.style.background='white')}
-    >
-      {/* Avatar + name */}
-      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <div style={{ width:34, height:34, borderRadius:9, overflow:'hidden', background:'#e2e8f0', flexShrink:0 }}>
+      borderRadius: isLast ? '0 0 12px 12px' : 0,
+    }}>
+      {/* Name + Load */}
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+        <div style={{ width:40, height:40, borderRadius:10, overflow:'hidden', background:'#e2e8f0', flexShrink:0 }}>
           {a.PhotoUrl
             ? <img src={a.PhotoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top' }}/>
-            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.85rem', color:'#94a3b8' }}>{(a.Name||'?')[0]}</div>
+            : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:'0.9rem', color:'#94a3b8' }}>{(a.Name||'?')[0]}</div>
           }
         </div>
-        <div>
-          <div style={{ fontWeight:700, fontSize:'0.8rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:100 }}>{a.Name}</div>
-          {a.Nickname && <div style={{ fontSize:'0.6rem', color:'#94a3b8' }}>{a.Nickname}</div>}
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontWeight:700, fontSize:'0.88rem', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{a.Name}</div>
+          {a.Nickname && <div style={{ fontSize:'0.72rem', color:'#94a3b8', fontWeight:600 }}>({a.Nickname})</div>}
         </div>
+        {zone ? (
+          <div style={{ textAlign:'center', background:zone.color+'18', borderRadius:10, padding:'5px 10px', flexShrink:0 }}>
+            <div style={{ fontSize:'1.15rem', fontWeight:900, color:zone.color, lineHeight:1 }}>{load}</div>
+            <div style={{ fontSize:'0.5rem', fontWeight:700, color:zone.color }}>AU · {zone.label}</div>
+          </div>
+        ) : rpe > 0 ? null : (
+          <div style={{ fontSize:'0.72rem', color:'#cbd5e1', fontWeight:700 }}>—</div>
+        )}
       </div>
 
-      {/* RPE buttons 1–10 */}
-      <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+      {/* 5-column grid → 2 rows of 5 buttons */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:6 }}>
         {RPE_SCALE.map(r => {
           const active = rpe === r.val;
           return (
@@ -230,12 +224,12 @@ function RPERow({ a, rpe, duration, onChange, isLast }: {
               onClick={() => onChange(active ? 0 : r.val)}
               title={r.desc}
               style={{
-                width:34, height:34, borderRadius:8, border:'none',
-                fontWeight:900, fontSize:'0.8rem', cursor:'pointer',
-                background: active ? r.color : rpe > 0 && r.val < rpe ? r.color + '30' : '#f1f5f9',
+                height:46, borderRadius:10, border:'none',
+                fontWeight:900, fontSize:'0.9rem', cursor:'pointer',
+                background: active ? r.color : rpe > 0 && r.val < rpe ? r.color + '28' : '#f1f5f9',
                 color: active ? 'white' : rpe > 0 && r.val < rpe ? r.color : '#94a3b8',
-                transform: active ? 'scale(1.2)' : 'scale(1)',
-                boxShadow: active ? `0 4px 12px ${r.color}60` : 'none',
+                transform: active ? 'scale(1.1)' : 'scale(1)',
+                boxShadow: active ? `0 4px 14px ${r.color}60` : 'none',
                 transition:'all 0.12s',
                 zIndex: active ? 1 : 0,
                 position:'relative',
@@ -243,24 +237,12 @@ function RPERow({ a, rpe, duration, onChange, isLast }: {
             >{r.val}</button>
           );
         })}
-        {rpeInfo && (
-          <span style={{ marginLeft:6, fontSize:'0.72rem', fontWeight:700, color:rc, whiteSpace:'nowrap' }}>
-            {rpeInfo.desc}
-          </span>
-        )}
       </div>
-
-      {/* Load */}
-      <div style={{ textAlign:'center' }}>
-        {zone ? (
-          <>
-            <div style={{ fontSize:'1.1rem', fontWeight:900, color:zone.color, lineHeight:1 }}>{load}</div>
-            <div style={{ fontSize:'0.56rem', fontWeight:700, color:zone.color, marginTop:1 }}>AU · {zone.label}</div>
-          </>
-        ) : (
-          <div style={{ fontSize:'0.75rem', color:'#cbd5e1', fontWeight:700 }}>—</div>
-        )}
-      </div>
+      {rpeInfo && (
+        <div style={{ marginTop:6, textAlign:'center', fontSize:'0.72rem', fontWeight:700, color:rc }}>
+          {rpeInfo.desc}
+        </div>
+      )}
     </div>
   );
 }
@@ -537,8 +519,8 @@ export default function WellnessPage({ athletes, user }: Props) {
           )}
 
           {/* Athlete table */}
-          <div className="table-scroll-wrap" style={{ borderRadius:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div className="wellness-ath-table" style={{ minWidth:600 }}>
+          <div style={{ borderRadius:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div className="wellness-ath-table">
               <WellnessTableHeader />
               {filtered.map((a, i) => (
                 <WellnessRow
@@ -622,8 +604,8 @@ export default function WellnessPage({ athletes, user }: Props) {
           )}
 
           {/* Athlete table */}
-          <div className="table-scroll-wrap" style={{ borderRadius:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div className="wellness-ath-table" style={{ minWidth:580 }}>
+          <div style={{ borderRadius:10, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div className="wellness-ath-table">
               <RPETableHeader />
               {filtered.map((a, i) => (
                 <RPERow

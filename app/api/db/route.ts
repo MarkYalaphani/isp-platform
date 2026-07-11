@@ -15,6 +15,10 @@ function getSession(req: NextRequest): SessionPayload | null {
   return auth.startsWith('Bearer ') ? verifyToken(auth.slice(7)) : null;
 }
 
+function isExpired(expiresAt: string | null | undefined): boolean {
+  return !!expiresAt && new Date(expiresAt).getTime() <= Date.now();
+}
+
 // ─── Transformers ─────────────────────────────────────────────────────────────
 function toTestRecord(r: Record<string, unknown>) {
   return {
@@ -181,6 +185,17 @@ export async function POST(req: NextRequest) {
     if (ADMIN_ONLY_ACTIONS.has(action) && session.role !== 'admin') {
       return NextResponse.json({ status: 'error', message: 'Forbidden' }, { status: 403 });
     }
+    // Account expiry gate — admin sets a per-user expiry date; once passed, block everything
+    if (session.role !== 'admin') {
+      const { data: acct } = await sb.from('users').select('expires_at').eq('username', session.username).maybeSingle();
+      if (isExpired(acct?.expires_at)) {
+        return NextResponse.json({
+          status: 'error', code: 'ACCOUNT_EXPIRED',
+          message: 'บัญชีของคุณหมดอายุการใช้งาน กรุณาติดต่อแอดมินเพื่อต่ออายุ',
+          expiresAt: acct!.expires_at,
+        }, { status: 403 });
+      }
+    }
     // Proactively refresh token when < 2 hours remain
     if (needsRefresh(session)) {
       refreshedToken = signToken({ ...session, iat: Date.now() });
@@ -233,7 +248,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           status: 'success',
           token,
-          user: { username: user.username, role: user.role, displayName: user.display_name, clubId: user.club_id, logoUrl: user.logo_url || '' },
+          user: { username: user.username, role: user.role, displayName: user.display_name, clubId: user.club_id, logoUrl: user.logo_url || '', expiresAt: user.expires_at || null },
         });
       }
 
@@ -566,24 +581,26 @@ export async function POST(req: NextRequest) {
       // ── USERS ──────────────────────────────────────────────────────────────
       case 'getUsers': {
         const { data, error } = await sb.from('users')
-          .select('username,role,display_name,club_id,created_at,logo_url').order('created_at');
+          .select('username,role,display_name,club_id,created_at,logo_url,expires_at').order('created_at');
         if (error) throw error;
         return NextResponse.json((data||[]).map(u => ({
           Username: u.username, Role: u.role,
           DisplayName: u.display_name, ClubID: u.club_id,
           CreatedAt: u.created_at, Password: '••••••••',
           LogoUrl: u.logo_url || '',
+          ExpiresAt: u.expires_at || '',
         })));
       }
 
       case 'addUser':
       case 'saveUser': {
-        const { username, password, role, displayName, clubId } = params;
+        const { username, password, role, displayName, clubId, expiresAt } = params;
         if (!username||!password) return NextResponse.json({ status: 'error', message: 'กรุณากรอกข้อมูล' });
         const hash = await bcrypt.hash(password, 10);
         const { error } = await sb.from('users').insert({
           username, password_hash: hash, role: role||'club',
           display_name: displayName||username, club_id: clubId||'',
+          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         });
         if (error?.code === '23505') return NextResponse.json({ status: 'error', message: 'Username นี้มีอยู่แล้ว' });
         if (error) throw error;
@@ -591,10 +608,11 @@ export async function POST(req: NextRequest) {
       }
 
       case 'updateUser': {
-        const { username, role, displayName, newPassword, logoBase64, logoMimeType } = params;
+        const { username, role, displayName, newPassword, logoBase64, logoMimeType, expiresAt } = params;
         const upd: Record<string, unknown> = {
           role: role || 'club',
           display_name: displayName || username,
+          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         };
         if (newPassword) upd.password_hash = await bcrypt.hash(newPassword, 10);
         if (logoBase64) {

@@ -6,6 +6,7 @@ import { callGAS } from '@/lib/api';
 
 import { parseClubPages, loadClubPagesLocal, saveClubPagesLocal } from '@/lib/clubSettings';
 import LoginModal from './LoginModal';
+import AccountExpiredModal from './AccountExpiredModal';
 import Sidebar from './Sidebar';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
@@ -50,6 +51,8 @@ export default function ScoutApp() {
   const [scoutPlayerId, setScoutPlayerId] = useState('');
   const [showProfile, setShowProfile]   = useState(false);
   const [darkMode, setDarkMode]         = useState(false);
+  const [accountExpired, setAccountExpired] = useState(false);
+  const [expiredAt, setExpiredAt]       = useState<string | null>(null);
   // Global Club role permissions (loaded once on mount)
   const [clubAllowedPages, setClubAllowedPages] = useState<string[]>([]);
 
@@ -105,10 +108,11 @@ export default function ScoutApp() {
         setAthletes(data.filter((a): a is Athlete => !('error' in a)));
       }
     } catch (e) {
-      if ((e as Error).message !== 'SESSION_EXPIRED') {
+      const msg = (e as Error).message;
+      if (msg !== 'SESSION_EXPIRED' && msg !== 'ACCOUNT_EXPIRED') {
         console.error('Failed to load athletes', e);
       }
-      // SESSION_EXPIRED handled by the event listener above
+      // SESSION_EXPIRED / ACCOUNT_EXPIRED handled by their event listeners
     } finally {
       setLoading(false);
     }
@@ -122,6 +126,13 @@ export default function ScoutApp() {
     setUser(loggedUser);
     sessionStorage.setItem('scoutUser', JSON.stringify(loggedUser));
     localStorage.setItem('scoutUser', JSON.stringify(loggedUser));
+    if (loggedUser.expiresAt && new Date(loggedUser.expiresAt).getTime() <= Date.now()) {
+      setExpiredAt(loggedUser.expiresAt);
+      setAccountExpired(true);
+    } else {
+      setAccountExpired(false);
+      setExpiredAt(null);
+    }
   };
 
   const handleUpdateUser = (updated: Partial<User>) => {
@@ -139,7 +150,36 @@ export default function ScoutApp() {
     sessionStorage.removeItem('scoutToken');
     localStorage.removeItem('scoutToken');
     setCurrentPage('home');
+    setAccountExpired(false);
+    setExpiredAt(null);
   };
+
+  // Account expiry: server blocks every action with ACCOUNT_EXPIRED once the admin-set date passes
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ expiresAt: string | null }>).detail;
+      setExpiredAt(detail?.expiresAt ?? null);
+      setAccountExpired(true);
+    };
+    window.addEventListener('account-expired', handler);
+    return () => window.removeEventListener('account-expired', handler);
+  }, []);
+
+  // Re-check by asking the server to refresh the token — succeeds only once the account is no longer expired
+  const handleRecheckAccount = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await callGAS('refreshToken') as { status?: string };
+      if (res.status === 'success') {
+        setAccountExpired(false);
+        setExpiredAt(null);
+        loadAthletes();
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, [loadAthletes]);
 
   // Auto-logout when session expires (detected by callGAS)
   useEffect(() => {
@@ -177,6 +217,10 @@ export default function ScoutApp() {
   };
 
   if (!user) return <LoginModal onLogin={handleLogin} />;
+
+  if (accountExpired) {
+    return <AccountExpiredModal expiresAt={expiredAt} onLogout={handleLogout} onRecheck={handleRecheckAccount} />;
+  }
 
   return (
     <div>

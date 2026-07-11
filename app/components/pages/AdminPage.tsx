@@ -43,7 +43,22 @@ const ROLE_CONFIG: Record<string, { label: string; bg: string; color: string }> 
   club:     { label: 'Club',     bg: '#eff6ff', color: '#1d4ed8' },
 };
 
-type EditForm = { username: string; newPassword: string; role: string; displayName: string; logoBase64: string; logoMimeType: string; logoPreview: string };
+type EditForm = { username: string; newPassword: string; role: string; displayName: string; logoBase64: string; logoMimeType: string; logoPreview: string; expiresAt: string };
+
+function addDaysISO(base: string, days: number): string {
+  const start = base ? new Date(base) : new Date();
+  const from = start.getTime() > Date.now() ? start : new Date();
+  from.setDate(from.getDate() + days);
+  return from.toISOString().split('T')[0];
+}
+
+function expiryStatus(expiresAt: string): { label: string; bg: string; color: string } {
+  if (!expiresAt) return { label: 'ไม่มีวันหมดอายุ', bg: 'var(--bg)', color: 'var(--text-muted)' };
+  const daysLeft = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  if (daysLeft <= 0) return { label: 'หมดอายุแล้ว', bg: '#fee2e2', color: '#b91c1c' };
+  if (daysLeft <= 7) return { label: `เหลือ ${daysLeft} วัน`, bg: '#fef3c7', color: '#92400e' };
+  return { label: `เหลือ ${daysLeft} วัน`, bg: '#dcfce7', color: '#166534' };
+}
 
 export default function AdminPage() {
   const [users, setUsers]               = useState<UserRecord[]>([]);
@@ -54,7 +69,7 @@ export default function AdminPage() {
     return b ? `${b}-${suffix}` : `CLUB-${suffix}${Math.random().toString(36).slice(2,4).toUpperCase()}`;
   };
   const [addForm, setAddForm] = useState(() => ({
-    username:'', password:'', role:'club', displayName:'', clubId: genClubId(),
+    username:'', password:'', role:'club', displayName:'', clubId: genClubId(), expiresAt:'',
   }));
   const [saving, setSaving]             = useState(false);
   const [editModal, setEditModal]       = useState<EditForm|null>(null);
@@ -119,14 +134,14 @@ export default function AdminPage() {
       const res = await callGAS('saveUser', addForm) as { status:string; message:string };
       if (res.status === 'success') {
         showToast(res.message, 'success');
-        setAddForm({ username:'', password:'', role:'club', displayName:'', clubId: genClubId() });
+        setAddForm({ username:'', password:'', role:'club', displayName:'', clubId: genClubId(), expiresAt:'' });
         loadUsers();
       } else showToast(res.message, 'error');
     } finally { setSaving(false); }
   };
 
   const openEdit = (u: UserRecord) =>
-    setEditModal({ username:u.Username, newPassword:'', role:u.Role||'club', displayName:u.DisplayName||'', logoBase64:'', logoMimeType:'', logoPreview: u.LogoUrl||'' });
+    setEditModal({ username:u.Username, newPassword:'', role:u.Role||'club', displayName:u.DisplayName||'', logoBase64:'', logoMimeType:'', logoPreview: u.LogoUrl||'', expiresAt: u.ExpiresAt ? u.ExpiresAt.split('T')[0] : '' });
 
   const handleEdit = async () => {
     if (!editModal) return;
@@ -137,6 +152,7 @@ export default function AdminPage() {
         newPassword: editModal.newPassword,
         role: editModal.role,
         displayName: editModal.displayName,
+        expiresAt: editModal.expiresAt,
       };
       if (editModal.logoBase64) {
         payload.logoBase64  = editModal.logoBase64;
@@ -301,16 +317,18 @@ export default function AdminPage() {
                       <th>ชื่อที่แสดง</th>
                       <th>Role</th>
                       <th>Club ID</th>
+                      <th>วันหมดอายุ</th>
                       <th>สร้างเมื่อ</th>
                       <th style={{ paddingRight:20 }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {users.length === 0 && (
-                      <tr><td colSpan={6} style={{ textAlign:'center', color:'var(--text-muted)', padding:32 }}>ไม่พบบัญชีผู้ใช้</td></tr>
+                      <tr><td colSpan={7} style={{ textAlign:'center', color:'var(--text-muted)', padding:32 }}>ไม่พบบัญชีผู้ใช้</td></tr>
                     )}
                     {users.map(u => {
                       const rc = ROLE_CONFIG[u.Role] || ROLE_CONFIG.club;
+                      const es = expiryStatus(u.ExpiresAt);
                       return (
                         <tr key={u.Username}>
                           <td style={{ paddingLeft:20, fontWeight:700 }}>{u.Username}</td>
@@ -329,6 +347,12 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td style={{ color:'var(--text-muted)', fontSize:'0.82rem' }}>{u.ClubID||'—'}</td>
+                          <td>
+                            {u.Role === 'admin'
+                              ? <span style={{ color:'var(--text-muted)', fontSize:'0.78rem' }}>—</span>
+                              : <span style={{ background:es.bg, color:es.color, padding:'3px 10px', borderRadius:6, fontSize:'0.7rem', fontWeight:800, whiteSpace:'nowrap' }}>{es.label}</span>
+                            }
+                          </td>
                           <td style={{ color:'var(--text-muted)', fontSize:'0.78rem' }}>{u.CreatedAt?.split('T')[0]||'—'}</td>
                           <td style={{ paddingRight:20 }}>
                             <div style={{ display:'flex', gap:6 }}>
@@ -406,7 +430,7 @@ export default function AdminPage() {
                   ใช้กรองนักกีฬาในสโมสร — แก้ไขได้ตามต้องการ
                 </div>
               </div>
-              <div className="mb-4">
+              <div className="mb-3">
                 <label className="form-label">Role</label>
                 <select className="form-select" value={addForm.role} onChange={e=>setAddForm(f=>({...f,role:e.target.value}))}>
                   <option value="club">Club — ใช้ตามสิทธิ์ที่ตั้งไว้ด้านบน</option>
@@ -414,6 +438,16 @@ export default function AdminPage() {
                   <option value="admin">Admin — ทุกฟีเจอร์ + จัดการระบบ</option>
                 </select>
               </div>
+              {addForm.role !== 'admin' && (
+                <div className="mb-4">
+                  <label className="form-label">
+                    วันหมดอายุการใช้งาน
+                    <span style={{ color:'var(--text-muted)', fontWeight:400, marginLeft:6 }}>(เว้นว่าง = ไม่มีวันหมดอายุ)</span>
+                  </label>
+                  <input type="date" className="form-control" value={addForm.expiresAt}
+                    onChange={e=>setAddForm(f=>({...f,expiresAt:e.target.value}))} />
+                </div>
+              )}
               <button type="submit" className="btn-primary w-100" disabled={saving} style={{ justifyContent:'center' }}>
                 {saving ? <><span className="spinner-ring" style={{ width:18,height:18,borderWidth:2,margin:0 }}/> กำลังสร้าง...</> : <><i className="bi bi-plus-lg me-1"/>สร้างบัญชี</>}
               </button>
@@ -467,7 +501,7 @@ export default function AdminPage() {
               </label>
               <input type="password" className="form-control" value={editModal.newPassword} onChange={e=>setEditModal(m=>m?{...m,newPassword:e.target.value}:null)} placeholder="รหัสผ่านใหม่..."/>
             </div>
-            <div className="mb-4">
+            <div className="mb-3">
               <label className="form-label">Role</label>
               <select className="form-select" value={editModal.role} onChange={e=>setEditModal(m=>m?{...m,role:e.target.value}:null)}>
                 <option value="club">Club — ใช้ตามสิทธิ์ที่ตั้งไว้</option>
@@ -475,6 +509,31 @@ export default function AdminPage() {
                 <option value="admin">Admin — ทุกฟีเจอร์ + จัดการระบบ</option>
               </select>
             </div>
+            {editModal.role !== 'admin' && (
+              <div className="mb-4">
+                <label className="form-label">
+                  วันหมดอายุการใช้งาน
+                  <span style={{ color:'var(--text-muted)', fontWeight:400, marginLeft:6 }}>(เว้นว่าง = ไม่มีวันหมดอายุ)</span>
+                </label>
+                <input type="date" className="form-control" value={editModal.expiresAt}
+                  onChange={e=>setEditModal(m=>m?{...m,expiresAt:e.target.value}:null)} />
+                <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
+                  {[7,30,90,365].map(d => (
+                    <button key={d} type="button"
+                      onClick={()=>setEditModal(m=>m?{...m,expiresAt:addDaysISO(m.expiresAt,d)}:null)}
+                      style={{ fontSize:'0.7rem', fontWeight:700, color:'#38bdf8', background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.3)', borderRadius:6, padding:'4px 9px', cursor:'pointer' }}>
+                      +{d} วัน
+                    </button>
+                  ))}
+                  {editModal.expiresAt && (
+                    <button type="button" onClick={()=>setEditModal(m=>m?{...m,expiresAt:''}:null)}
+                      style={{ fontSize:'0.7rem', fontWeight:700, color:'#ef4444', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:6, padding:'4px 9px', cursor:'pointer' }}>
+                      ล้างวันหมดอายุ
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
               <button className="btn-outline" onClick={()=>setEditModal(null)}>ยกเลิก</button>
               <button className="btn-primary" onClick={handleEdit} disabled={editSaving}>
