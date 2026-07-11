@@ -20,6 +20,7 @@ const PAGE_FEATURES = [
   /* Analysis */
   { id: 'compare',     labelTH: 'Compare',               icon: 'bi-intersect',             desc: 'Radar Chart เปรียบเทียบตัวต่อตัว', cat: 'analysis' },
   { id: 'lineup',      labelTH: 'Line-Up',               icon: 'bi-diagram-3',             desc: 'จัดทีม Formation · พิมพ์ PDF',    cat: 'analysis' },
+  { id: 'tactics',     labelTH: 'Tactics Board',         icon: 'bi-easel2',                desc: 'วางแผนแท็กติก วาดลูกศร/โซน',     cat: 'analysis' },
   { id: 'teamreport',  labelTH: 'Team Report',           icon: 'bi-bar-chart-line',        desc: 'รายงานสถิติทีมรวม',               cat: 'analysis' },
   /* Data Entry */
   { id: 'performance', labelTH: 'Update Results',        icon: 'bi-clipboard-data',        desc: 'อัพเดทผลการทดสอบ',               cat: 'data' },

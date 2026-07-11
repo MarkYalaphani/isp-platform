@@ -33,6 +33,7 @@ const SECTIONS = [
       { page: 'ir'               as Page, icon: 'bi-clipboard2-check-fill', label: 'IDP Report' },
       { page: 'compare'          as Page, icon: 'bi-intersect',             label: 'Compare' },
       { page: 'lineup'           as Page, icon: 'bi-diagram-3-fill',        label: 'Line Up' },
+      { page: 'tactics'          as Page, icon: 'bi-easel2-fill',           label: 'Tactics Board' },
     ],
   },
   {

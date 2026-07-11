@@ -24,6 +24,7 @@ import MigratePage from './pages/MigratePage';
 import ComparePage from './pages/ComparePage';
 import QuickTestPage from './pages/QuickTestPage';
 import LineupPage from './pages/LineupPage';
+import TacticsBoardPage from './pages/TacticsBoardPage';
 import WellnessPage from './pages/WellnessPage';
 import TesterPage from './pages/TesterPage';
 import HelpPage from './pages/HelpPage';
@@ -69,7 +70,7 @@ export default function ScoutApp() {
     document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
   };
 
-  const ALL_PAGE_IDS = ['dashboard','roster','scout','skill','attendance','wellness','nutrition','ir','compare','lineup','teamreport','performance','quicktest','register','training'];
+  const ALL_PAGE_IDS = ['dashboard','roster','scout','skill','attendance','wellness','nutrition','ir','compare','lineup','tactics','teamreport','performance','quicktest','register','training'];
 
   useEffect(() => {
     const saved = sessionStorage.getItem('scoutUser') || localStorage.getItem('scoutUser');
@@ -267,6 +268,7 @@ export default function ScoutApp() {
             {currentPage === 'teamreport'  && <TeamReportPage athletes={athletes} onNavigate={navigate} user={user} />}
             {currentPage === 'compare'     && <ComparePage athletes={athletes} onNavigate={navigate} />}
             {currentPage === 'lineup'       && <LineupPage athletes={athletes} onNavigate={navigate} user={user} />}
+            {currentPage === 'tactics'      && <TacticsBoardPage />}
             {currentPage === 'wellness'     && <WellnessPage athletes={athletes} user={user} />}
             {currentPage === 'adminUsers'  && user.role === 'admin' && <AdminPage />}
             {currentPage === 'migrate'     && user.role === 'admin' && <MigratePage />}
