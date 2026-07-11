@@ -156,7 +156,7 @@ export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpe
         )}
       </div>
 
-      <div className="sidebar-footer">ISP v2.0</div>
+      <div className="sidebar-footer">ISP v3.0 · Performance Intelligence</div>
     </nav>
   );
 }
