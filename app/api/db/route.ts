@@ -1166,6 +1166,55 @@ export async function POST(req: NextRequest) {
         }))));
       }
 
+      // ── NUTRITION PLANS ───────────────────────────────────────────────────────
+      case 'getNutritionPlans': {
+        const { playerId: npPlayerId } = params as { playerId?: string };
+        let q = sb.from('nutrition_plans').select('*').eq('club_id', session!.clubId).order('updated_at', { ascending: false }).limit(200);
+        if (npPlayerId) q = q.eq('player_id', npPlayerId);
+        const { data: npData, error: npErr } = await q;
+        if (npErr) throw npErr;
+        return withRefresh(NextResponse.json((npData || []).map((r: Record<string,unknown>) => ({
+          id: r.id, playerId: r.player_id, playerName: r.player_name, team: r.team,
+          gender: r.gender, age: r.age, weight: r.weight, height: r.height,
+          goal: r.goal, dayType: r.day_type, intensity: r.intensity,
+          targetKcal: r.target_kcal, carbG: r.carb_g, proteinG: r.protein_g, fatG: r.fat_g,
+          notes: r.notes || '', createdBy: r.created_by || '',
+          createdAt: r.created_at, updatedAt: r.updated_at,
+        }))));
+      }
+      case 'saveNutritionPlan': {
+        const snp = params as { playerId:string; playerName:string; team:string; gender:string; age:number; weight:number; height:number; goal:string; dayType:string; intensity:string; targetKcal:number; carbG:number; proteinG:number; fatG:number; notes?:string };
+        const { error: snpErr, data: snpData } = await sb.from('nutrition_plans').insert({
+          club_id: session!.clubId, player_id: snp.playerId, player_name: snp.playerName,
+          team: snp.team || '', gender: snp.gender, age: snp.age,
+          weight: snp.weight, height: snp.height, goal: snp.goal,
+          day_type: snp.dayType, intensity: snp.intensity,
+          target_kcal: snp.targetKcal, carb_g: snp.carbG, protein_g: snp.proteinG, fat_g: snp.fatG,
+          notes: snp.notes || '', created_by: session!.username,
+        }).select('id').single();
+        if (snpErr) throw snpErr;
+        return withRefresh(NextResponse.json({ status:'success', id: (snpData as {id:string}).id }));
+      }
+      case 'updateNutritionPlan': {
+        const unp = params as { id:string; gender:string; age:number; weight:number; height:number; goal:string; dayType:string; intensity:string; targetKcal:number; carbG:number; proteinG:number; fatG:number; notes?:string };
+        if (!unp.id) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
+        const { error: unpErr } = await sb.from('nutrition_plans').update({
+          gender: unp.gender, age: unp.age, weight: unp.weight, height: unp.height,
+          goal: unp.goal, day_type: unp.dayType, intensity: unp.intensity,
+          target_kcal: unp.targetKcal, carb_g: unp.carbG, protein_g: unp.proteinG, fat_g: unp.fatG,
+          notes: unp.notes || '', updated_at: new Date().toISOString(),
+        }).eq('id', unp.id).eq('club_id', session!.clubId);
+        if (unpErr) throw unpErr;
+        return withRefresh(NextResponse.json({ status:'success' }));
+      }
+      case 'deleteNutritionPlan': {
+        const { id: dnpId } = params as { id: string };
+        if (!dnpId) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
+        const { error: dnpErr } = await sb.from('nutrition_plans').delete().eq('id', dnpId).eq('club_id', session!.clubId);
+        if (dnpErr) throw dnpErr;
+        return withRefresh(NextResponse.json({ status:'success' }));
+      }
+
       case 'deleteMatch': {
         const { id: delMatchId } = params as { id: string };
         if (!delMatchId) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
