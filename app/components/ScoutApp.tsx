@@ -36,6 +36,7 @@ import CalendarPage from './pages/CalendarPage';
 import TrainingProgramPage from './pages/TrainingProgramPage';
 import MonitorPage from './pages/MonitorPage';
 import NutritionPage from './pages/NutritionPage';
+import NutritionPlannerPage from './pages/NutritionPlannerPage';
 import { useLang } from '@/lib/lang';
 
 export default function ScoutApp() {
@@ -232,7 +233,8 @@ export default function ScoutApp() {
             {currentPage === 'calendar'     && <CalendarPage athletes={athletes} user={user} onNavigate={navigate} />}
             {currentPage === 'goals'        && <TrainingProgramPage athletes={athletes} user={user} />}
             {currentPage === 'monitor'      && user.role === 'admin' && <MonitorPage />}
-            {currentPage === 'nutrition'    && <NutritionPage athletes={athletes} user={user} />}
+            {currentPage === 'nutrition'        && <NutritionPage athletes={athletes} user={user} />}
+            {currentPage === 'nutritionPlanner' && <NutritionPlannerPage athletes={athletes} />}
           </>
         )}
         <BottomNav currentPage={currentPage} onNavigate={navigate} onOpenMenu={() => setSidebarOpen(true)} />

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { Page, User } from '@/lib/types';
 import { LOGO_URL } from '@/lib/devData';
 import { useLang } from '@/lib/lang';
@@ -11,153 +12,149 @@ interface Props {
   onLogout: () => void;
   isOpen: boolean;
   onEditProfile: () => void;
-  clubAllowedPages?: string[]; // global Club permissions from server
+  clubAllowedPages?: string[];
 }
 
+const SECTIONS = [
+  {
+    label: 'Overview',
+    items: [
+      { page: 'home'      as Page, icon: 'bi-house-fill',              label: 'หน้าหลัก' },
+      { page: 'dashboard' as Page, icon: 'bi-grid-1x2-fill',           label: 'Dashboard' },
+      { page: 'help'      as Page, icon: 'bi-book-fill',               label: 'คู่มือ' },
+    ],
+  },
+  {
+    label: 'Athletes',
+    items: [
+      { page: 'roster'           as Page, icon: 'bi-people-fill',           label: 'Roster' },
+      { page: 'scout'            as Page, icon: 'bi-person-badge-fill',     label: 'Scout Report' },
+      { page: 'skill'            as Page, icon: 'bi-bullseye',              label: 'Skill Assessment' },
+      { page: 'ir'               as Page, icon: 'bi-clipboard2-check-fill', label: 'IDP Report' },
+      { page: 'compare'          as Page, icon: 'bi-intersect',             label: 'Compare' },
+      { page: 'lineup'           as Page, icon: 'bi-diagram-3-fill',        label: 'Line Up' },
+    ],
+  },
+  {
+    label: 'Training',
+    items: [
+      { page: 'attendance'       as Page, icon: 'bi-check2-square',         label: 'เช็คชื่อซ้อม' },
+      { page: 'wellness'         as Page, icon: 'bi-heart-pulse-fill',      label: 'Wellness & Load' },
+      { page: 'nutrition'        as Page, icon: 'bi-egg-fried',             label: 'Nutrition Check-in' },
+      { page: 'nutritionPlanner' as Page, icon: 'bi-calculator-fill',       label: 'Nutrition Planner' },
+      { page: 'training'         as Page, icon: 'bi-play-btn-fill',         label: 'Video Training' },
+    ],
+  },
+  {
+    label: 'Data',
+    items: [
+      { page: 'leaderboard' as Page, icon: 'bi-trophy-fill',            label: 'Leaderboard' },
+      { page: 'teamreport'  as Page, icon: 'bi-bar-chart-line-fill',    label: 'Team Report' },
+      { page: 'matchlog'    as Page, icon: 'bi-shield-check',           label: 'Match Log' },
+      { page: 'calendar'    as Page, icon: 'bi-calendar3',              label: 'ตารางซ้อม/แข่ง' },
+      { page: 'goals'       as Page, icon: 'bi-stars',                  label: 'Training Program' },
+      { page: 'performance' as Page, icon: 'bi-clipboard-data-fill',    label: 'Update Results' },
+      { page: 'quicktest'   as Page, icon: 'bi-lightning-fill',         label: 'Quick Test' },
+      { page: 'register'    as Page, icon: 'bi-person-plus-fill',       label: 'Add Athlete' },
+    ],
+  },
+];
+
+const ADMIN_ITEMS = [
+  { page: 'monitor'    as Page, icon: 'bi-display-fill',    label: 'System Monitor' },
+  { page: 'adminUsers' as Page, icon: 'bi-shield-lock',     label: 'User Management' },
+  { page: 'migrate'    as Page, icon: 'bi-database-up',     label: 'Migrate Data' },
+  { page: 'tester'     as Page, icon: 'bi-bug-fill',        label: 'System Tester' },
+];
+
 export default function Sidebar({ currentPage, onNavigate, user, onLogout, isOpen, onEditProfile, clubAllowedPages = [] }: Props) {
-  const { t } = useLang();
+  const touchStartX = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchEnd  = (e: React.TouchEvent) => {
+    if (e.changedTouches[0].clientX - touchStartX.current < -50) onNavigate(currentPage);
+  };
+
   const canAccess = (page: Page): boolean => {
     if (user.role === 'admin') return true;
     if (user.role === 'club_pro') return page !== 'adminUsers' && page !== 'migrate';
     if (page === 'home' || page === 'help') return true;
-    if (clubAllowedPages.length === 0) return true; // default while loading
+    if (clubAllowedPages.length === 0) return true;
     return clubAllowedPages.includes(page);
-  };
-
-  const link = (page: Page, icon: string, label: string) => {
-    if (!canAccess(page)) return null;
-    return (
-      <button
-        key={page}
-        className={`nav-link${currentPage === page ? ' active' : ''}`}
-        onClick={() => onNavigate(page)}
-      >
-        <i className={`bi ${icon}`} />
-        {label}
-      </button>
-    );
   };
 
   const avatarChar = (user.displayName || user.username).charAt(0).toUpperCase();
 
   return (
-    <nav className={`sidebar${isOpen ? ' open' : ''}`}>
-      {/* Brand — แสดง logo ของ team ถ้ามี */}
+    <nav className={`sidebar${isOpen ? ' open' : ''}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+
+      {/* Brand */}
       <div className="sidebar-brand">
         {user.logoUrl ? (
-          <img
-            src={user.logoUrl}
-            alt="Team Logo"
-            style={{ width: 54, height: 54, borderRadius: 14, objectFit: 'contain', marginBottom: 10, background: 'rgba(255,255,255,0.08)', padding: 4, border: '1px solid rgba(255,255,255,0.12)' }}
-          />
+          <img src={user.logoUrl} alt="Team Logo" className="sidebar-logo" />
         ) : (
-          <img
-            src={LOGO_URL}
-            alt="ISP"
-            style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', marginBottom: 14 }}
-          />
+          <img src={LOGO_URL} alt="ISP" className="sidebar-logo-default" />
         )}
-        <div className="brand-title">ISP</div>
+        <div className="brand-title">ISP Platform</div>
         <div className="brand-name">Sports Performance</div>
       </div>
 
-      {/* User badge */}
-      <div className="user-badge" style={{ cursor: 'default' }}>
-        {/* Avatar */}
-        <div
-          className="user-avatar-sm"
-          style={{ cursor: 'pointer', flexShrink: 0 }}
-          onClick={onEditProfile}
-          title="แก้ไขโปรไฟล์"
-        >
+      {/* User */}
+      <div className="user-badge" onClick={onEditProfile}>
+        <div className="user-avatar-sm">
           {user.logoUrl
-            ? <img src={user.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%', padding: 2 }} />
+            ? <img src={user.logoUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'contain', borderRadius:'50%', padding:2 }} />
             : avatarChar}
         </div>
-        {/* Name & role */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="user-badge-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.displayName || user.username}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div className="user-badge-name">{user.displayName || user.username}</div>
           <div className="user-badge-role">
-            {user.role === 'admin' ? '⚡ ADMIN' : user.role === 'club_pro' ? '🌟 CLUB PRO' : '🏟️ CLUB'}
+            {user.role === 'admin' ? 'Administrator' : user.role === 'club_pro' ? 'Club Pro' : 'Club'}
           </div>
         </div>
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-          <button
-            className="logout-btn"
-            onClick={onEditProfile}
-            title="แก้ไขโปรไฟล์"
-            style={{ fontSize: '0.75rem' }}
-          >
-            <i className="bi bi-gear-fill" />
-          </button>
-          <button
-            className="logout-btn"
-            onClick={onLogout}
-            title="ออกจากระบบ"
-          >
-            <i className="bi bi-box-arrow-right" />
-          </button>
-        </div>
+        <button className="logout-btn" onClick={e => { e.stopPropagation(); onLogout(); }} title="ออกจากระบบ">
+          <i className="bi bi-box-arrow-right" />
+        </button>
       </div>
 
+      {/* Nav */}
       <div className="nav-menu">
-        <div className="nav-section">Main</div>
-        {link('home', 'bi-house-fill', t('Home'))}
-        {link('help', 'bi-book-fill', t('คู่มือการใช้งาน'))}
-
-        <div className="nav-section">Overview</div>
-        {link('dashboard', 'bi-grid-1x2', t('Dashboard'))}
-
-        <div className="nav-section">Athletes</div>
-        {link('roster',     'bi-people',           t('Roster'))}
-        {link('scout',      'bi-person-vcard',      t('Scout Report'))}
-        {link('skill',      'bi-bullseye',          t('Skill Assessment'))}
-        {link('attendance', 'bi-check2-square',     t('เช็คชื่อซ้อม'))}
-        {link('wellness',   'bi-heart-pulse-fill',  t('Wellness & Load'))}
-        {link('nutrition',  'bi-egg-fried',          t('Nutrition Check-in'))}
-        {link('ir',         'bi-clipboard2-check',  t('IDP'))}
-        {link('compare',    'bi-intersect',         t('Compare'))}
-        {link('lineup',     'bi-diagram-3-fill',    t('Line Up'))}
-
-        <div className="nav-section">Training & Media</div>
-        {link('training', 'bi-play-btn-fill', t('Video Training'))}
-
-        <div className="nav-section">Data</div>
-        {link('leaderboard','bi-trophy-fill',         t('Leaderboard'))}
-        {link('teamreport', 'bi-bar-chart-line-fill', t('Team Report'))}
-        {link('matchlog',   'bi-shield-check',        t('Match Log'))}
-        {link('calendar',   'bi-calendar3',           t('ตารางซ้อม/แข่ง'))}
-        {link('goals',      'bi-stars',               t('Training Program'))}
-        {link('performance','bi-clipboard-data',       t('Update Results'))}
-        {link('quicktest',  'bi-lightning-fill',       t('Quick Test'))}
-        {link('register',   'bi-person-plus',          t('Add Athlete'))}
+        {SECTIONS.map(section => {
+          const visible = section.items.filter(i => canAccess(i.page));
+          if (!visible.length) return null;
+          return (
+            <div key={section.label}>
+              <div className="nav-section">{section.label}</div>
+              {visible.map(item => (
+                <button
+                  key={item.page}
+                  className={`nav-link${currentPage === item.page ? ' active' : ''}`}
+                  onClick={() => onNavigate(item.page)}
+                >
+                  <i className={`bi ${item.icon}`} />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          );
+        })}
 
         {user.role === 'admin' && (
-          <>
+          <div>
             <div className="nav-section">Admin</div>
-            {link('monitor',    'bi-display-fill',  'System Monitor')}
-            {link('adminUsers', 'bi-shield-lock',   'User Management')}
-            {link('migrate',    'bi-database-up',   'Migrate Data')}
-            {link('tester',     'bi-bug-fill',       'System Tester')}
-          </>
+            {ADMIN_ITEMS.map(item => (
+              <button
+                key={item.page}
+                className={`nav-link${currentPage === item.page ? ' active' : ''}`}
+                onClick={() => onNavigate(item.page)}
+              >
+                <i className={`bi ${item.icon}`} />
+                {item.label}
+              </button>
+            ))}
+          </div>
         )}
       </div>
-
-      {/* Profile shortcut at bottom */}
-      <button
-        onClick={onEditProfile}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-          padding: '10px 16px', marginTop: 8,
-          background: 'rgba(56,189,248,0.07)', border: '1px solid rgba(56,189,248,0.15)',
-          borderRadius: 10, cursor: 'pointer', color: '#7dd3fc',
-          fontSize: '0.78rem', fontWeight: 600, transition: 'all 0.15s',
-        }}
-      >
-        <i className="bi bi-person-gear" style={{ fontSize: '0.9rem' }}/>
-        <span>แก้ไขโปรไฟล์ / โลโก้</span>
-      </button>
 
       <div className="sidebar-footer">ISP v2.0</div>
     </nav>

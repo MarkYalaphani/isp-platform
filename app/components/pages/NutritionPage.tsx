@@ -13,6 +13,7 @@ interface NutritionCheckin {
   dayType: string; trainingType: string;
   coreChecks: boolean[]; extraChecks: boolean[];
   score: number; maxScore: number; submittedAt: string;
+  meals?: Record<string,string>;
 }
 interface OverviewRow {
   id: string; teamName: string; sessionDate: string;
@@ -43,6 +44,13 @@ const TRAINING_OPTS = [
 ];
 const TRAINING_LABEL: Record<string,string> = { recovery:'Recovery',strength:'Strength',field_gym:'Field+Gym',tactical:'Tactical',pre_match:'Pre-Match' };
 const DAY_TYPE_LABEL: Record<string,string> = { training:'วันซ้อม', match:'วันแข่ง', rest:'วันพัก' };
+const MEAL_TIMES: { id:string; label:string; icon:string }[] = [
+  { id:'breakfast',   label:'มื้อเช้า',       icon:'🌅' },
+  { id:'lunch',       label:'มื้อกลางวัน',    icon:'☀️' },
+  { id:'dinner',      label:'มื้อเย็น/ค่ำ',  icon:'🌙' },
+  { id:'preWorkout',  label:'ก่อนซ้อม/แข่ง', icon:'⚡' },
+  { id:'postWorkout', label:'หลังซ้อม/แข่ง', icon:'💪' },
+];
 
 function getStatus(score: number, max: number) {
   const p = max > 0 ? score / max : 0;
@@ -88,7 +96,11 @@ export default function NutritionPage({ athletes, user }: Props) {
   const [editTrainType, setEditTrainType] = useState('');
   const [editCore, setEditCore] = useState<boolean[]>(Array(11).fill(false));
   const [editExtra, setEditExtra] = useState<boolean[]>(Array(7).fill(false));
+  const [editMeals, setEditMeals] = useState<Record<string,string>>({});
   const [saving, setSaving] = useState(false);
+
+  // Meal detail popup
+  const [mealDetailCheckin, setMealDetailCheckin] = useState<NutritionCheckin | null>(null);
 
   // Delete checkin confirm
   const [confirmDeleteCheckin, setConfirmDeleteCheckin] = useState<string | null>(null);
@@ -205,6 +217,7 @@ export default function NutritionPage({ athletes, user }: Props) {
     setEditTrainType(c.trainingType || '');
     setEditCore(c.coreChecks.length === CORE_ITEMS.length ? [...c.coreChecks] : Array(CORE_ITEMS.length).fill(false));
     setEditExtra(c.extraChecks.length === MATCH_ITEMS.length ? [...c.extraChecks] : Array(MATCH_ITEMS.length).fill(false));
+    setEditMeals(c.meals || {});
   };
 
   const handleSaveEdit = async () => {
@@ -214,6 +227,7 @@ export default function NutritionPage({ athletes, user }: Props) {
       await callGAS('updateNutritionCheckin', {
         id: editCheckin.id, dayType: editDayType, trainingType: editTrainType,
         coreChecks: editCore, extraChecks: editDayType === 'match' ? editExtra : [],
+        meals: editMeals,
       });
       showToast('บันทึกสำเร็จ', 'success');
       setEditCheckin(null);
@@ -260,8 +274,39 @@ export default function NutritionPage({ athletes, user }: Props) {
   };
 
   // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Derived: meal diary compliance in current session ────────────────────────
+  const mealCount = checkins.filter(c => c.meals && Object.values(c.meals).some(v => v?.trim())).length;
+
   return (
     <div>
+      {/* Meal detail modal */}
+      {mealDetailCheckin && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:1050, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }} onClick={e => { if (e.target === e.currentTarget) setMealDetailCheckin(null); }}>
+          <div style={{ background:'var(--surface)', borderRadius:16, padding:24, width:'100%', maxWidth:420, boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+              <div style={{ fontWeight:800, fontSize:'0.95rem' }}>🍽️ ไดอารี่อาหาร — {mealDetailCheckin.playerName}</div>
+              <button onClick={() => setMealDetailCheckin(null)} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:'var(--text-muted)' }}>×</button>
+            </div>
+            {MEAL_TIMES.map(m => {
+              const val = mealDetailCheckin.meals?.[m.id];
+              return (
+                <div key={m.id} style={{ display:'flex', gap:10, padding:'10px 0', borderBottom:'1px solid var(--border)', alignItems:'flex-start' }}>
+                  <span style={{ fontSize:'1.1rem', flexShrink:0, marginTop:1 }}>{m.icon}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:'0.68rem', color:'var(--text-muted)', fontWeight:600, marginBottom:2 }}>{m.label}</div>
+                    <div style={{ fontSize:'0.85rem', color: val ? 'var(--text)' : 'var(--text-muted)', fontStyle: val ? 'normal' : 'italic' }}>
+                      {val || 'ไม่ได้บันทึก'}
+                    </div>
+                  </div>
+                  {val && <span style={{ color:'#10b981', fontSize:'0.75rem', flexShrink:0, alignSelf:'center' }}>✓</span>}
+                </div>
+              );
+            })}
+            <button onClick={() => setMealDetailCheckin(null)} className="btn-outline" style={{ width:'100%', marginTop:14, justifyContent:'center' }}>ปิด</button>
+          </div>
+        </div>
+      )}
+
       {/* Edit checkin modal */}
       {editCheckin && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }} onClick={e => { if (e.target === e.currentTarget) setEditCheckin(null); }}>
@@ -310,6 +355,24 @@ export default function NutritionPage({ athletes, user }: Props) {
                 ))}
               </div>
             )}
+            {/* Meals */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontWeight:700, fontSize:'0.82rem', color:'#10b981', marginBottom:8 }}>
+                🍽️ ไดอารี่มื้ออาหาร ({Object.values(editMeals).filter(v=>v?.trim()).length}/{MEAL_TIMES.length})
+              </div>
+              {MEAL_TIMES.map(m => (
+                <div key={m.id} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                  <span style={{ fontSize:'0.9rem', flexShrink:0, width:20 }}>{m.icon}</span>
+                  <label style={{ fontSize:'0.72rem', color:'var(--text-muted)', width:90, flexShrink:0 }}>{m.label}</label>
+                  <input
+                    value={editMeals[m.id] || ''}
+                    onChange={e => setEditMeals(prev => ({ ...prev, [m.id]: e.target.value }))}
+                    placeholder="ไม่ได้บันทึก"
+                    style={{ flex:1, padding:'6px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text)', fontSize:'0.8rem', outline:'none' }}
+                  />
+                </div>
+              ))}
+            </div>
             <div style={{ display:'flex', gap:10, marginTop:8 }}>
               <button onClick={handleSaveEdit} disabled={saving} className="btn-primary" style={{ flex:1 }}>
                 {saving ? <><span className="spinner-ring" style={{width:14,height:14,borderWidth:2,margin:0}}/> บันทึก...</> : <><i className="bi bi-check-lg me-1"/>บันทึก</>}
@@ -442,6 +505,16 @@ export default function NutritionPage({ athletes, user }: Props) {
                 </div>
               </div>
 
+              {/* Meal diary compliance info card */}
+              <div className="surface" style={{ padding:'14px 18px', marginBottom:20, borderLeft:'4px solid #a78bfa' }}>
+                <div style={{ fontWeight:700, fontSize:'0.85rem', marginBottom:6, display:'flex', alignItems:'center', gap:8 }}>
+                  <span>🍽️</span> ไดอารี่มื้ออาหาร
+                </div>
+                <p style={{ fontSize:'0.8rem', color:'var(--text-muted)', margin:0, lineHeight:1.7 }}>
+                  นักกีฬาสามารถบันทึกมื้ออาหารได้ตรงจาก QR Code — ดูรายละเอียดรายคนได้ใน Tab <strong>QR / Dashboard</strong> → คลิกปุ่ม <span style={{ color:'#10b981', fontWeight:700 }}>🍽️ X มื้อ</span> ในตาราง
+                </p>
+              </div>
+
               {/* Recent 15 sessions */}
               <div className="surface" style={{ padding:0, overflow:'hidden' }}>
                 <div style={{ padding:'12px 18px', borderBottom:'1px solid var(--border)', fontWeight:700, fontSize:'0.85rem' }}>
@@ -544,6 +617,7 @@ export default function NutritionPage({ athletes, user }: Props) {
                       { l:'🟢 Nutrition Ready', v:greenCount, c:'#10b981' },
                       { l:'🟡 ต้องปรับ', v:yellowCount, c:'#f59e0b' },
                       { l:'🔴 เสี่ยง', v:redCount, c:'#ef4444' },
+                      { l:'🍽️ บันทึกอาหาร', v:mealCount, c:'#a78bfa' },
                     ].map(k => (
                       <div key={k.l} style={{ background:'var(--bg)', border:'1px solid var(--border)', borderRadius:10, padding:'10px 12px', borderLeft:`3px solid ${k.c}` }}>
                         <div style={{ fontWeight:900, fontSize:'1.4rem', color:k.c }}>{k.v}</div>
@@ -580,7 +654,7 @@ export default function NutritionPage({ athletes, user }: Props) {
                   <div style={{ overflowX:'auto' }}>
                     <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.8rem' }}>
                       <thead><tr style={{ background:'var(--bg)' }}>
-                        {['นักกีฬา','ประเภทวัน','คะแนน','สถานะ','จุดที่ขาด','จัดการ'].map(h => (
+                        {['นักกีฬา','ประเภทวัน','คะแนน','สถานะ','จุดที่ขาด','มื้ออาหาร','จัดการ'].map(h => (
                           <th key={h} style={{ padding:'8px 14px', fontWeight:700, color:'var(--text-muted)', borderBottom:'1px solid var(--border)', textAlign: h==='นักกีฬา'?'left':'center', whiteSpace:'nowrap' }}>{h}</th>
                         ))}
                       </tr></thead>
@@ -625,6 +699,19 @@ export default function NutritionPage({ athletes, user }: Props) {
                                 ) : (
                                   <span style={{ fontSize:'0.7rem', color:'#10b981', fontWeight:600 }}>ครบทุกข้อ ✓</span>
                                 )}
+                              </td>
+                              <td style={{ textAlign:'center', padding:'8px 10px' }}>
+                                {(() => {
+                                  const mealLogged = c.meals && Object.values(c.meals).some(v=>v?.trim());
+                                  const mealCount2 = c.meals ? Object.values(c.meals).filter(v=>v?.trim()).length : 0;
+                                  return mealLogged ? (
+                                    <button onClick={() => setMealDetailCheckin(c)} title="ดูไดอารี่อาหาร" style={{ background:'rgba(16,185,129,0.1)', color:'#10b981', border:'1px solid rgba(16,185,129,0.25)', borderRadius:6, padding:'4px 10px', fontSize:'0.7rem', cursor:'pointer', fontWeight:700, whiteSpace:'nowrap' }}>
+                                      🍽️ {mealCount2} มื้อ
+                                    </button>
+                                  ) : (
+                                    <span style={{ fontSize:'0.68rem', color:'var(--text-muted)' }}>—</span>
+                                  );
+                                })()}
                               </td>
                               <td style={{ textAlign:'center', padding:'8px 10px', whiteSpace:'nowrap' }}>
                                 {isDeleting ? (

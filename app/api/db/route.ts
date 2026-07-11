@@ -1045,6 +1045,7 @@ export async function POST(req: NextRequest) {
           dayType: r.day_type, trainingType: r.training_type || '',
           coreChecks: r.core_checks, extraChecks: r.extra_checks || [],
           score: r.score, maxScore: r.max_score, submittedAt: r.submitted_at,
+          meals: (r.meals as Record<string,string>|null) || {},
         }))));
       }
       // PUBLIC: no auth required
@@ -1068,7 +1069,7 @@ export async function POST(req: NextRequest) {
         });
       }
       case 'submitNutritionCheckin': {
-        const snc = params as { token:string; playerId:string; playerName:string; dayType:string; trainingType:string; coreChecks:boolean[]; extraChecks:boolean[] };
+        const snc = params as { token:string; playerId:string; playerName:string; dayType:string; trainingType:string; coreChecks:boolean[]; extraChecks:boolean[]; meals?:Record<string,string> };
         const { data: sncSess } = await sb.from('nutrition_sessions').select('id').eq('id', snc.token).maybeSingle();
         if (!sncSess) return NextResponse.json({ status:'error', message:'session_not_found' }, { status:404 });
         const { data: sncDup } = await sb.from('nutrition_checkins')
@@ -1076,12 +1077,16 @@ export async function POST(req: NextRequest) {
         if (sncDup) return NextResponse.json({ status:'error', message:'already_submitted' });
         const sncScore = [...(snc.coreChecks||[]), ...(snc.extraChecks||[])].filter(Boolean).length;
         const sncMax = (snc.coreChecks||[]).length + (snc.extraChecks||[]).length;
-        const { error: sncErr } = await sb.from('nutrition_checkins').insert({
+        const sncData: Record<string,unknown> = {
           session_id: sncSess.id, player_id: snc.playerId, player_name: snc.playerName,
           day_type: snc.dayType, training_type: snc.trainingType||'',
           core_checks: snc.coreChecks||[], extra_checks: snc.extraChecks||[],
           score: sncScore, max_score: sncMax,
-        });
+        };
+        if (snc.meals && Object.values(snc.meals).some(v => v)) sncData.meals = snc.meals;
+        let { error: sncErr } = await sb.from('nutrition_checkins').insert(sncData);
+        // Graceful fallback if meals column doesn't exist yet (run migration first)
+        if (sncErr?.code === '42703') { delete sncData.meals; ({ error: sncErr } = await sb.from('nutrition_checkins').insert(sncData)); }
         if (sncErr) throw sncErr;
         return NextResponse.json({ status:'success', score: sncScore, maxScore: sncMax });
       }
@@ -1102,15 +1107,18 @@ export async function POST(req: NextRequest) {
         return withRefresh(NextResponse.json({ status:'success' }));
       }
       case 'updateNutritionCheckin': {
-        const unc = params as { id:string; dayType:string; trainingType:string; coreChecks:boolean[]; extraChecks:boolean[] };
+        const unc = params as { id:string; dayType:string; trainingType:string; coreChecks:boolean[]; extraChecks:boolean[]; meals?:Record<string,string> };
         if (!unc.id) return NextResponse.json({ status:'error', message:'missing id' }, { status:400 });
         const uncScore = [...(unc.coreChecks||[]), ...(unc.extraChecks||[])].filter(Boolean).length;
         const uncMax = (unc.coreChecks||[]).length + (unc.extraChecks||[]).length;
-        const { error: uncErr } = await sb.from('nutrition_checkins').update({
+        const uncData: Record<string,unknown> = {
           day_type: unc.dayType, training_type: unc.trainingType || '',
           core_checks: unc.coreChecks||[], extra_checks: unc.extraChecks||[],
           score: uncScore, max_score: uncMax,
-        }).eq('id', unc.id);
+        };
+        if (unc.meals !== undefined) uncData.meals = unc.meals;
+        let { error: uncErr } = await sb.from('nutrition_checkins').update(uncData).eq('id', unc.id);
+        if (uncErr?.code === '42703') { delete uncData.meals; ({ error: uncErr } = await sb.from('nutrition_checkins').update(uncData).eq('id', unc.id)); }
         if (uncErr) throw uncErr;
         return withRefresh(NextResponse.json({ status:'success', score: uncScore, maxScore: uncMax }));
       }

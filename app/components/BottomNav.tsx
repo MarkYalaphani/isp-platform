@@ -26,17 +26,22 @@ export default function BottomNav({ currentPage, onNavigate, onOpenMenu }: Props
           .bottom-nav {
             display: flex;
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: 0; left: 0; right: 0;
             z-index: 1100;
             width: 100%;
             height: calc(56px + env(safe-area-inset-bottom, 0px));
             padding-bottom: env(safe-area-inset-bottom, 0px);
-            background: #ffffff;
-            border-top: 1px solid rgba(15,23,42,0.10);
-            box-shadow: 0 -2px 12px rgba(15,23,42,0.07);
+            background: rgba(255,255,255,0.88);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            backdrop-filter: blur(20px) saturate(180%);
+            border-top: 0.5px solid rgba(0,0,0,0.12);
             align-items: stretch;
+          }
+          @media (prefers-color-scheme: dark) {
+            .bottom-nav {
+              background: rgba(28,28,30,0.90);
+              border-top-color: rgba(255,255,255,0.08);
+            }
           }
           .bottom-nav-tab {
             flex: 1;
@@ -51,20 +56,25 @@ export default function BottomNav({ currentPage, onNavigate, onOpenMenu }: Props
             padding: 6px 4px;
             font-family: inherit;
             transition: color 0.15s;
-            color: #94a3b8;
+            color: #8e8e93;
+            min-height: 44px;
           }
           .bottom-nav-tab.active {
-            color: #38bdf8;
+            color: #0066cc;
           }
           .bottom-nav-tab i {
-            font-size: 1.2rem;
+            font-size: 1.22rem;
             line-height: 1;
           }
           .bottom-nav-tab span {
-            font-size: 0.6rem;
-            font-weight: 700;
-            letter-spacing: 0.3px;
+            font-size: 0.58rem;
+            font-weight: 600;
+            letter-spacing: 0.01em;
             line-height: 1;
+          }
+          @media (prefers-color-scheme: dark) {
+            .bottom-nav-tab { color: #636366; }
+            .bottom-nav-tab.active { color: #2997ff; }
           }
         }
       `}</style>
