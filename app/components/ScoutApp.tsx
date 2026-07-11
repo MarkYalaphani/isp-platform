@@ -37,6 +37,7 @@ import TrainingProgramPage from './pages/TrainingProgramPage';
 import MonitorPage from './pages/MonitorPage';
 import NutritionPage from './pages/NutritionPage';
 import NutritionPlannerPage from './pages/NutritionPlannerPage';
+import ISPLoader from './ISPLoader';
 import { useLang } from '@/lib/lang';
 
 export default function ScoutApp() {
@@ -204,7 +205,7 @@ export default function ScoutApp() {
           </div>
         </div>
 
-        {loading && <div style={{ textAlign: 'center', padding: 40 }}><div className="spinner-ring" /></div>}
+        {loading && <ISPLoader />}
 
         {!loading && (
           <>
