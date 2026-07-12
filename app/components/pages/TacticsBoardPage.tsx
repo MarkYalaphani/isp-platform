@@ -1,14 +1,28 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   TacticsSession, TBFrame, TBToken, TBArrow, TBShape, TBText, TokenKind, LineStyle,
   newSession, newFrame, cloneFrame, upsertSession,
   PLAYER_COLORS, DRAW_COLORS, EQUIPMENT, FORMATIONS, GK_COLOR,
 } from '@/lib/tactics';
-import TacticsPitch, { DrawTool, Selection } from '../tactics/TacticsPitch';
+import type { DrawTool, Selection, TacticsPitch3DHandle } from '../tactics/TacticsPitch3D';
 import TacticsLibraryModal from '../tactics/TacticsLibraryModal';
 import { showToast } from '@/lib/toast';
+
+const TacticsPitch3D = dynamic(() => import('../tactics/TacticsPitch3D'), {
+  ssr: false,
+  loading: () => (
+    <div style={{
+      width: '100%', aspectRatio: '1.54', borderRadius: 14,
+      background: '#0b1220', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#94a3b8', fontWeight: 700, fontSize: '0.85rem',
+    }}>
+      กำลังโหลดกระดาน 3D...
+    </div>
+  ),
+});
 
 // ─── small building blocks ──────────────────────────────────────────────────
 function ToolbarBtn({ icon, label, onClick, active, disabled }: { icon: string; label: string; onClick: () => void; active?: boolean; disabled?: boolean }) {
@@ -112,6 +126,9 @@ export default function TacticsBoardPage() {
 
   const historyRef = useRef<TBFrame[][]>([]);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const pitchRef = useRef<TacticsPitch3DHandle>(null);
+  const [printSnapshots, setPrintSnapshots] = useState<string[] | null>(null);
+  const [capturing, setCapturing] = useState(false);
 
   const currentFrame = session.frames[frameIdx] ?? session.frames[0];
 
@@ -237,17 +254,37 @@ export default function TacticsBoardPage() {
   };
 
   // ── export ────────────────────────────────────────────────────────────────
+  const waitForRender = () => new Promise<void>(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+
   const exportImage = async () => {
-    if (!canvasWrapRef.current) return;
-    const { default: html2canvas } = await import('html2canvas');
-    const canvas = await html2canvas(canvasWrapRef.current, { backgroundColor: null, scale: 2 });
+    await waitForRender();
+    const dataUrl = pitchRef.current?.captureImage();
+    if (!dataUrl) { showToast('ไม่สามารถบันทึกรูปภาพได้', 'error'); return; }
     const link = document.createElement('a');
     link.download = `${session.name || 'tactics'}.png`;
-    link.href = canvas.toDataURL('image/png');
+    link.href = dataUrl;
     link.click();
   };
 
-  const exportPdf = () => window.print();
+  const exportPdf = async () => {
+    setCapturing(true);
+    const originalIdx = frameIdx;
+    const snapshots: string[] = [];
+    for (let i = 0; i < session.frames.length; i++) {
+      setFrameIdx(i);
+      await waitForRender();
+      const dataUrl = pitchRef.current?.captureImage();
+      if (dataUrl) snapshots.push(dataUrl);
+    }
+    setFrameIdx(originalIdx);
+    setPrintSnapshots(snapshots);
+    setCapturing(false);
+    await waitForRender();
+    window.print();
+    setPrintSnapshots(null);
+  };
 
   // ── keyboard delete safety net (bottom toolbar covers click path) ───────
   useEffect(() => {
@@ -322,7 +359,8 @@ export default function TacticsBoardPage() {
       <div className="tb-body">
         <div className="tb-canvas-col">
           <div ref={canvasWrapRef} style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center', transition: 'transform .15s' }}>
-            <TacticsPitch
+            <TacticsPitch3D
+              ref={pitchRef}
               frame={currentFrame}
               orientation={session.orientation}
               tool={tool}
@@ -499,11 +537,22 @@ export default function TacticsBoardPage() {
         {session.frames.map((f, i) => (
           <div key={f.id} style={{ pageBreakInside: 'avoid', marginBottom: 28 }}>
             <div style={{ fontWeight: 800, marginBottom: 6 }}>เฟรมที่ {i + 1}</div>
-            <TacticsPitch frame={f} orientation={session.orientation} tool="select" activeColor="#111827" activeLineStyle="solid"
-              arrowHead locked selected={null} onSelect={() => {}} onChange={() => {}} transparency={0.35} />
+            {printSnapshots?.[i] && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={printSnapshots[i]} alt={`เฟรมที่ ${i + 1}`} style={{ width: '100%', borderRadius: 8 }} />
+            )}
           </div>
         ))}
       </div>
+
+      {capturing && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700,
+        }} className="tb-no-print">
+          <i className="bi bi-hourglass-split me-2" /> กำลังจับภาพทุกเฟรมสำหรับ PDF...
+        </div>
+      )}
 
       {showLibrary === 'open' && <TacticsLibraryModal mode="open" onClose={() => setShowLibrary(null)} onOpen={handleOpen} />}
       {showLibrary === 'saveAs' && <TacticsLibraryModal mode="saveAs" onClose={() => setShowLibrary(null)} onSaveAs={handleSaveAs} currentName={session.name} currentFolder={session.folder} />}
