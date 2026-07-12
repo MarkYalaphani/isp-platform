@@ -232,7 +232,7 @@ const TacticsPitch3D = forwardRef<TacticsPitch3DHandle, Props>(function TacticsP
     const payload = JSON.parse(raw) as DragPayload;
     const pct = screenToPct(e.clientX, e.clientY, api.camera, api.gl.domElement);
     if (!pct) return;
-    const token: TBToken = { id: crypto.randomUUID(), kind: payload.kind, x: pct.x, y: pct.y, color: payload.color, label: payload.label, rotation: 0 };
+    const token: TBToken = { id: crypto.randomUUID(), kind: payload.kind, x: pct.x, y: pct.y, color: payload.color, label: payload.label, rotation: 0, pose: 'standing' };
     onChange(f => ({ ...f, tokens: [...f.tokens, token] }));
     onSelect({ kind: 'token', id: token.id });
   };

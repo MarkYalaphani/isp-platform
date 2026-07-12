@@ -2,6 +2,8 @@
 
 export type TokenKind = 'player' | 'cone' | 'disc' | 'pole' | 'mannequin' | 'miniGoal' | 'ball' | 'bench';
 
+export type PlayerPose = 'standing' | 'running' | 'dribbling' | 'pointing' | 'sliding';
+
 export interface TBToken {
   id: string;
   kind: TokenKind;
@@ -10,7 +12,16 @@ export interface TBToken {
   color: string;
   label: string;     // shirt number / short text
   rotation: number;  // degrees — used by pole / miniGoal / bench
+  pose?: PlayerPose; // player / mannequin only — defaults to 'standing' when absent
 }
+
+export const PLAYER_POSES: { id: PlayerPose; label: string; icon: string }[] = [
+  { id: 'standing', label: 'ยืน', icon: 'bi-person-standing' },
+  { id: 'running', label: 'วิ่ง', icon: 'bi-person-walking' },
+  { id: 'dribbling', label: 'เลี้ยงบอล', icon: 'bi-dribbble' },
+  { id: 'pointing', label: 'ชี้นำ', icon: 'bi-hand-index-thumb' },
+  { id: 'sliding', label: 'สไลด์แท็คเกิล', icon: 'bi-arrow-down-right-square' },
+];
 
 export type LineStyle = 'solid' | 'dashed' | 'dotted';
 export type ArrowShape = 'straight' | 'curved' | 'squiggly';

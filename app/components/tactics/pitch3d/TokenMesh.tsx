@@ -4,10 +4,12 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import type { ThreeEvent } from '@react-three/fiber';
 import { Billboard, Text } from '@react-three/drei';
-import { TBToken } from '@/lib/tactics';
+import { TBToken, PlayerPose } from '@/lib/tactics';
 import { pctToWorld } from './coords';
 import { contrastColor, SELECT_COLOR } from './colors';
 import { getBallTexture } from './ballTexture';
+import { getNetTexture } from './netTexture';
+import { POSES, LimbPose } from './playerPoses';
 
 interface Props {
   token: TBToken;
@@ -16,17 +18,37 @@ interface Props {
   onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
 }
 
-function PlayerFigure({ color }: { color: string }) {
+const ARM_R = 0.085;
+const LEG_R = 0.115;
+
+function Limb({ pose, radius, color }: { pose: LimbPose; radius: number; color: string }) {
+  const height = Math.max(0.05, pose.length - 2 * radius);
   return (
-    <group castShadow>
-      <mesh position={[0, 0.85, 0]} castShadow>
-        <capsuleGeometry args={[0.42, 0.85, 4, 12]} />
+    <group position={pose.pivot} rotation={pose.rotation}>
+      <mesh position={[0, -pose.length / 2, 0]} castShadow>
+        <capsuleGeometry args={[radius, height, 4, 8]} />
         <meshStandardMaterial color={color} roughness={0.55} />
       </mesh>
-      <mesh position={[0, 1.62, 0]} castShadow>
-        <sphereGeometry args={[0.3, 16, 16]} />
+    </group>
+  );
+}
+
+function PlayerFigure({ color, pose = 'standing' }: { color: string; pose?: PlayerPose }) {
+  const t = POSES[pose];
+  return (
+    <group rotation={t.groupRotation} position={t.groupOffset}>
+      <mesh position={t.torso.position} rotation={t.torso.rotation} castShadow>
+        <capsuleGeometry args={[0.23, 0.34, 4, 12]} />
+        <meshStandardMaterial color={color} roughness={0.55} />
+      </mesh>
+      <mesh position={t.head.position} castShadow>
+        <sphereGeometry args={[0.19, 16, 16]} />
         <meshStandardMaterial color="#f2c9a0" roughness={0.6} />
       </mesh>
+      <Limb pose={t.armL} radius={ARM_R} color={color} />
+      <Limb pose={t.armR} radius={ARM_R} color={color} />
+      <Limb pose={t.legL} radius={LEG_R} color="#1f2937" />
+      <Limb pose={t.legR} radius={LEG_R} color="#1f2937" />
     </group>
   );
 }
@@ -59,24 +81,49 @@ function PoleFigure({ color }: { color: string }) {
 }
 
 function MiniGoalFigure({ color }: { color: string }) {
-  const postH = 1.15, span = 1.5;
+  const postH = 1.25, span = 1.6, depth = 0.65;
+  const net = useMemo(() => getNetTexture(), []);
+  const netMat = { map: net, transparent: true, opacity: 0.85, side: THREE.DoubleSide, color: '#f8fafc' } as const;
   return (
     <group>
+      {/* posts + crossbar */}
       <mesh position={[-span / 2, postH / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.06, postH, 10]} />
-        <meshStandardMaterial color={color} roughness={0.3} />
+        <cylinderGeometry args={[0.055, 0.055, postH, 10]} />
+        <meshStandardMaterial color={color} roughness={0.25} metalness={0.1} />
       </mesh>
       <mesh position={[span / 2, postH / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.06, postH, 10]} />
-        <meshStandardMaterial color={color} roughness={0.3} />
+        <cylinderGeometry args={[0.055, 0.055, postH, 10]} />
+        <meshStandardMaterial color={color} roughness={0.25} metalness={0.1} />
       </mesh>
       <mesh position={[0, postH, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-        <cylinderGeometry args={[0.06, 0.06, span, 10]} />
+        <cylinderGeometry args={[0.055, 0.055, span, 10]} />
+        <meshStandardMaterial color={color} roughness={0.25} metalness={0.1} />
+      </mesh>
+      {/* back support posts */}
+      <mesh position={[-span / 2, postH * 0.3, -depth]}>
+        <cylinderGeometry args={[0.035, 0.035, postH * 0.6, 8]} />
         <meshStandardMaterial color={color} roughness={0.3} />
       </mesh>
-      <mesh position={[0, postH * 0.55, -0.35]}>
+      <mesh position={[span / 2, postH * 0.3, -depth]}>
+        <cylinderGeometry args={[0.035, 0.035, postH * 0.6, 8]} />
+        <meshStandardMaterial color={color} roughness={0.3} />
+      </mesh>
+      {/* net cage: back, two sides, roof */}
+      <mesh position={[0, postH / 2, -depth]}>
         <planeGeometry args={[span, postH]} />
-        <meshStandardMaterial color="#e2e8f0" transparent opacity={0.18} side={THREE.DoubleSide} />
+        <meshStandardMaterial {...netMat} />
+      </mesh>
+      <mesh position={[-span / 2, postH / 2, -depth / 2]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[depth, postH]} />
+        <meshStandardMaterial {...netMat} />
+      </mesh>
+      <mesh position={[span / 2, postH / 2, -depth / 2]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[depth, postH]} />
+        <meshStandardMaterial {...netMat} />
+      </mesh>
+      <mesh position={[0, postH, -depth / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[span, depth]} />
+        <meshStandardMaterial {...netMat} />
       </mesh>
     </group>
   );
@@ -111,18 +158,37 @@ function BenchFigure({ color }: { color: string }) {
   );
 }
 
+const HIT_TARGET_SIZE: Record<string, { radius: number; height: number }> = {
+  player: { radius: 0.6, height: 2.0 },
+  mannequin: { radius: 0.6, height: 2.0 },
+  pole: { radius: 0.5, height: 2.2 },
+  miniGoal: { radius: 0.75, height: 1.3 },
+  cone: { radius: 0.5, height: 0.9 },
+  disc: { radius: 0.5, height: 0.4 },
+  ball: { radius: 0.5, height: 0.5 },
+  bench: { radius: 0.6, height: 0.6 },
+};
+
 export default function TokenMesh({ token, selected, locked, onPointerDown }: Props) {
   const [wx, , wz] = pctToWorld(token.x, token.y);
   const showLabel = token.kind === 'player' && token.label;
+  const hit = HIT_TARGET_SIZE[token.kind] ?? { radius: 0.5, height: 1.0 };
+  const lift = selected ? 0.06 : 0;
 
   return (
     <group
-      position={[wx, 0, wz]}
+      position={[wx, lift, wz]}
       rotation={[0, THREE.MathUtils.degToRad(token.rotation || 0), 0]}
       onPointerDown={onPointerDown}
       onPointerOver={() => { if (!locked) document.body.style.cursor = 'grab'; }}
       onPointerOut={() => { document.body.style.cursor = 'auto'; }}
     >
+      {/* enlarged invisible hit target — easier to grab thin equipment (cones/poles/discs) without pixel-precise clicks */}
+      <mesh position={[0, hit.height / 2, 0]}>
+        <cylinderGeometry args={[hit.radius, hit.radius, hit.height, 10]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
       {selected && (
         <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.55, 0.68, 32]} />
@@ -130,8 +196,8 @@ export default function TokenMesh({ token, selected, locked, onPointerDown }: Pr
         </mesh>
       )}
 
-      {token.kind === 'player' && <PlayerFigure color={token.color} />}
-      {token.kind === 'mannequin' && <PlayerFigure color={token.color} />}
+      {token.kind === 'player' && <PlayerFigure color={token.color} pose={token.pose} />}
+      {token.kind === 'mannequin' && <PlayerFigure color={token.color} pose={token.pose} />}
       {token.kind === 'cone' && <ConeFigure color={token.color} />}
       {token.kind === 'disc' && <DiscFigure color={token.color} />}
       {token.kind === 'pole' && <PoleFigure color={token.color} />}

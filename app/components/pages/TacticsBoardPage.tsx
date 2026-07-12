@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
-  TacticsSession, TBFrame, TBToken, TBArrow, TBShape, TBText, TokenKind, LineStyle,
+  TacticsSession, TBFrame, TBToken, TBArrow, TBShape, TBText, TokenKind, LineStyle, PlayerPose,
   newSession, newFrame, cloneFrame, upsertSession,
-  PLAYER_COLORS, DRAW_COLORS, EQUIPMENT, FORMATIONS, GK_COLOR,
+  PLAYER_COLORS, DRAW_COLORS, EQUIPMENT, FORMATIONS, GK_COLOR, PLAYER_POSES,
 } from '@/lib/tactics';
 import type { DrawTool, Selection, TacticsPitch3DHandle } from '../tactics/TacticsPitch3D';
 import TacticsLibraryModal from '../tactics/TacticsLibraryModal';
@@ -247,7 +247,7 @@ export default function TacticsBoardPage() {
     let num = 1;
     const tokens: TBToken[] = formation.positions.map(p => ({
       id: crypto.randomUUID(), kind: 'player', x: p.x, y: p.y,
-      color: p.role === 'GK' ? gkColor : playerColor, label: String(num++), rotation: 0,
+      color: p.role === 'GK' ? gkColor : playerColor, label: String(num++), rotation: 0, pose: 'standing',
     }));
     updateFrame(f => ({ ...f, tokens }));
     setOpen(o => ({ ...o, formations: false, players: true }));
@@ -303,7 +303,33 @@ export default function TacticsBoardPage() {
     e.dataTransfer.effectAllowed = 'copy';
   };
 
+  // ── one-click placement — click a player/equipment swatch to drop it on the pitch
+  // immediately (no drag required), then nudge it into place with a quick drag if needed ──
+  const placementCountRef = useRef(0);
+  const addTokenAtDefault = (kind: TokenKind, color: string, label: string) => {
+    if (locked) return;
+    const n = placementCountRef.current++;
+    const cols = 5;
+    const x = 30 + (n % cols) * 10;
+    const y = 40 + (Math.floor(n / cols) % 4) * 8;
+    const token: TBToken = { id: crypto.randomUUID(), kind, x, y, color, label, rotation: 0, pose: 'standing' };
+    updateFrame(f => ({ ...f, tokens: [...f.tokens, token] }));
+    setSelected({ kind: 'token', id: token.id });
+  };
+
+  const addPlayerAtDefault = () => {
+    addTokenAtDefault('player', playerColor, String(playerNum));
+    setPlayerNum(n => n + 1);
+  };
+
   const selIsShape = selected?.kind === 'shape';
+  const selectedToken = selected?.kind === 'token' ? currentFrame.tokens.find(t => t.id === selected.id) : null;
+  const selIsPoseToken = selectedToken && (selectedToken.kind === 'player' || selectedToken.kind === 'mannequin');
+
+  const setSelectedPose = (pose: PlayerPose) => {
+    if (!selected || selected.kind !== 'token') return;
+    updateFrame(f => ({ ...f, tokens: f.tokens.map(t => t.id === selected.id ? { ...t, pose } : t) }));
+  };
 
   return (
     <div className="tb-page">
@@ -380,11 +406,12 @@ export default function TacticsBoardPage() {
           <Accordion title="Players" open={open.players} onToggle={() => setOpen(o => ({ ...o, players: !o.players }))}>
             <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
               <div draggable onDragStart={e => beginTokenDrag(e, 'player', playerColor, String(playerNum))}
-                style={{ width: 40, height: 40, borderRadius: '50%', background: playerColor, border: '2px solid rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: playerColor === '#f8fafc' ? '#111' : '#fff', cursor: 'grab', flexShrink: 0 }}>
+                onClick={addPlayerAtDefault} title="คลิกเพื่อวางลงสนามทันที หรือลากไปตำแหน่งที่ต้องการ"
+                style={{ width: 40, height: 40, borderRadius: '50%', background: playerColor, border: '2px solid rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: playerColor === '#f8fafc' ? '#111' : '#fff', cursor: 'pointer', flexShrink: 0 }}>
                 {playerNum}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 700, marginBottom: 5 }}>ผู้เล่น — ลากลงสนาม</div>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, marginBottom: 5 }}>ผู้เล่น — คลิกเพื่อวาง หรือลากลงสนาม</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {PLAYER_COLORS.map(c => (
                     <button key={c} className={`tb-swatch${playerColor === c ? ' sel' : ''}`} style={{ background: c }} onClick={() => setPlayerColor(c)} />
@@ -398,11 +425,12 @@ export default function TacticsBoardPage() {
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <div draggable onDragStart={e => beginTokenDrag(e, 'player', gkColor, 'GK')}
-                style={{ width: 40, height: 40, borderRadius: '50%', background: gkColor, border: '2px solid rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.68rem', color: '#111', cursor: 'grab', flexShrink: 0 }}>
+                onClick={() => addTokenAtDefault('player', gkColor, 'GK')} title="คลิกเพื่อวางลงสนามทันที หรือลากไปตำแหน่งที่ต้องการ"
+                style={{ width: 40, height: 40, borderRadius: '50%', background: gkColor, border: '2px solid rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.68rem', color: '#111', cursor: 'pointer', flexShrink: 0 }}>
                 GK
               </div>
               <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 700 }}>ผู้รักษาประตู — ลากลงสนาม</div>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700 }}>ผู้รักษาประตู — คลิกเพื่อวาง หรือลากลงสนาม</div>
               </div>
             </div>
           </Accordion>
@@ -410,7 +438,8 @@ export default function TacticsBoardPage() {
           <Accordion title="Equipment" open={open.equipment} onToggle={() => setOpen(o => ({ ...o, equipment: !o.equipment }))}>
             <div className="tb-eq-grid">
               {EQUIPMENT.map(eq => (
-                <div key={eq.kind} className="tb-eq-item" draggable onDragStart={e => beginTokenDrag(e, eq.kind, eq.color, '')}>
+                <div key={eq.kind} className="tb-eq-item" draggable onDragStart={e => beginTokenDrag(e, eq.kind, eq.color, '')}
+                  onClick={() => addTokenAtDefault(eq.kind, eq.color, '')} title="คลิกเพื่อวางลงสนามทันที หรือลากไปตำแหน่งที่ต้องการ">
                   <i className={`bi ${eq.icon}`} style={{ color: eq.color }} />
                   {eq.label}
                 </div>
@@ -499,6 +528,20 @@ export default function TacticsBoardPage() {
           <button className={`tb-tool-btn${!locked ? ' sel' : ''}`} title="ปลดล็อก" onClick={() => setLocked(false)}><i className="bi bi-unlock-fill" /></button>
           <button className={`tb-tool-btn${locked ? ' sel' : ''}`} title="ล็อกกระดาน" onClick={() => setLocked(true)}><i className="bi bi-lock-fill" /></button>
         </div>
+        {selIsPoseToken && (
+          <>
+            <div className="tb-bottom-sep" />
+            <div className="tb-bottom-group">
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>ท่าทาง</span>
+              {PLAYER_POSES.map(p => (
+                <button key={p.id} className={`tb-tool-btn${(selectedToken?.pose ?? 'standing') === p.id ? ' sel' : ''}`}
+                  title={p.label} onClick={() => setSelectedPose(p.id)}>
+                  <i className={`bi ${p.icon}`} />
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         <div className="tb-bottom-sep" />
         <div className="tb-bottom-group" style={{ minWidth: 150 }}>
           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>โปร่งใส</span>
