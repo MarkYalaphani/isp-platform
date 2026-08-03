@@ -112,20 +112,23 @@ export const DEV_DATA: Record<string, DevMetric> = {
 };
 
 // Yo-Yo IR Level 1 — standard Bangsbo protocol
+// Source: Bangsbo J, Iaia FM, Krustrup P., Sports Med 2008; 38(1): 37-51
+// (verified against the official recording sheet / table at theyoyotest.com)
+// Valid speed levels only — 6, 7, 8, 10 are not used in the test
+export const YOYO_LEVELS = [5, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+
 // YOYO_BASE: cumulative distance (m) at START of each level (before any shuttle at that level)
 export const YOYO_BASE: Record<number, number> = {
-  5:0,    6:120,  7:240,  8:360,  9:480,
-  10:600, 11:720, 12:840, 13:960, 14:1080,
-  15:1280, 16:1480, 17:1680, 18:2000, 19:2320,
-  20:2640, 21:2960, 22:3280, 23:3600,
+  5:0,    9:40,   11:80,  12:160, 13:280,
+  14:440, 15:760, 16:1080, 17:1400, 18:1720,
+  19:2040, 20:2360, 21:2680, 22:3000, 23:3320,
 };
 
-// Max shuttles per level (varies: 3 for lv5–13, 5 for lv14–16, 8 for lv17–23)
+// Max shuttles per level (1 for lv5/9, 2 for lv11, 3 for lv12, 4 for lv13, 8 for lv14–23)
 export const YOYO_MAX_SHUTTLE: Record<number, number> = {
-  5:3,  6:3,  7:3,  8:3,  9:3,  10:3,
-  11:3, 12:3, 13:3,
-  14:5, 15:5, 16:5,
-  17:8, 18:8, 19:8, 20:8, 21:8, 22:8, 23:8,
+  5:1, 9:1,
+  11:2, 12:3, 13:4,
+  14:8, 15:8, 16:8, 17:8, 18:8, 19:8, 20:8, 21:8, 22:8, 23:8,
 };
 
 export function calcYoyoDist(level: string | number, shuttle: string | number): number {

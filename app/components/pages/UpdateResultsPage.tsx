@@ -5,7 +5,7 @@ import { Athlete } from '@/lib/types';
 import { callGAS } from '@/lib/api';
 import { showToast } from '@/lib/toast';
 import { getScorePoint, SCORE_COLORS } from '@/lib/score';
-import { calcYoyoDist, calcVo2, YOYO_MAX_SHUTTLE } from '@/lib/devData';
+import { calcYoyoDist, calcVo2, YOYO_MAX_SHUTTLE, YOYO_LEVELS } from '@/lib/devData';
 
 interface Props { athletes: Athlete[]; onSuccess: () => void; }
 
@@ -217,7 +217,7 @@ function SingleTab({ athletes, onSuccess }: Props) {
                 <label className="form-label">Level</label>
                 <select className="form-select" value={form.yoyoLevel} onChange={e => { set('yoyoLevel', e.target.value); set('yoyoShuttle', ''); }}>
                   <option value="">- เลือก -</option>
-                  {Array.from({length:19},(_,i)=>i+5).map(v => <option key={v} value={v}>{v}</option>)}
+                  {YOYO_LEVELS.map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               <div style={{ flex: '1 1 130px' }}>
@@ -535,7 +535,7 @@ function BulkTab({ athletes, onSuccess }: Props) {
                           {f.k === 'yoyoLevel' ? (
                             <select className="bulk-input" value={data[a.PlayerID]?.[f.k] || ''} onChange={e => setCell(a.PlayerID, f.k, e.target.value)}>
                               <option value="">-</option>
-                              {Array.from({length:19},(_,i)=>i+5).map(v => <option key={v} value={v}>{v}</option>)}
+                              {YOYO_LEVELS.map(v => <option key={v} value={v}>{v}</option>)}
                             </select>
                           ) : f.k === 'yoyoShuttle' ? (
                             <select className="bulk-input" value={data[a.PlayerID]?.[f.k] || ''} onChange={e => setCell(a.PlayerID, f.k, e.target.value)}>
