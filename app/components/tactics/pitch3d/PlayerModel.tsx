@@ -16,9 +16,19 @@ type PoseBones = Partial<Record<
   BoneDelta
 >>;
 
-// Rotation deltas applied on top of the model's bind pose (a relaxed standing
-// pose already, not a T-pose) — signs mirror the existing capsule POSES in
-// playerPoses.ts. Approximate; not visually tuned against the real rig.
+// The model's bind pose is a literal T-pose (arms straight out horizontally,
+// verified by walking the joint hierarchy — see rig_inspect.js). These are
+// the exact bone-local delta quaternions that rotate each upper arm's WORLD
+// orientation by ±90° about Z so it points straight down instead — computed
+// as worldQuat(bone)^-1 * worldRotation * worldQuat(bone), not guessed.
+// Applied as a base layer before any pose-specific delta below.
+const ARM_DOWN_L = new THREE.Quaternion(-0.0000582, 0.0214006, -0.7067829, 0.7071068);
+const ARM_DOWN_R = new THREE.Quaternion(-0.0000582, -0.0214006, 0.7067829, 0.7071068);
+
+// Rotation deltas applied on top of the arms-down base pose. Legs/spine were
+// already close to a natural standing pose in the bind data, so those axes
+// weren't affected by the T-pose issue; arm deltas here are relative to the
+// now-lowered arm and are an approximation, not verified against the rig.
 const POSE_BONES: Record<PlayerPose, PoseBones> = {
   standing: {},
   running: {
@@ -129,6 +139,8 @@ export default function PlayerModel({ color, pose = 'standing' }: Props) {
       const bone = bones[name];
       const bindQuat = bind[name];
       if (bindQuat) bone.quaternion.copy(bindQuat);
+      if (name === 'upperarm_l') bone.quaternion.multiply(ARM_DOWN_L);
+      if (name === 'upperarm_r') bone.quaternion.multiply(ARM_DOWN_R);
       const d = (deltas as Record<string, BoneDelta | undefined>)[name];
       if (d) {
         if (d.x) bone.rotateX(d.x);
