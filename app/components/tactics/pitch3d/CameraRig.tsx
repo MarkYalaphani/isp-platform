@@ -6,14 +6,17 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
+// Closer default than a full-pitch overview — at the old distance (~113)
+// a player token rendered as a barely-visible speck. Users can still zoom
+// out to the full pitch with the on-screen zoom-out button.
 const PRESETS: Record<'vertical' | 'horizontal', { pos: [number, number, number] }> = {
-  vertical: { pos: [0, 92, 66] },
-  horizontal: { pos: [92, 66, 0] },
+  vertical: { pos: [0, 53, 38] },
+  horizontal: { pos: [53, 38, 0] },
 };
 
 const MIN_POLAR = THREE.MathUtils.degToRad(18);
 const MAX_POLAR = THREE.MathUtils.degToRad(78);
-const MIN_DIST = 35;
+const MIN_DIST = 20;
 const MAX_DIST = 170;
 
 export interface CameraRigHandle {

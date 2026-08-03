@@ -34,6 +34,34 @@ function ToolbarBtn({ icon, label, onClick, active, disabled }: { icon: string; 
   );
 }
 
+function FileMenu({ onNew, onOpen, onSave, onSaveAs }: { onNew: () => void; onOpen: () => void; onSave: () => void; onSaveAs: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+  const item = (icon: string, label: string, onClick: () => void) => (
+    <button className="tb-filemenu-item" onClick={() => { onClick(); setOpen(false); }}>
+      <i className={`bi ${icon}`} /> {label}
+    </button>
+  );
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <ToolbarBtn icon="bi-folder2" label="File" onClick={() => setOpen(o => !o)} active={open} />
+      {open && (
+        <div className="tb-filemenu">
+          {item('bi-file-earmark-plus', 'New', onNew)}
+          {item('bi-folder2-open', 'Open', onOpen)}
+          {item('bi-save', 'Save', onSave)}
+          {item('bi-save2-fill', 'Save As', onSaveAs)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Accordion({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
   return (
     <div className="tb-accordion">
@@ -343,6 +371,9 @@ export default function TacticsBoardPage() {
         .tb-toolbtn:hover { background:var(--bg); color:var(--ink); }
         .tb-toolbtn.active { background:#38bdf822; color:#38bdf8; border-color:#38bdf855; }
         .tb-toolbtn:disabled { opacity:0.35; cursor:not-allowed; }
+        .tb-filemenu { position:absolute; top:calc(100% + 4px); left:0; z-index:20; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.25); padding:6px; display:flex; flex-direction:column; gap:2px; min-width:140px; }
+        .tb-filemenu-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:none; background:none; border-radius:7px; cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--ink); text-align:left; white-space:nowrap; }
+        .tb-filemenu-item:hover { background:var(--bg); }
         .tb-body { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
         .tb-canvas-col { flex:1 1 520px; min-width:280px; max-width:800px; }
         .tb-panel { width:280px; flex-shrink:0; background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
@@ -370,10 +401,7 @@ export default function TacticsBoardPage() {
       <div className="tb-toolbar tb-no-print">
         <input className="tb-name-input" value={session.name} onChange={e => setSession(s => ({ ...s, name: e.target.value }))} />
         <div className="tb-toolbar-actions">
-          <ToolbarBtn icon="bi-file-earmark-plus" label="New" onClick={handleNew} />
-          <ToolbarBtn icon="bi-folder2-open" label="Open" onClick={() => setShowLibrary('open')} />
-          <ToolbarBtn icon="bi-save" label="Save" onClick={handleSave} />
-          <ToolbarBtn icon="bi-save2-fill" label="Save As" onClick={() => setShowLibrary('saveAs')} />
+          <FileMenu onNew={handleNew} onOpen={() => setShowLibrary('open')} onSave={handleSave} onSaveAs={() => setShowLibrary('saveAs')} />
           <ToolbarBtn icon="bi-clipboard2-pulse" label="Notes" onClick={() => setShowNotes(true)} />
           <ToolbarBtn icon="bi-share" label="Export" onClick={() => setShowExport(true)} />
           <ToolbarBtn icon={session.orientation === 'vertical' ? 'bi-phone' : 'bi-tablet-landscape'} label="หมุนสนาม"
