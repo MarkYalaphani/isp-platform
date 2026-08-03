@@ -9,6 +9,7 @@ import { pctToWorld } from './coords';
 import { contrastColor, SELECT_COLOR } from './colors';
 import { getBallTexture } from './ballTexture';
 import { getNetTexture } from './netTexture';
+import PlayerModel from './PlayerModel';
 
 interface Props {
   token: TBToken;
@@ -17,57 +18,8 @@ interface Props {
   onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
 }
 
-// Always-camera-facing flat "sprite" figure — jersey-colored torso, white
-// shorts, simple limb silhouette. Billboard keeps it readable at any camera
-// angle/zoom, matching how top-down tactics-board apps render players.
-const SPRITE_SHORTS = '#f1f5f9';
-const SPRITE_SKIN = '#f2c9a0';
-const SPRITE_LEG = '#1f2937';
-
-interface FlatPose { legL: number; legR: number; armL: number; armR: number; tilt: number; }
-const FLAT_POSES: Record<PlayerPose, FlatPose> = {
-  standing: { legL: 0.1, legR: -0.1, armL: 0.15, armR: -0.15, tilt: 0 },
-  running: { legL: 0.6, legR: -0.7, armL: -0.55, armR: 0.6, tilt: 0.06 },
-  dribbling: { legL: 0.3, legR: 0.15, armL: 0.35, armR: -0.35, tilt: -0.08 },
-  pointing: { legL: 0.1, legR: -0.1, armL: 0.15, armR: -1.3, tilt: -0.05 },
-  sliding: { legL: 1.15, legR: -0.35, armL: -0.55, armR: 0.65, tilt: 0.18 },
-};
-
-function SpriteLimb({ pivot, angle, length, radius, color }: { pivot: [number, number]; angle: number; length: number; radius: number; color: string }) {
-  return (
-    <group position={[pivot[0], pivot[1], 0]} rotation={[0, 0, angle]}>
-      <mesh position={[0, -length / 2, 0]}>
-        <capsuleGeometry args={[radius, Math.max(0.02, length - 2 * radius), 4, 8]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-    </group>
-  );
-}
-
 function PlayerFigure({ color, pose = 'standing' }: { color: string; pose?: PlayerPose }) {
-  const p = FLAT_POSES[pose] ?? FLAT_POSES.standing;
-  return (
-    <Billboard>
-      <group rotation={[0, 0, p.tilt]}>
-        <mesh position={[0, 1.56, 0.01]}>
-          <circleGeometry args={[0.16, 20]} />
-          <meshBasicMaterial color={SPRITE_SKIN} />
-        </mesh>
-        <mesh position={[0, 1.14, 0]}>
-          <capsuleGeometry args={[0.22, 0.32, 4, 12]} />
-          <meshBasicMaterial color={color} />
-        </mesh>
-        <mesh position={[0, 0.82, -0.005]}>
-          <capsuleGeometry args={[0.19, 0.06, 4, 8]} />
-          <meshBasicMaterial color={SPRITE_SHORTS} />
-        </mesh>
-        <SpriteLimb pivot={[-0.24, 1.28]} angle={p.armL} length={0.42} radius={0.075} color={color} />
-        <SpriteLimb pivot={[0.24, 1.28]} angle={p.armR} length={0.42} radius={0.075} color={color} />
-        <SpriteLimb pivot={[-0.12, 0.78]} angle={p.legL} length={0.5} radius={0.09} color={SPRITE_LEG} />
-        <SpriteLimb pivot={[0.12, 0.78]} angle={p.legR} length={0.5} radius={0.09} color={SPRITE_LEG} />
-      </group>
-    </Billboard>
-  );
+  return <PlayerModel color={color} pose={pose} />;
 }
 
 function ConeFigure({ color }: { color: string }) {
