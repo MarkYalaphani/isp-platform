@@ -11,7 +11,7 @@ import { worldToPct } from './pitch3d/coords';
 import { screenToPct } from './pitch3d/raycast';
 import { useGroundDrag, DragState } from './pitch3d/useGroundDrag';
 import PitchSurface from './pitch3d/PitchSurface';
-import CameraRig from './pitch3d/CameraRig';
+import CameraRig, { CameraRigHandle } from './pitch3d/CameraRig';
 import TokenMesh from './pitch3d/TokenMesh';
 import ArrowMesh from './pitch3d/ArrowMesh';
 import ShapeMesh from './pitch3d/ShapeMesh';
@@ -71,8 +71,8 @@ function DraftPreview({
 
 function SceneContent({
   frame, orientation, tool, activeColor, activeLineStyle, arrowHead, locked,
-  selected, onSelect, onChange, transparency,
-}: Props) {
+  selected, onSelect, onChange, transparency, cameraRigRef,
+}: Props & { cameraRigRef: React.RefObject<CameraRigHandle | null> }) {
   const [draft, setDraft] = useState<Draft>(null);
   const [editingText, setEditingText] = useState<string | null>(null);
 
@@ -163,7 +163,7 @@ function SceneContent({
     <>
       <color attach="background" args={['#0b1220']} />
       <fog attach="fog" args={['#0b1220', 90, 230]} />
-      <CameraRig orientation={orientation} />
+      <CameraRig ref={cameraRigRef} orientation={orientation} />
       <PitchSurface onGroundPointerDown={handleGroundPointerDown} />
 
       {frame.shapes.map(s => (
@@ -212,6 +212,7 @@ function SceneContent({
 const TacticsPitch3D = forwardRef<TacticsPitch3DHandle, Props>(function TacticsPitch3D(props, ref) {
   const { locked, orientation, onChange, onSelect } = props;
   const apiRef = useRef<RendererApi | null>(null);
+  const cameraRigRef = useRef<CameraRigHandle | null>(null);
 
   useImperativeHandle(ref, () => ({
     captureImage: () => {
@@ -255,8 +256,33 @@ const TacticsPitch3D = forwardRef<TacticsPitch3DHandle, Props>(function TacticsP
         camera={{ fov: 45, near: 0.5, far: 500 }}
         onCreated={(state: RootState) => { apiRef.current = { gl: state.gl, camera: state.camera, scene: state.scene }; }}
       >
-        <SceneContent {...props} />
+        <SceneContent {...props} cameraRigRef={cameraRigRef} />
       </Canvas>
+
+      <div className="pitch-cam-controls tb-no-print">
+        <div className="pitch-cam-group">
+          <button type="button" title="หมุนซ้าย" onClick={() => cameraRigRef.current?.rotate(-15)}><i className="bi bi-arrow-counterclockwise" /></button>
+          <button type="button" title="เอียงขึ้น" onClick={() => cameraRigRef.current?.tilt(-8)}><i className="bi bi-chevron-up" /></button>
+          <button type="button" title="หมุนขวา" onClick={() => cameraRigRef.current?.rotate(15)}><i className="bi bi-arrow-clockwise" /></button>
+        </div>
+        <div className="pitch-cam-group">
+          <button type="button" title="ซูมออก" onClick={() => cameraRigRef.current?.zoom(1.15)}><i className="bi bi-dash-lg" /></button>
+          <button type="button" title="เอียงลง" onClick={() => cameraRigRef.current?.tilt(8)}><i className="bi bi-chevron-down" /></button>
+          <button type="button" title="ซูมเข้า" onClick={() => cameraRigRef.current?.zoom(0.87)}><i className="bi bi-plus-lg" /></button>
+        </div>
+        <button type="button" className="pitch-cam-reset" title="รีเซ็ตมุมมอง" onClick={() => cameraRigRef.current?.reset()}>
+          <i className="bi bi-camera-fill" /> รีเซ็ตมุมมอง
+        </button>
+      </div>
+
+      <style>{`
+        .pitch-cam-controls { position:absolute; right:10px; bottom:10px; display:flex; flex-direction:column; align-items:flex-end; gap:6px; z-index:5; }
+        .pitch-cam-group { display:grid; grid-template-columns:repeat(3,28px); gap:3px; }
+        .pitch-cam-group button, .pitch-cam-reset { background:rgba(15,23,42,0.72); border:1px solid rgba(255,255,255,0.15); color:#e2e8f0; border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(2px); }
+        .pitch-cam-group button { width:28px; height:28px; font-size:0.85rem; }
+        .pitch-cam-group button:hover, .pitch-cam-reset:hover { background:rgba(56,189,248,0.35); border-color:#38bdf8; }
+        .pitch-cam-reset { padding:5px 10px; font-size:0.68rem; font-weight:700; gap:5px; }
+      `}</style>
     </div>
   );
 });

@@ -9,7 +9,7 @@ import { pctToWorld } from './coords';
 import { contrastColor, SELECT_COLOR } from './colors';
 import { getBallTexture } from './ballTexture';
 import { getNetTexture } from './netTexture';
-import { POSES, LimbPose } from './playerPoses';
+import PlayerModel from './PlayerModel';
 
 interface Props {
   token: TBToken;
@@ -18,39 +18,8 @@ interface Props {
   onPointerDown?: (e: ThreeEvent<PointerEvent>) => void;
 }
 
-const ARM_R = 0.085;
-const LEG_R = 0.115;
-
-function Limb({ pose, radius, color }: { pose: LimbPose; radius: number; color: string }) {
-  const height = Math.max(0.05, pose.length - 2 * radius);
-  return (
-    <group position={pose.pivot} rotation={pose.rotation}>
-      <mesh position={[0, -pose.length / 2, 0]} castShadow>
-        <capsuleGeometry args={[radius, height, 4, 8]} />
-        <meshStandardMaterial color={color} roughness={0.55} />
-      </mesh>
-    </group>
-  );
-}
-
 function PlayerFigure({ color, pose = 'standing' }: { color: string; pose?: PlayerPose }) {
-  const t = POSES[pose];
-  return (
-    <group rotation={t.groupRotation} position={t.groupOffset}>
-      <mesh position={t.torso.position} rotation={t.torso.rotation} castShadow>
-        <capsuleGeometry args={[0.23, 0.34, 4, 12]} />
-        <meshStandardMaterial color={color} roughness={0.55} />
-      </mesh>
-      <mesh position={t.head.position} castShadow>
-        <sphereGeometry args={[0.19, 16, 16]} />
-        <meshStandardMaterial color="#f2c9a0" roughness={0.6} />
-      </mesh>
-      <Limb pose={t.armL} radius={ARM_R} color={color} />
-      <Limb pose={t.armR} radius={ARM_R} color={color} />
-      <Limb pose={t.legL} radius={LEG_R} color="#1f2937" />
-      <Limb pose={t.legR} radius={LEG_R} color="#1f2937" />
-    </group>
-  );
+  return <PlayerModel color={color} pose={pose} />;
 }
 
 function ConeFigure({ color }: { color: string }) {

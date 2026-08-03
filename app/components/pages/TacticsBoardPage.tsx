@@ -449,6 +449,20 @@ export default function TacticsBoardPage() {
 
           <Accordion title="Tools" open={open.tools} onToggle={() => setOpen(o => ({ ...o, tools: !o.tools }))}>
             <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5 }}>เครื่องมือวาด</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button className={`tb-tool-btn${tool === 'select' ? ' sel' : ''}`} title="เลือก/ย้าย" onClick={() => setTool('select')}><i className="bi bi-cursor-fill" /></button>
+                <button className={`tb-tool-btn${tool === 'arrow-straight' ? ' sel' : ''}`} title="เส้นตรง" onClick={() => setTool('arrow-straight')}><i className="bi bi-arrow-up-right" /></button>
+                <button className={`tb-tool-btn${tool === 'arrow-curved' ? ' sel' : ''}`} title="เส้นโค้ง" onClick={() => setTool('arrow-curved')}><i className="bi bi-arrow-return-right" /></button>
+                <button className={`tb-tool-btn${tool === 'arrow-squiggly' ? ' sel' : ''}`} title="เส้นหยัก (เลี้ยงบอล)" onClick={() => setTool('arrow-squiggly')}><i className="bi bi-tsunami" /></button>
+                <button className={`tb-tool-btn${arrowHead ? ' sel' : ''}`} title="หัวลูกศร" onClick={() => setArrowHead(a => !a)}><i className="bi bi-signpost-split" /></button>
+                <button className={`tb-tool-btn${tool === 'rect' ? ' sel' : ''}`} title="โซนสี่เหลี่ยม" onClick={() => setTool('rect')}><i className="bi bi-square" /></button>
+                <button className={`tb-tool-btn${tool === 'circle' ? ' sel' : ''}`} title="โซนวงกลม" onClick={() => setTool('circle')}><i className="bi bi-circle" /></button>
+                <button className={`tb-tool-btn${tool === 'text' ? ' sel' : ''}`} title="ป้ายข้อความ" onClick={() => setTool('text')}><i className="bi bi-fonts" /></button>
+                <button className={`tb-tool-btn${tool === 'note' ? ' sel' : ''}`} title="กล่องคำอธิบาย" onClick={() => setTool('note')}><i className="bi bi-chat-square-text" /></button>
+              </div>
+            </div>
+            <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5 }}>สี</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {DRAW_COLORS.map(c => (
@@ -456,7 +470,7 @@ export default function TacticsBoardPage() {
                 ))}
               </div>
             </div>
-            <div style={{ marginBottom: 10 }}>
+            <div>
               <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5 }}>เส้น</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {(['solid', 'dashed', 'dotted'] as LineStyle[]).map(ls => (
@@ -464,25 +478,6 @@ export default function TacticsBoardPage() {
                     <svg width="30" height="6"><line x1="1" y1="3" x2="29" y2="3" stroke="var(--ink,#333)" strokeWidth="2" strokeDasharray={ls === 'dashed' ? '5 3' : ls === 'dotted' ? '1.5 3' : undefined} /></svg>
                   </button>
                 ))}
-              </div>
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5 }}>ลูกศร / รูปทรง</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <button className={`tb-tool-btn${tool === 'arrow-straight' ? ' sel' : ''}`} title="เส้นตรง" onClick={() => setTool('arrow-straight')}><i className="bi bi-arrow-up-right" /></button>
-                <button className={`tb-tool-btn${tool === 'arrow-curved' ? ' sel' : ''}`} title="เส้นโค้ง" onClick={() => setTool('arrow-curved')}><i className="bi bi-arrow-return-right" /></button>
-                <button className={`tb-tool-btn${tool === 'arrow-squiggly' ? ' sel' : ''}`} title="เส้นหยัก (เลี้ยงบอล)" onClick={() => setTool('arrow-squiggly')}><i className="bi bi-tsunami" /></button>
-                <button className={`tb-tool-btn${arrowHead ? ' sel' : ''}`} title="หัวลูกศร" onClick={() => setArrowHead(a => !a)}><i className="bi bi-signpost-split" /></button>
-                <button className={`tb-tool-btn${tool === 'rect' ? ' sel' : ''}`} title="โซนสี่เหลี่ยม" onClick={() => setTool('rect')}><i className="bi bi-square" /></button>
-                <button className={`tb-tool-btn${tool === 'circle' ? ' sel' : ''}`} title="โซนวงกลม" onClick={() => setTool('circle')}><i className="bi bi-circle" /></button>
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 5 }}>ข้อความ</div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button className={`tb-tool-btn${tool === 'text' ? ' sel' : ''}`} title="ป้ายข้อความ" onClick={() => setTool('text')}><i className="bi bi-fonts" /></button>
-                <button className={`tb-tool-btn${tool === 'note' ? ' sel' : ''}`} title="กล่องคำอธิบาย" onClick={() => setTool('note')}><i className="bi bi-chat-square-text" /></button>
-                <button className={`tb-tool-btn${tool === 'select' ? ' sel' : ''}`} title="เลือก/ย้าย" onClick={() => setTool('select')}><i className="bi bi-cursor-fill" /></button>
               </div>
             </div>
           </Accordion>
