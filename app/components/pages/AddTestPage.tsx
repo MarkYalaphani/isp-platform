@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Athlete } from '@/lib/types';
 import { callGAS } from '@/lib/api';
+import { calcYoyoDist, calcVo2, YOYO_MAX_SHUTTLE, YOYO_LEVELS } from '@/lib/devData';
 
 interface Props { athletes: Athlete[]; onSuccess: () => void }
 
@@ -10,7 +11,7 @@ const emptyForm = {
   height: '', weight: '', muscle: '', fat: '',
   speed30: '', cmj: '',
   agiL: '', agiR: '',
-  yoyoLevel: '', yoyoShuttle: '', yoyo: '', vo2max: '',
+  yoyoLevel: '', yoyoShuttle: '',
   pushup: '', situp: '', longJump: '', sitReach: '',
 };
 
@@ -24,13 +25,17 @@ export default function AddTestPage({ athletes, onSuccess }: Props) {
 
   const selected = athletes.find(a => a.PlayerID === playerId);
 
+  const yoyoDist = calcYoyoDist(form.yoyoLevel, form.yoyoShuttle);
+  const yoyo     = yoyoDist > 0 ? String(yoyoDist) : '';
+  const vo2max   = yoyoDist > 0 ? calcVo2(yoyoDist) : '';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!playerId) return setMsg({ type: 'error', text: 'Select an athlete' });
     setSaving(true);
     setMsg(null);
     try {
-      const res = await callGAS('saveTest', { playerId, ...form }) as { status: string; message: string };
+      const res = await callGAS('saveTest', { playerId, ...form, yoyo, vo2max }) as { status: string; message: string };
       if (res.status === 'success') {
         setMsg({ type: 'success', text: res.message });
         setForm(emptyForm);
@@ -111,10 +116,28 @@ export default function AddTestPage({ athletes, onSuccess }: Props) {
           {/* Endurance */}
           <div className="ir-section-title mb-3">Endurance (Yo-Yo)</div>
           <div className="row g-3 mb-4">
-            <div className="col-6 col-md-3"><Field label="Level" k="yoyoLevel" /></div>
-            <div className="col-6 col-md-3"><Field label="Shuttle" k="yoyoShuttle" /></div>
-            <div className="col-6 col-md-3"><Field label="Distance" k="yoyo" unit="m" /></div>
-            <div className="col-6 col-md-3"><Field label="VO₂Max" k="vo2max" unit="ml/kg/min" /></div>
+            <div className="col-6 col-md-3">
+              <label className="form-label">Level</label>
+              <select className="form-select" value={form.yoyoLevel} onChange={e => { set('yoyoLevel', e.target.value); set('yoyoShuttle', ''); }}>
+                <option value="">- เลือก -</option>
+                {YOYO_LEVELS.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div className="col-6 col-md-3">
+              <label className="form-label">Shuttle</label>
+              <select className="form-select" value={form.yoyoShuttle} onChange={e => set('yoyoShuttle', e.target.value)}>
+                <option value="">- เลือก -</option>
+                {Array.from({length: YOYO_MAX_SHUTTLE[parseInt(form.yoyoLevel)] ?? 8}, (_, i) => i + 1).map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div className="col-6 col-md-3">
+              <label className="form-label">Distance <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> (m)</span></label>
+              <input type="text" className="form-control" value={yoyo || '—'} readOnly disabled />
+            </div>
+            <div className="col-6 col-md-3">
+              <label className="form-label">VO₂Max <span style={{ color: 'var(--text-muted)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> (ml/kg/min)</span></label>
+              <input type="text" className="form-control" value={vo2max || '—'} readOnly disabled />
+            </div>
           </div>
 
           {/* Strength */}
