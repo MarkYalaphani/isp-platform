@@ -46,16 +46,6 @@ const POSE_BONES: Record<PlayerPose, PoseBones> = {
   },
 };
 
-// World-space torso placement per pose — decoupled from the skeleton so the
-// jersey/shorts overlay stays correctly oriented regardless of bone-local axes.
-const TORSO_PLACEMENT: Record<PlayerPose, { y: number; tiltX: number }> = {
-  standing: { y: 1.08, tiltX: 0 },
-  running: { y: 1.06, tiltX: 0.22 },
-  dribbling: { y: 0.98, tiltX: 0.32 },
-  pointing: { y: 1.08, tiltX: 0.05 },
-  sliding: { y: 0.65, tiltX: 1.1 },
-};
-
 useGLTF.preload(MODEL_URL);
 
 function darken(hex: string, amount: number): string {
@@ -69,14 +59,27 @@ interface Props {
   pose?: PlayerPose;
 }
 
+// Jersey/shorts are added as real children of the spine_02 / pelvis bones
+// (not world-space placeholders) so they track the body through every pose.
+// DEBUG_FIT: swap in bright unmissable colors + axis helpers while tuning
+// the local offset/scale against the actual rig — flip off once it fits.
+const DEBUG_FIT = false;
+
 export default function PlayerModel({ color, pose = 'standing' }: Props) {
   const gltf = useGLTF(MODEL_URL);
   const bonesRef = useRef<Record<string, THREE.Bone>>({});
   const bindRef = useRef<Record<string, THREE.Quaternion>>({});
-  const jerseyMatRef = useRef<THREE.MeshStandardMaterial>(null);
-  const shortsMatRef = useRef<THREE.MeshStandardMaterial>(null);
 
   const clone = useMemo(() => SkeletonUtils.clone(gltf.scene) as THREE.Group, [gltf.scene]);
+
+  const jersey = useMemo(() => new THREE.Mesh(
+    new THREE.SphereGeometry(0.26, 16, 12).scale(1, 1.35, 0.85),
+    new THREE.MeshStandardMaterial({ roughness: 0.6 }),
+  ), []);
+  const shorts = useMemo(() => new THREE.Mesh(
+    new THREE.SphereGeometry(0.24, 16, 12).scale(1, 0.6, 0.9),
+    new THREE.MeshStandardMaterial({ roughness: 0.6 }),
+  ), []);
 
   useEffect(() => {
     const bones: Record<string, THREE.Bone> = {};
@@ -95,7 +98,28 @@ export default function PlayerModel({ color, pose = 'standing' }: Props) {
     });
     bonesRef.current = bones;
     bindRef.current = bind;
-  }, [clone]);
+
+    const spine = bones['spine_02'];
+    const pelvis = bones['pelvis'];
+    jersey.position.set(0, 0, 0);
+    shorts.position.set(0, 0, 0);
+    spine?.add(jersey);
+    pelvis?.add(shorts);
+    let spineAxes: THREE.AxesHelper | undefined;
+    let pelvisAxes: THREE.AxesHelper | undefined;
+    if (DEBUG_FIT) {
+      spineAxes = new THREE.AxesHelper(0.5);
+      pelvisAxes = new THREE.AxesHelper(0.5);
+      spine?.add(spineAxes);
+      pelvis?.add(pelvisAxes);
+    }
+    return () => {
+      spine?.remove(jersey);
+      pelvis?.remove(shorts);
+      if (spineAxes) spine?.remove(spineAxes);
+      if (pelvisAxes) pelvis?.remove(pelvisAxes);
+    };
+  }, [clone, jersey, shorts]);
 
   useEffect(() => {
     const bones = bonesRef.current;
@@ -115,23 +139,14 @@ export default function PlayerModel({ color, pose = 'standing' }: Props) {
   }, [pose, clone]);
 
   useEffect(() => {
-    jerseyMatRef.current?.color.set(color);
-    shortsMatRef.current?.color.set(darken(color, 0.45));
-  }, [color]);
-
-  const placement = TORSO_PLACEMENT[pose] ?? TORSO_PLACEMENT.standing;
+    (jersey.material as THREE.MeshStandardMaterial).color.set(DEBUG_FIT ? '#ff00ff' : color);
+    (shorts.material as THREE.MeshStandardMaterial).color.set(DEBUG_FIT ? '#00ffff' : darken(color, 0.45));
+  }, [color, jersey, shorts]);
 
   return (
     <group>
       <primitive object={clone} />
-      <mesh position={[0, placement.y, 0]} rotation={[placement.tiltX, 0, 0]}>
-        <capsuleGeometry args={[0.27, 0.32, 4, 12]} />
-        <meshStandardMaterial ref={jerseyMatRef} color={color} roughness={0.6} />
-      </mesh>
-      <mesh position={[0, 0.62, 0]}>
-        <capsuleGeometry args={[0.24, 0.14, 4, 12]} />
-        <meshStandardMaterial ref={shortsMatRef} color={darken(color, 0.45)} roughness={0.6} />
-      </mesh>
+      {DEBUG_FIT && <axesHelper args={[1]} />}
     </group>
   );
 }
