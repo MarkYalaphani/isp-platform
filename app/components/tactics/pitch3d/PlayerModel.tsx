@@ -25,6 +25,13 @@ type PoseBones = Partial<Record<
 const ARM_DOWN_L = new THREE.Quaternion(-0.0000582, 0.0214006, -0.7067829, 0.7071068);
 const ARM_DOWN_R = new THREE.Quaternion(-0.0000582, -0.0214006, 0.7067829, 0.7071068);
 
+// pelvis carries a real ~16° world-space tilt (verified via rig_inspect2.js —
+// worldQuat(pelvis) ≈ 16.4° about X), which made the shorts look crooked.
+// This is the inverse of that world rotation, so shorts sit level instead of
+// inheriting the tilt. spine_02's own world tilt is <2°, negligible for the
+// jersey, so no correction is needed there.
+const PELVIS_LEVEL = new THREE.Quaternion(-0.1423640, 0, 0, 0.9898144);
+
 // Rotation deltas applied on top of the arms-down base pose. Legs/spine were
 // already close to a natural standing pose in the bind data, so those axes
 // weren't affected by the T-pose issue; arm deltas here are relative to the
@@ -82,12 +89,15 @@ export default function PlayerModel({ color, pose = 'standing' }: Props) {
 
   const clone = useMemo(() => SkeletonUtils.clone(gltf.scene) as THREE.Group, [gltf.scene]);
 
+  // Jersey: a proper torso capsule (shoulder-to-hip cylinder with rounded
+  // caps) rather than a squashed sphere — reads as a shirt, not a blob.
   const jersey = useMemo(() => new THREE.Mesh(
-    new THREE.SphereGeometry(0.26, 16, 12).scale(1, 1.35, 0.85),
+    new THREE.CapsuleGeometry(0.225, 0.24, 4, 12),
     new THREE.MeshStandardMaterial({ roughness: 0.6 }),
   ), []);
+  // Shorts: wide and short (hip-width, thigh-length), not tall like the jersey.
   const shorts = useMemo(() => new THREE.Mesh(
-    new THREE.SphereGeometry(0.24, 16, 12).scale(1, 0.6, 0.9),
+    new THREE.CapsuleGeometry(0.235, 0.06, 4, 12).scale(1, 1, 0.92),
     new THREE.MeshStandardMaterial({ roughness: 0.6 }),
   ), []);
 
@@ -111,8 +121,10 @@ export default function PlayerModel({ color, pose = 'standing' }: Props) {
 
     const spine = bones['spine_02'];
     const pelvis = bones['pelvis'];
-    jersey.position.set(0, 0, 0);
+    jersey.position.set(0, 0.05, 0);
+    jersey.quaternion.identity();
     shorts.position.set(0, 0, 0);
+    shorts.quaternion.copy(PELVIS_LEVEL);
     spine?.add(jersey);
     pelvis?.add(shorts);
     let spineAxes: THREE.AxesHelper | undefined;
