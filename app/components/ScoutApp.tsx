@@ -12,6 +12,7 @@ import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import RosterPage from './pages/RosterPage';
 import ScoutPage from './pages/ScoutPage';
+import ScoutCardPage from './pages/ScoutCardPage';
 import IRPage from './pages/IRPage';
 import SkillPage from './pages/SkillPage';
 import AttendancePage from './pages/AttendancePage';
@@ -70,7 +71,7 @@ export default function ScoutApp() {
     document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
   };
 
-  const ALL_PAGE_IDS = ['dashboard','roster','scout','skill','attendance','wellness','nutrition','ir','compare','lineup','tactics','teamreport','performance','quicktest','register','training'];
+  const ALL_PAGE_IDS = ['dashboard','roster','scout','scoutcard','skill','attendance','wellness','nutrition','ir','compare','lineup','tactics','teamreport','performance','quicktest','register','training'];
 
   useEffect(() => {
     const saved = sessionStorage.getItem('scoutUser') || localStorage.getItem('scoutUser');
@@ -258,6 +259,7 @@ export default function ScoutApp() {
             {currentPage === 'dashboard'   && <DashboardPage athletes={athletes} onNavigate={navigate} />}
             {currentPage === 'roster'      && <RosterPage athletes={athletes} onRefresh={loadAthletes} user={user} onNavigate={navigate} />}
             {currentPage === 'scout'       && <ScoutPage athletes={athletes} initialId={scoutPlayerId} onNavigate={navigate} onRefresh={loadAthletes} user={user} />}
+            {currentPage === 'scoutcard'   && <ScoutCardPage athletes={athletes} initialId={scoutPlayerId} onNavigate={navigate} />}
             {currentPage === 'ir'          && <IRPage athletes={athletes} user={user} />}
             {currentPage === 'skill'       && <SkillPage athletes={athletes} user={user} onNavigate={navigate} />}
             {currentPage === 'attendance'  && <AttendancePage athletes={athletes} user={user} />}

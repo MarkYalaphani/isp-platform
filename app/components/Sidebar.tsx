@@ -29,6 +29,7 @@ const SECTIONS = [
     items: [
       { page: 'roster'           as Page, icon: 'bi-people-fill',           label: 'Roster' },
       { page: 'scout'            as Page, icon: 'bi-person-badge-fill',     label: 'Scout Report' },
+      { page: 'scoutcard'        as Page, icon: 'bi-person-vcard-fill',     label: 'Scout Card' },
       { page: 'skill'            as Page, icon: 'bi-bullseye',              label: 'Skill Assessment' },
       { page: 'ir'               as Page, icon: 'bi-clipboard2-check-fill', label: 'IDP Report' },
       { page: 'compare'          as Page, icon: 'bi-intersect',             label: 'Compare' },
