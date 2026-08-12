@@ -220,7 +220,12 @@ export default function PublicAthletePage({params}:{params:Promise<{playerId:str
         )}
         <div style={{position:'absolute',inset:0,zIndex:1,background:'radial-gradient(ellipse at 75% 50%,rgba(56,189,248,0.1) 0%,transparent 65%)',pointerEvents:'none'}}/>
         <div style={{position:'relative',zIndex:2,maxWidth:800,margin:'0 auto',padding:'32px 20px'}}>
-          <div style={{fontSize:'0.58rem',fontWeight:700,letterSpacing:3,color:'#38bdf8',textTransform:'uppercase',marginBottom:20}}>ISP — ATHLETE PROFILE</div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+            <div style={{fontSize:'0.58rem',fontWeight:700,letterSpacing:3,color:'#38bdf8',textTransform:'uppercase'}}>ISP — ATHLETE PROFILE</div>
+            <a href={`/athlete/${playerId}/card`} style={{fontSize:'0.72rem',fontWeight:700,color:'#7dd3fc',textDecoration:'none',display:'flex',alignItems:'center',gap:5,border:'1px solid rgba(125,211,252,0.35)',borderRadius:20,padding:'5px 12px'}}>
+              <i className="bi bi-person-vcard-fill"/> Scout Card
+            </a>
+          </div>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:28,flexWrap:'wrap'}}>
             {/* Left */}
             <div style={{display:'flex',alignItems:'center',gap:24,flex:1,minWidth:240}}>

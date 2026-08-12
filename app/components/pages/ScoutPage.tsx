@@ -2820,6 +2820,9 @@ export default function ScoutPage({ athletes, initialId, onNavigate, onRefresh, 
                   <button className="btn-outline" onClick={() => window.open(`${qrBaseUrl.replace(/\/$/,'')}/athlete/${athlete.PlayerID}`, '_blank')}>
                     <i className="bi bi-box-arrow-up-right me-1" />เปิด Profile
                   </button>
+                  <button className="btn-outline" onClick={() => window.open(`${qrBaseUrl.replace(/\/$/,'')}/athlete/${athlete.PlayerID}/card`, '_blank')}>
+                    <i className="bi bi-person-vcard-fill me-1" />Scout Card
+                  </button>
                 </div>
               </>
             )}
