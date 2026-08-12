@@ -75,6 +75,32 @@ const BADGES = [
   {emoji:'❤️',label:'Iron Lungs',  check:(_h:number,_r:number,sc:Record<string,number>)=>sc['yoyo']>=5},
 ];
 
+/** Role-fit ratings per zone — derived purely from existing scores (no new data
+ *  collected), same spirit as FM's role list but computed instead of scouted. */
+const ROLE_CATALOG:Record<'GK'|'DEF'|'MID'|'FWD',{name:string;calc:(v:RoleInputs)=>number}[]> = {
+  GK:[
+    {name:'Goalkeeper',           calc:v=>avg3([v.mentalAvg,v.physScores.agility,v.physScores.cmj])},
+  ],
+  DEF:[
+    {name:'Centre Back',          calc:v=>avg3([v.defenseVal,v.aerialVal,v.physScores.situp,v.mentalAvg])},
+    {name:'Full Back',            calc:v=>avg3([v.defenseVal,v.paceVal,v.physScores.yoyo,v.techAvg])},
+    {name:'Ball-Playing Defender',calc:v=>avg3([v.defenseVal,v.techAvg,v.mentalAvg])},
+  ],
+  MID:[
+    {name:'Central Midfielder',   calc:v=>avg3([v.techAvg,v.mentalAvg,v.physScores.yoyo])},
+    {name:'Playmaker',            calc:v=>avg3([v.techAvg,v.attackVal,v.mentalAvg])},
+    {name:'Box-to-Box',           calc:v=>avg3([v.physScores.yoyo,v.defenseVal,v.attackVal])},
+    {name:'Wide Midfielder',      calc:v=>avg3([v.paceVal,v.techAvg,v.attackVal])},
+  ],
+  FWD:[
+    {name:'Striker',              calc:v=>avg3([v.attackVal,v.aerialVal,v.paceVal])},
+    {name:'Winger',               calc:v=>avg3([v.paceVal,v.techAvg,v.attackVal])},
+    {name:'Advanced Playmaker',   calc:v=>avg3([v.techAvg,v.attackVal,v.mentalAvg])},
+  ],
+};
+interface RoleInputs{techAvg:number;mentalAvg:number;physScores:Record<string,number>;defenseVal:number;attackVal:number;aerialVal:number;paceVal:number}
+function avg3(arr:number[]){const v=arr.filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;}
+
 /* ── helpers ── */
 function calcAge(dob:string){if(!dob)return null;const d=new Date(dob);if(isNaN(d.getTime()))return null;return Math.floor((Date.now()-d.getTime())/31557600000);}
 function calcBMI(h:string,w:string){const hn=parseFloat(h),wn=parseFloat(w);if(!hn||!wn)return null;return(wn/Math.pow(hn/100,2)).toFixed(1);}
@@ -109,7 +135,7 @@ type AttendStats={total:number;present:number;late:number;absent:number;rate:num
 type WellnessSummary={count:number;avgWellness:number;avgFatigue:number;avgSleep:number;avgMood:number};
 type RpeSummary={count:number;avgRpe:number;avgLoad:number;totalLoad:number};
 type MatchRecent={matchDate:string;opponent:string;matchType:string;result:string;minutesPlayed:number;goals:number;assists:number;rating:number};
-type MatchStats={apps:number;goals:number;assists:number;yellowCards:number;avgRating:number;recent:MatchRecent[]};
+type MatchStats={apps:number;goals:number;assists:number;yellowCards:number;redCards:number;avgRating:number;recent:MatchRecent[]};
 type AthleteData={Name:string;Nickname:string;DOB:string;Team:string;Position:string;Club:string;Province:string;DomFoot:string;DomHand:string;PhotoUrl:string;TestCount:number;History:HistRecord[];Latest:Record<string,string|number>|null;IRHistory:IRRecord[];LatestSkill?:LatestSkill|null;AttendStats?:AttendStats;WellnessSummary?:WellnessSummary|null;RpeSummary?:RpeSummary|null;MatchStats?:MatchStats|null};
 
 interface Props {
@@ -133,6 +159,31 @@ function AttrRow({label,val}:{label:string;val:number}){
 }
 function ColHeading({color,children}:{color:string;children:React.ReactNode}){
   return <div style={{fontSize:'0.66rem',fontWeight:800,letterSpacing:0.5,color,marginBottom:6,textTransform:'uppercase'}}>{children}</div>;
+}
+function StarRow({label,score}:{label:string;score:number}){
+  const full=Math.round(score);
+  return(
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'3px 0'}}>
+      <span style={{fontSize:'0.68rem',color:'#cbd5e1'}}>{label}</span>
+      <div style={{display:'flex',gap:1}}>
+        {[1,2,3,4,5].map(n=><i key={n} className={`bi ${n<=full?'bi-star-fill':'bi-star'}`} style={{color:'#5eead4',fontSize:'0.62rem'}}/>)}
+      </div>
+    </div>
+  );
+}
+function FootBar({label,val}:{label:string;val:number}){
+  const pct=Math.round((val/5)*100);
+  const wordLabel=val>=4?'ยอดเยี่ยม':val>=3?'ดี':val>=2?'พอใช้':val>0?'จำกัด':'ไม่ทราบ';
+  return(
+    <div style={{marginBottom:8}}>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.64rem',color:'#94a3b8',marginBottom:3}}>
+        <span>{label}</span><span>{wordLabel}</span>
+      </div>
+      <div style={{background:'rgba(255,255,255,0.08)',borderRadius:20,height:5,overflow:'hidden'}}>
+        <div style={{height:'100%',width:`${pct}%`,background:'linear-gradient(90deg,#0f766e,#5eead4)',borderRadius:20}}/>
+      </div>
+    </div>
+  );
 }
 
 /* ── component ── */
@@ -206,6 +257,24 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
   const defenseVal=latestIR?Number(latestIR.T_DefFundam)||0:0;
   const aerialVal=skill?Number(skill.skHeading)||0:physScores.cmj||0;
   const paceVal=physScores.speed30||0;
+
+  /* role-fit stars for the Roles panel (computed, no new data collected) */
+  const roleInputs:RoleInputs={techAvg,mentalAvg,physScores,defenseVal,attackVal,aerialVal,paceVal};
+  const roleFits=(zone?ROLE_CATALOG[zone]:[])
+    .map(r=>({name:r.name,score:r.calc(roleInputs)}))
+    .filter(r=>r.score>0)
+    .sort((a,b)=>b.score-a.score);
+
+  /* foot strength — dominant foot assumed strong, weak-foot rating reused from skill assessment */
+  const weakFootVal=skill?Number(skill.skWeakFoot)||0:0;
+  const domFootNorm=(data.DomFoot||'').toLowerCase();
+  const footBars=domFootNorm&&weakFootVal>0
+    ?(/right|ขวา/.test(domFootNorm)
+        ?[{label:'เท้าขวา',val:5},{label:'เท้าซ้าย',val:weakFootVal}]
+        :/left|ซ้าย/.test(domFootNorm)
+        ?[{label:'เท้าซ้าย',val:5},{label:'เท้าขวา',val:weakFootVal}]
+        :null)
+    :null;
 
   const radarLabels=['Defence','Aerial','Mental','Physical','Pace','Technical','Attack'];
   const radarValues=[defenseVal,aerialVal,mentalAvg,physAvg,paceVal,techAvg,attackVal];
@@ -352,6 +421,12 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
                 )}
                 <div style={{marginTop:10,fontSize:'0.7rem',color:'#cbd5e1'}}>{data.Position||'—'}</div>
                 {data.DomFoot&&<div style={{fontSize:'0.66rem',color:'#64748b',marginTop:2}}>เท้าถนัด: {data.DomFoot}</div>}
+                {roleFits.length>0&&(
+                  <div style={{marginTop:12,paddingTop:10,borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+                    <div style={{fontSize:'0.6rem',color:'#64748b',marginBottom:4}} title="คำนวณจากผลทดสอบและการประเมินที่มีอยู่">บทบาทที่เหมาะสม (ประเมิน)</div>
+                    {roleFits.slice(0,4).map(r=><StarRow key={r.name} label={r.name} score={r.score}/>)}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -386,6 +461,11 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
                 </div>
               ))}
             </div>
+            {footBars&&(
+              <div style={{width:'100%',marginTop:14}}>
+                {footBars.map(f=><FootBar key={f.label} label={f.label} val={f.val}/>)}
+              </div>
+            )}
           </div>
 
           {/* right stack: coach report + player info */}
@@ -457,11 +537,12 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
             {match&&match.apps>0?(
               <table style={{width:'100%',fontSize:'0.68rem',borderCollapse:'collapse'}}>
                 <thead><tr style={{color:'#64748b',textAlign:'center'}}>
-                  <th style={{textAlign:'left',fontWeight:600}}>Overall</th><th>Pres.</th><th>Gol</th><th>Ast</th><th>Rating</th>
+                  <th style={{textAlign:'left',fontWeight:600}}>Overall</th><th>Pres.</th><th>Gol</th><th>Ast</th><th>Amm</th><th>Esp</th><th>Rating</th>
                 </tr></thead>
                 <tbody><tr style={{fontWeight:700,textAlign:'center'}}>
                   <td style={{textAlign:'left',color:'#94a3b8',fontWeight:400}}>รวม</td>
                   <td>{match.apps}</td><td style={{color:'#4ade80'}}>{match.goals}</td><td style={{color:'#38bdf8'}}>{match.assists}</td>
+                  <td style={{color:'#facc15'}}>{match.yellowCards}</td><td style={{color:'#f87171'}}>{match.redCards}</td>
                   <td style={{color:'#facc15'}}>{match.avgRating||'—'}</td>
                 </tr></tbody>
               </table>
