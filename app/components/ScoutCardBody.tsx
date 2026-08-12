@@ -341,17 +341,15 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
                   <circle cx="50" cy="31" r="8" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="0.6"/>
                   <rect x="1" y="16" width="10" height="30" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="0.6"/>
                   <rect x="89" y="16" width="10" height="30" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="0.6"/>
-                  {zones.map(z=>(
-                    <circle key={z.id} cx={z.x} cy={31} r={z.id===zone?4.2:2.4}
-                      fill={z.id===zone?'#5eead4':'rgba(255,255,255,0.35)'}
-                      stroke={z.id===zone?'#0a2e22':'none'} strokeWidth="1"/>
-                  ))}
+                  {zone&&(()=>{const z=zones.find(zz=>zz.id===zone)!;return(
+                    <circle cx={z.x} cy={31} r={4.6} fill="#5eead4" stroke="#0a2e22" strokeWidth="1"/>
+                  );})()}
                 </svg>
-                <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
-                  {zones.map(z=>(
-                    <span key={z.id} style={{fontSize:'0.56rem',fontWeight:800,color:z.id===zone?'#5eead4':'#475569'}}>{z.label}</span>
-                  ))}
-                </div>
+                {zone&&(
+                  <div style={{textAlign:'center',marginTop:4,fontSize:'0.6rem',fontWeight:800,color:'#5eead4'}}>
+                    {zones.find(zz=>zz.id===zone)!.label}
+                  </div>
+                )}
                 <div style={{marginTop:10,fontSize:'0.7rem',color:'#cbd5e1'}}>{data.Position||'—'}</div>
                 {data.DomFoot&&<div style={{fontSize:'0.66rem',color:'#64748b',marginTop:2}}>เท้าถนัด: {data.DomFoot}</div>}
               </div>
