@@ -535,6 +535,68 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
           </div>
         </div>
 
+        {/* ── IDP / INDIVIDUAL REPORT ── */}
+        {latestIR&&(
+          <div className="sc-card" style={{marginBottom:14}}>
+            <div className="sc-hd"><i className="bi bi-clipboard2-check-fill" style={{background:'rgba(167,139,250,0.15)',color:'#a78bfa'}}/> รายงานพัฒนาการรายบุคคล (IDP)</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:16}} className="sc-attrs">
+              {[
+                {label:'พฤติกรรม',pct:Number(latestIR.BehaviourScore)||0,color:'#818cf8'},
+                {label:'วิถีชีวิต',pct:Number(latestIR.LifestyleScore)||0,color:'#34d399'},
+                {label:'ทักษะ',pct:Number(latestIR.TechnicalScore)||0,color:'#f472b6'},
+              ].map(c=>(
+                <div key={c.label} style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:10,padding:12,textAlign:'center'}}>
+                  <div style={{fontSize:'0.68rem',color:'#94a3b8',marginBottom:4}}>{c.label}</div>
+                  <div style={{fontSize:'1.3rem',fontWeight:900,color:c.color}}>{c.pct}%</div>
+                  <div style={{marginTop:6,background:'rgba(255,255,255,0.08)',borderRadius:20,height:5,overflow:'hidden'}}>
+                    <div style={{height:'100%',width:`${c.pct}%`,background:c.color,borderRadius:20}}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {(latestIR.GoodLevel||latestIR.ToImprove||latestIR.Comments)&&(
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:10,marginBottom:12}}>
+                {latestIR.GoodLevel&&(
+                  <div style={{background:'rgba(74,222,128,0.06)',border:'1px solid rgba(74,222,128,0.2)',borderRadius:10,padding:12}}>
+                    <div style={{fontSize:'0.62rem',fontWeight:700,color:'#4ade80',marginBottom:5,textTransform:'uppercase'}}>สิ่งที่ดี</div>
+                    <p style={{margin:0,fontSize:'0.76rem',color:'#d1fae5',lineHeight:1.5}}>{String(latestIR.GoodLevel)}</p>
+                  </div>
+                )}
+                {latestIR.ToImprove&&(
+                  <div style={{background:'rgba(250,204,21,0.06)',border:'1px solid rgba(250,204,21,0.2)',borderRadius:10,padding:12}}>
+                    <div style={{fontSize:'0.62rem',fontWeight:700,color:'#facc15',marginBottom:5,textTransform:'uppercase'}}>สิ่งที่ต้องพัฒนา</div>
+                    <p style={{margin:0,fontSize:'0.76rem',color:'#fef9c3',lineHeight:1.5}}>{String(latestIR.ToImprove)}</p>
+                  </div>
+                )}
+                {latestIR.Comments&&(
+                  <div style={{background:'rgba(56,189,248,0.06)',border:'1px solid rgba(56,189,248,0.2)',borderRadius:10,padding:12}}>
+                    <div style={{fontSize:'0.62rem',fontWeight:700,color:'#38bdf8',marginBottom:5,textTransform:'uppercase'}}>หมายเหตุโค้ช</div>
+                    <p style={{margin:0,fontSize:'0.76rem',color:'#bae6fd',lineHeight:1.5}}>{String(latestIR.Comments)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+            {(latestIR.IdpGoalShort||latestIR.IdpGoalLong||latestIR.IdpAction||latestIR.IdpDream)&&(
+              <div style={{background:'rgba(0,0,0,0.2)',borderRadius:10,padding:14}}>
+                <div style={{fontSize:'0.62rem',fontWeight:700,color:'#5eead4',letterSpacing:1,textTransform:'uppercase',marginBottom:10}}><i className="bi bi-bullseye me-1"/> เป้าหมายพัฒนาการ (IDP Goals)</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:10}}>
+                  {[
+                    {label:'เป้าหมายระยะสั้น',val:latestIR.IdpGoalShort,color:'#5eead4'},
+                    {label:'เป้าหมายระยะยาว',val:latestIR.IdpGoalLong,color:'#a78bfa'},
+                    {label:'แผนปฏิบัติ',val:latestIR.IdpAction,color:'#4ade80'},
+                    {label:'ความฝัน',val:latestIR.IdpDream,color:'#f472b6'},
+                  ].filter(x=>x.val).map(x=>(
+                    <div key={x.label} style={{background:'rgba(255,255,255,0.04)',borderRadius:8,padding:10,border:`1px solid ${x.color}30`}}>
+                      <div style={{fontSize:'0.6rem',fontWeight:700,color:x.color,marginBottom:4,textTransform:'uppercase'}}>{x.label}</div>
+                      <p style={{margin:0,fontSize:'0.76rem',color:'rgba(255,255,255,0.85)',lineHeight:1.5}}>{String(x.val)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── BOTTOM TILE STRIP ── */}
         <div className="sc-tiles" style={{display:'grid',gridTemplateColumns:'repeat(8,1fr)',gap:12}}>
           <div className="sc-card" style={{padding:14,borderTop:'3px solid #f59e0b'}}>
@@ -659,16 +721,25 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
                   <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.74rem'}}>
                     <thead><tr style={{borderBottom:'1px solid rgba(255,255,255,0.1)',color:'#94a3b8'}}>
                       <th style={{padding:'6px 8px',textAlign:'left'}}>วันที่</th><th style={{padding:'6px 8px'}}>Rating</th>
-                      <th style={{padding:'6px 8px'}}>Speed30</th><th style={{padding:'6px 8px'}}>CMJ</th><th style={{padding:'6px 8px'}}>Yo-Yo</th>
+                      <th style={{padding:'6px 8px'}}>Speed30</th><th style={{padding:'6px 8px'}}>Agility</th><th style={{padding:'6px 8px'}}>CMJ</th>
+                      <th style={{padding:'6px 8px'}}>Long Jump</th><th style={{padding:'6px 8px'}}>Yo-Yo</th><th style={{padding:'6px 8px'}}>Sit-up</th>
+                      <th style={{padding:'6px 8px'}}>Push-up</th><th style={{padding:'6px 8px'}}>Sit&amp;Reach</th>
+                      <th style={{padding:'6px 8px'}}>Ht/Wt</th>
                     </tr></thead>
                     <tbody>
-                      {[...HIST].reverse().slice(0,8).map((r,i)=>(
+                      {[...HIST].reverse().slice(0,10).map((r,i)=>(
                         <tr key={i} style={{borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
                           <td style={{padding:'6px 8px'}}>{fmtDate(r.Timestamp)}</td>
                           <td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:'#5eead4'}}>{r.Rating||'—'}</td>
                           <td style={{padding:'6px 8px',textAlign:'center'}}>{r.Speed30||'—'}</td>
+                          <td style={{padding:'6px 8px',textAlign:'center'}}>{r.Agility||'—'}</td>
                           <td style={{padding:'6px 8px',textAlign:'center'}}>{r.CMJ||'—'}</td>
+                          <td style={{padding:'6px 8px',textAlign:'center'}}>{r.LongJump||'—'}</td>
                           <td style={{padding:'6px 8px',textAlign:'center'}}>{r.YoYo||'—'}</td>
+                          <td style={{padding:'6px 8px',textAlign:'center'}}>{r.Situp||'—'}</td>
+                          <td style={{padding:'6px 8px',textAlign:'center'}}>{r.Pushup||'—'}</td>
+                          <td style={{padding:'6px 8px',textAlign:'center'}}>{r.SitAndReach||'—'}</td>
+                          <td style={{padding:'6px 8px',textAlign:'center',color:'#94a3b8'}}>{r.Height||'—'}/{r.Weight||'—'}</td>
                         </tr>
                       ))}
                     </tbody>
