@@ -99,7 +99,7 @@ function getTrend(data:(number|null)[]){const v=data.filter(x=>x!==null)as numbe
 /* ── types ── */
 type HistRecord={Timestamp:string;Rating:number;Speed30:string;CMJ:string;PeakPower:string;Agility:string;AgiL:string;AgiR:string;Situp:string;LongJump:string;YoYo:string;YoyoLevel:string;YoyoShuttle:string;Pushup:string;SitAndReach:string;Height:string;Weight:string;BMI:string;Fat:string;Muscle:string;VO2Max:string};
 type IRRecord=Record<string,number|string>;
-type LatestSkill={assessedAt:string;assessedBy:string;season:string;scoreBallControl:number;scorePassing:number;scoreDribbling:number;scoreShooting:number;scoreTactical:number;skFirstTouch:number;skBallControl:number;skReceiving:number;skWeakFoot:number;skDribbling:number;skShooting:number;skLongPass:number;skPositioning:number;skDecision:number;skScanning:number;skPressure:number;skHeading:number};
+type LatestSkill={assessedAt:string;assessedBy:string;season:string;scoreBallControl:number;scorePassing:number;scoreDribbling:number;scoreShooting:number;scoreTactical:number;scoreTotal:number;skFirstTouch:number;skBallControl:number;skReceiving:number;skWeakFoot:number;skPressureCtrl:number;skLongPass:number;skPositioning:number;skScanning:number;skDecision:number};
 type AttendStats={total:number;present:number;late:number;absent:number;excuse:number;rate:number};
 type WellnessSummary={count:number;avgWellness:number;avgFatigue:number;avgSleep:number;avgMood:number;recent:{date:string;wellness:number;fatigue:number;sleep:number;mood:number}[]};
 type RpeSummary={count:number;avgRpe:number;avgLoad:number;totalLoad:number};
@@ -509,14 +509,14 @@ export default function PublicAthletePage({params}:{params:Promise<{playerId:str
             <div className="pub-hd"><i className="bi bi-star-fill" style={{color:'#f59e0b'}}/> ทักษะฟุตบอล <span style={{fontSize:'0.7rem',fontWeight:400,color:'#94a3b8',marginLeft:6}}>Skill Assessment · {data.LatestSkill.season||''}</span></div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:10}}>
               {[
-                {label:'🎯 ควบคุมบอล',       val:data.LatestSkill.skBallControl,  color:'#38bdf8'},
-                {label:'👆 รับบอลครั้งแรก', val:data.LatestSkill.skFirstTouch,   color:'#34d399'},
-                {label:'🔄 เลี้ยงบอล',       val:data.LatestSkill.skDribbling,    color:'#f59e0b'},
-                {label:'⚽ ยิงประตู',         val:data.LatestSkill.skShooting,     color:'#f87171'},
-                {label:'🦶 เท้าอ่อน',         val:data.LatestSkill.skWeakFoot,     color:'#a78bfa'},
-                {label:'📍 ยืนตำแหน่ง',      val:data.LatestSkill.skPositioning,  color:'#818cf8'},
-                {label:'🧠 ตัดสินใจ',         val:data.LatestSkill.skDecision,     color:'#fb923c'},
-                {label:'👁 มองสนาม',          val:data.LatestSkill.skScanning,     color:'#4ade80'},
+                {label:'🎯 ควบคุมบอล',   val:Math.round(data.LatestSkill.scoreBallControl/20*10)/10, color:'#38bdf8'},
+                {label:'📨 ส่งบอล',       val:Math.round(data.LatestSkill.scorePassing/20*10)/10,     color:'#34d399'},
+                {label:'🔄 เลี้ยงบอล',    val:Math.round(data.LatestSkill.scoreDribbling/20*10)/10,   color:'#f59e0b'},
+                {label:'⚽ ยิงประตู',     val:Math.round(data.LatestSkill.scoreShooting/20*10)/10,    color:'#f87171'},
+                {label:'🧠 สติปัญญาเกม', val:Math.round(data.LatestSkill.scoreTactical/20*10)/10,     color:'#818cf8'},
+                {label:'🦶 เท้าอ่อน',     val:data.LatestSkill.skWeakFoot,     color:'#a78bfa'},
+                {label:'📍 ยืนตำแหน่ง',  val:data.LatestSkill.skPositioning,  color:'#fb923c'},
+                {label:'👁 มองสนาม',      val:data.LatestSkill.skScanning,     color:'#4ade80'},
               ].filter(x=>x.val>0).map(x=>(
                 <div key={x.label} style={{background:'white',border:'1px solid #f1f5f9',borderRadius:10,padding:'10px 12px'}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>

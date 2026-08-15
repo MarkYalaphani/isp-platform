@@ -39,19 +39,15 @@ const MENTAL_ITEMS = [
   { field:'L_Diet',          label:'Discipline (Diet)' },
 ] as const;
 
-const SKILL_ITEMS = [
-  { field:'skBallControl', label:'Ball Control' },
-  { field:'skFirstTouch',  label:'First Touch' },
-  { field:'skReceiving',   label:'Receiving' },
-  { field:'skDribbling',   label:'Dribbling' },
-  { field:'skWeakFoot',    label:'Weak Foot' },
-  { field:'skShooting',    label:'Finishing' },
-  { field:'skLongPass',    label:'Long Passing' },
-  { field:'skPositioning', label:'Positioning' },
-  { field:'skDecision',    label:'Decisions' },
-  { field:'skScanning',    label:'Vision' },
-  { field:'skPressure',    label:'Composure' },
-  { field:'skHeading',     label:'Heading' },
+/** Skill Assessment's real 5 categories (score_*, 0-100 in the DB) — shown as
+ *  a /5 equivalent. There is no dedicated "Attack/Defence/Aerial" field
+ *  anywhere in Skill Assessment; these category scores are the ground truth. */
+const SKILL_CATEGORIES = [
+  { field:'scoreBallControl', label:'Ball Control' },
+  { field:'scorePassing',     label:'Passing' },
+  { field:'scoreDribbling',   label:'Dribbling' },
+  { field:'scoreShooting',    label:'Shooting' },
+  { field:'scoreTactical',    label:'Tactical IQ' },
 ] as const;
 
 const IR_TECH_FALLBACK = [
@@ -82,23 +78,23 @@ const ROLE_CATALOG:Record<'GK'|'DEF'|'MID'|'FWD',{name:string;calc:(v:RoleInputs
     {name:'Goalkeeper',           calc:v=>avg3([v.mentalAvg,v.physScores.agility,v.physScores.cmj])},
   ],
   DEF:[
-    {name:'Centre Back',          calc:v=>avg3([v.defenseVal,v.aerialVal,v.physScores.situp,v.mentalAvg])},
-    {name:'Full Back',            calc:v=>avg3([v.defenseVal,v.paceVal,v.physScores.yoyo,v.techAvg])},
-    {name:'Ball-Playing Defender',calc:v=>avg3([v.defenseVal,v.techAvg,v.mentalAvg])},
+    {name:'Centre Back',          calc:v=>avg3([v.tactical,v.physScores.situp,v.mentalAvg])},
+    {name:'Full Back',            calc:v=>avg3([v.passing,v.paceVal,v.physScores.yoyo])},
+    {name:'Ball-Playing Defender',calc:v=>avg3([v.tactical,v.passing,v.mentalAvg])},
   ],
   MID:[
-    {name:'Central Midfielder',   calc:v=>avg3([v.techAvg,v.mentalAvg,v.physScores.yoyo])},
-    {name:'Playmaker',            calc:v=>avg3([v.techAvg,v.attackVal,v.mentalAvg])},
-    {name:'Box-to-Box',           calc:v=>avg3([v.physScores.yoyo,v.defenseVal,v.attackVal])},
-    {name:'Wide Midfielder',      calc:v=>avg3([v.paceVal,v.techAvg,v.attackVal])},
+    {name:'Central Midfielder',   calc:v=>avg3([v.passing,v.tactical,v.physScores.yoyo])},
+    {name:'Playmaker',            calc:v=>avg3([v.passing,v.dribbling,v.mentalAvg])},
+    {name:'Box-to-Box',           calc:v=>avg3([v.physScores.yoyo,v.tactical,v.shooting])},
+    {name:'Wide Midfielder',      calc:v=>avg3([v.paceVal,v.dribbling,v.shooting])},
   ],
   FWD:[
-    {name:'Striker',              calc:v=>avg3([v.attackVal,v.aerialVal,v.paceVal])},
-    {name:'Winger',               calc:v=>avg3([v.paceVal,v.techAvg,v.attackVal])},
-    {name:'Advanced Playmaker',   calc:v=>avg3([v.techAvg,v.attackVal,v.mentalAvg])},
+    {name:'Striker',              calc:v=>avg3([v.shooting,v.ballControl,v.paceVal])},
+    {name:'Winger',               calc:v=>avg3([v.paceVal,v.dribbling,v.shooting])},
+    {name:'Advanced Playmaker',   calc:v=>avg3([v.passing,v.shooting,v.mentalAvg])},
   ],
 };
-interface RoleInputs{techAvg:number;mentalAvg:number;physScores:Record<string,number>;defenseVal:number;attackVal:number;aerialVal:number;paceVal:number}
+interface RoleInputs{mentalAvg:number;physScores:Record<string,number>;ballControl:number;passing:number;dribbling:number;shooting:number;tactical:number;paceVal:number}
 function avg3(arr:number[]){const v=arr.filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;}
 
 /* ── helpers ── */
@@ -251,26 +247,29 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
   },{});
 
   const mentalVals=MENTAL_ITEMS.map(m=>({...m,val:latestIR?Number(latestIR[m.field])||0:0}));
-  const techVals=skill
-    ?SKILL_ITEMS.map(m=>({label:m.label,val:Number(skill[m.field])||0}))
-    :IR_TECH_FALLBACK.map(m=>({label:m.label,val:latestIR?Number(latestIR[m.field])||0:0}));
 
   const avg=(arr:number[])=>{const v=arr.filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;};
+  const round1=(n:number)=>Math.round(n*10)/10;
+  /* Skill Assessment's real category scores are 0-100 in the DB — shown here as /5.
+     Falls back to the IDP report's coarser technical fields when no assessment exists. */
+  const cat5=(field:string)=>skill?round1((Number(skill[field])||0)/20):0;
+  const ballControlVal=cat5('scoreBallControl');
+  const passingVal=cat5('scorePassing');
+  const dribblingVal=cat5('scoreDribbling');
+  const shootingVal=cat5('scoreShooting');
+  const tacticalVal=cat5('scoreTactical');
+
+  const techVals=skill
+    ?SKILL_CATEGORIES.map(m=>({label:m.label,val:cat5(m.field)}))
+    :IR_TECH_FALLBACK.map(m=>({label:m.label,val:latestIR?Number(latestIR[m.field])||0:0}));
+
   const techAvg=avg(techVals.map(t=>t.val));
-  /* Mental blends the IDP behaviour/lifestyle scores with the "game intelligence"
-     items already captured in Skill Assessment (decision-making, scanning, composure)
-     so the radar isn't blank just because no IDP report exists yet. */
-  const mentalAvg=avg([...mentalVals.map(t=>t.val),Number(skill?.skDecision)||0,Number(skill?.skScanning)||0,Number(skill?.skPressure)||0]);
+  const mentalAvg=avg(mentalVals.map(t=>t.val));
   const physAvg=avg(Object.values(physScores));
-  const attackVal=skill?avg([Number(skill.skShooting)||0,Number(skill.skDribbling)||0]):(latestIR?Number(latestIR.T_OffFundam)||0:0);
-  /* Defence has no dedicated Skill Assessment field — positioning is the closest
-     proxy available there, blended with the IDP defensive-fundamentals score. */
-  const defenseVal=avg([Number(latestIR?.T_DefFundam)||0,Number(skill?.skPositioning)||0]);
-  const aerialVal=avg([Number(skill?.skHeading)||0,physScores.cmj||0]);
   const paceVal=physScores.speed30||0;
 
   /* role-fit stars for the Roles panel (computed, no new data collected) */
-  const roleInputs:RoleInputs={techAvg,mentalAvg,physScores,defenseVal,attackVal,aerialVal,paceVal};
+  const roleInputs:RoleInputs={mentalAvg,physScores,ballControl:ballControlVal,passing:passingVal,dribbling:dribblingVal,shooting:shootingVal,tactical:tacticalVal,paceVal};
   const roleFits=(zone?ROLE_CATALOG[zone]:[])
     .map(r=>({name:r.name,score:r.calc(roleInputs)}))
     .filter(r=>r.score>0)
@@ -287,8 +286,10 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
         :null)
     :null;
 
-  const radarLabels=['Defence','Aerial','Mental','Physical','Pace','Technical','Attack'];
-  const radarValues=[defenseVal,aerialVal,mentalAvg,physAvg,paceVal,techAvg,attackVal];
+  /* every axis traces to a real, currently-collected field — no Attack/Defence/
+     Aerial categories exist anywhere in Skill Assessment or the IDP report. */
+  const radarLabels=['Ball Control','Passing','Dribbling','Shooting','Tactical','Physical','Mental'];
+  const radarValues=[ballControlVal,passingVal,dribblingVal,shootingVal,tacticalVal,round1(physAvg),round1(mentalAvg)];
   const radarData={
     labels:radarLabels,
     datasets:[{

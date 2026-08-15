@@ -73,28 +73,29 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pla
   }));
 
   // ── Skill Assessment ─────────────────────────────────────────────────────────
+  // NOTE: skill_assessments has 27 sub-items across 5 categories (sk_*) plus
+  // 5 category scores (score_*, 0-100). Field names must match the real schema
+  // — see app/api/db/route.ts's getSkillAssessment mapping for the source of truth.
   const skillRaw = skillRes.data?.[0] as Record<string, unknown> | undefined;
   const latestSkill = skillRaw ? {
     assessedAt: String(skillRaw.assessed_at || ''),
     assessedBy: String(skillRaw.assessed_by || ''),
     season: String(skillRaw.season || ''),
-    scoreBallControl: Number(skillRaw.sk_ball_control||0),
-    scorePassing: Number(skillRaw.sk_first_touch||0),
-    scoreDribbling: Number(skillRaw.sk_dribbling||skillRaw.sk_weak_foot||0),
-    scoreShooting: Number(skillRaw.sk_shooting||0),
-    scoreTactical: Number(skillRaw.sk_positioning||skillRaw.sk_decision||0),
+    scoreBallControl: Number(skillRaw.score_ball_control||0),
+    scorePassing: Number(skillRaw.score_passing||0),
+    scoreDribbling: Number(skillRaw.score_dribbling||0),
+    scoreShooting: Number(skillRaw.score_shooting||0),
+    scoreTactical: Number(skillRaw.score_tactical||0),
+    scoreTotal: Number(skillRaw.score_total||0),
     skFirstTouch: Number(skillRaw.sk_first_touch||0),
     skBallControl: Number(skillRaw.sk_ball_control||0),
     skReceiving: Number(skillRaw.sk_receiving||0),
     skWeakFoot: Number(skillRaw.sk_weak_foot||0),
-    skDribbling: Number(skillRaw.sk_dribbling||0),
-    skShooting: Number(skillRaw.sk_shooting||0),
+    skPressureCtrl: Number(skillRaw.sk_pressure_ctrl||0),
     skLongPass: Number(skillRaw.sk_long_pass||0),
     skPositioning: Number(skillRaw.sk_positioning||0),
-    skDecision: Number(skillRaw.sk_decision||0),
     skScanning: Number(skillRaw.sk_scanning||0),
-    skPressure: Number(skillRaw.sk_pressure||0),
-    skHeading: Number(skillRaw.sk_heading||0),
+    skDecision: Number(skillRaw.sk_decision||0),
   } : null;
 
   // ── Attendance Aggregated ────────────────────────────────────────────────────
