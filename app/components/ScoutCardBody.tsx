@@ -257,11 +257,16 @@ export default function ScoutCardBody({playerId,linkHref,linkLabel='รายง
 
   const avg=(arr:number[])=>{const v=arr.filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;};
   const techAvg=avg(techVals.map(t=>t.val));
-  const mentalAvg=avg(mentalVals.map(t=>t.val));
+  /* Mental blends the IDP behaviour/lifestyle scores with the "game intelligence"
+     items already captured in Skill Assessment (decision-making, scanning, composure)
+     so the radar isn't blank just because no IDP report exists yet. */
+  const mentalAvg=avg([...mentalVals.map(t=>t.val),Number(skill?.skDecision)||0,Number(skill?.skScanning)||0,Number(skill?.skPressure)||0]);
   const physAvg=avg(Object.values(physScores));
   const attackVal=skill?avg([Number(skill.skShooting)||0,Number(skill.skDribbling)||0]):(latestIR?Number(latestIR.T_OffFundam)||0:0);
-  const defenseVal=latestIR?Number(latestIR.T_DefFundam)||0:0;
-  const aerialVal=skill?Number(skill.skHeading)||0:physScores.cmj||0;
+  /* Defence has no dedicated Skill Assessment field — positioning is the closest
+     proxy available there, blended with the IDP defensive-fundamentals score. */
+  const defenseVal=avg([Number(latestIR?.T_DefFundam)||0,Number(skill?.skPositioning)||0]);
+  const aerialVal=avg([Number(skill?.skHeading)||0,physScores.cmj||0]);
   const paceVal=physScores.speed30||0;
 
   /* role-fit stars for the Roles panel (computed, no new data collected) */
